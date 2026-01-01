@@ -15,11 +15,11 @@ import {
   IconButton,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import TodayIcon from "@mui/icons-material/Today";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"; // Icon for the date
 import dayjs, { Dayjs } from "dayjs";
 import {
   DndContext,
@@ -38,7 +38,7 @@ import {
   getDateOffset,
   checkCollision,
   type LeaveItem,
-  type Group, // Import Group
+  type Group,
 } from "../utils";
 import { LeaveBlock } from "./LeaveBlock";
 
@@ -74,9 +74,10 @@ export const Timeline = () => {
   );
   const [daysCount, setDaysCount] = useState(200);
   const [isDragging, setIsDragging] = useState(false);
-
-  // NEW: Track collapsed groups (array of Group IDs)
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+
+  // NEW: State to control the hidden date picker
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Data State
   const [leaves, setLeaves] = useState<LeaveItem[]>([
@@ -86,7 +87,7 @@ export const Timeline = () => {
       startDate: "2026-01-01",
       durationDays: 4,
       color: "#1976d2",
-      rowId: "1", // Anders
+      rowId: "1",
     },
     {
       id: "l3",
@@ -94,7 +95,7 @@ export const Timeline = () => {
       startDate: "2026-01-08",
       durationDays: 3,
       color: "#d32f2f",
-      rowId: "1", // Anders
+      rowId: "1",
     },
     {
       id: "l2",
@@ -102,7 +103,7 @@ export const Timeline = () => {
       startDate: "2026-01-10",
       durationDays: 14,
       color: "#2e7d32",
-      rowId: "2", // Anna
+      rowId: "2",
     },
   ]);
 
@@ -118,17 +119,10 @@ export const Timeline = () => {
     [startDate, daysCount]
   );
 
-  // --- HELPER: FLATTEN GROUPS ---
-  // This creates a single list of rows for rendering.
-  // If a group is collapsed, its resources are skipped.
   const visibleRows = useMemo(() => {
     const rows: { type: "group" | "resource"; data: any }[] = [];
-
     GROUPS.forEach((group) => {
-      // Add Group Header
       rows.push({ type: "group", data: group });
-
-      // If NOT collapsed, add resources
       if (!collapsedGroups.includes(group.id)) {
         group.resources.forEach((resource) => {
           rows.push({ type: "resource", data: resource });
@@ -146,7 +140,6 @@ export const Timeline = () => {
     );
   };
 
-  // --- INFINITE SCROLL ---
   useLayoutEffect(() => {
     if (
       scrollContainerRef.current &&
@@ -209,7 +202,6 @@ export const Timeline = () => {
     }, 10);
   };
 
-  // --- DND HANDLERS ---
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -261,12 +253,10 @@ export const Timeline = () => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
 
-    // Calculate the proposed new start date
     const newStartDate = dayjs(item.startDate)
       .add(daysShifted, "day")
       .format("YYYY-MM-DD");
 
-    // Check collision with NEW start date AND NEW duration
     const hasCollision = checkCollision(leaves, {
       ...item,
       startDate: newStartDate,
@@ -285,13 +275,14 @@ export const Timeline = () => {
             : l
         )
       );
-    } else {
-      console.warn("Collision detected");
-      // UI snaps back automatically on re-render
     }
   };
 
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
+
+  // --- CURRENT DATE LABEL ---
+  const today = dayjs();
+  const todayLabel = `${today.format("D MMM YYYY")}, v.${today.isoWeek()}`;
 
   return (
     <Box
@@ -302,7 +293,7 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      {/* --- TOP NAVIGATION BAR --- */}
+      {/* --- TOOLBAR WITH CUSTOM DATE PICKER --- */}
       <AppBar
         position="static"
         color="inherit"
@@ -313,27 +304,41 @@ export const Timeline = () => {
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Planera ledighet
           </Typography>
+
+          {/* Center Navigation Box */}
           <Box
             sx={{
               display: "flex",
+              alignItems: "center",
               bgcolor: "#f0f0f0",
               borderRadius: 2,
               p: 0.5,
             }}
           >
+            {/* Prev Month */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(dayjs().subtract(1, "month"))}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
+
+            {/* Custom Date Trigger Button */}
             <Button
-              size="small"
-              onClick={() => jumpToDate(dayjs())}
-              startIcon={<TodayIcon />}
+              onClick={() => setIsDatePickerOpen(true)}
+              startIcon={<CalendarMonthIcon fontSize="small" />}
+              sx={{
+                mx: 1,
+                color: "text.primary",
+                fontWeight: 600,
+                textTransform: "capitalize",
+                minWidth: "160px", // Ensure text doesn't jump
+              }}
             >
-              Idag
+              {todayLabel}
             </Button>
+
+            {/* Next Month */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(dayjs().add(1, "month"))}
@@ -341,17 +346,27 @@ export const Timeline = () => {
               <ArrowForwardIosIcon fontSize="small" />
             </IconButton>
           </Box>
+
+          {/* HIDDEN DATE PICKER */}
           <DatePicker
-            label="Gå till datum"
-            onChange={jumpToDate}
-            slotProps={{ textField: { size: "small" } }}
+            open={isDatePickerOpen}
+            onClose={() => setIsDatePickerOpen(false)}
+            onChange={(newValue) => {
+              jumpToDate(newValue);
+              setIsDatePickerOpen(false);
+            }}
+            value={dayjs()} // Default to today
+            slotProps={{
+              textField: {
+                sx: { display: "none" }, // Hide the default input field
+              },
+            }}
           />
         </Toolbar>
       </AppBar>
 
-      {/* --- MAIN CONTENT AREA --- */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* --- LEFT SIDEBAR (FIXED) --- */}
+        {/* --- SIDEBAR --- */}
         <Box
           sx={{
             width: 250,
@@ -362,7 +377,6 @@ export const Timeline = () => {
             flexDirection: "column",
           }}
         >
-          {/* SIDEBAR SPACER: Matches Timeline Header Height (40+25+40 = 105px) */}
           <Box
             sx={{
               height: 105,
@@ -373,7 +387,6 @@ export const Timeline = () => {
             }}
           />
 
-          {/* SIDEBAR ROWS */}
           <Box sx={{ overflowY: "hidden", flex: 1 }}>
             {visibleRows.map((row) => {
               if (row.type === "group") {
@@ -426,7 +439,7 @@ export const Timeline = () => {
           </Box>
         </Box>
 
-        {/* --- TIMELINE SCROLL AREA --- */}
+        {/* --- TIMELINE AREA --- */}
         <Box
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -439,7 +452,7 @@ export const Timeline = () => {
             overflowAnchor: "none",
           }}
         >
-          {/* HEADER (STICKY) */}
+          {/* HEADER */}
           <Box
             sx={{
               position: "sticky",
@@ -449,7 +462,6 @@ export const Timeline = () => {
               width: daysCount * CELL_WIDTH,
             }}
           >
-            {/* 1. MONTHS ROW (Height 40) */}
             <Box
               sx={{
                 display: "flex",
@@ -478,8 +490,6 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-
-            {/* 2. WEEKS ROW (Height 25) */}
             <Box
               sx={{
                 display: "flex",
@@ -506,8 +516,6 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-
-            {/* 3. DAYS ROW (Height 40) */}
             <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
               {days.map((day) => (
                 <Box
@@ -528,7 +536,11 @@ export const Timeline = () => {
                   }}
                 >
                   <Typography
-                    sx={{ fontSize: "0.6rem", fontWeight: 600, lineHeight: 1 }}
+                    sx={{
+                      fontSize: "0.6rem",
+                      fontWeight: 600,
+                      lineHeight: 1,
+                    }}
                   >
                     {day.format("ddd").toUpperCase()}
                   </Typography>
@@ -540,7 +552,6 @@ export const Timeline = () => {
             </Box>
           </Box>
 
-          {/* GRID & DRAGGABLES */}
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -550,7 +561,6 @@ export const Timeline = () => {
           >
             <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
               {visibleRows.map((row) => {
-                // RENDER GROUP ROW (SPACER)
                 if (row.type === "group") {
                   return (
                     <Box
@@ -563,9 +573,7 @@ export const Timeline = () => {
                       }}
                     />
                   );
-                }
-                // RENDER RESOURCE ROW (WITH BLOCKS)
-                else {
+                } else {
                   const resource = row.data;
                   return (
                     <Box
