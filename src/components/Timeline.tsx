@@ -18,6 +18,8 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import TodayIcon from "@mui/icons-material/Today";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import dayjs, { Dayjs } from "dayjs";
 import {
   DndContext,
@@ -36,26 +38,45 @@ import {
   getDateOffset,
   checkCollision,
   type LeaveItem,
+  type Group, // Import Group
 } from "../utils";
 import { LeaveBlock } from "./LeaveBlock";
 
-const RESOURCES = [
-  { id: "1", name: "Anders Svensson" },
-  { id: "2", name: "Anna Karlsson" },
-  { id: "3", name: "Erik Nilsson" },
-  { id: "4", name: "Malin Berg" },
+// --- DATA STRUCTURE ---
+const GROUPS: Group[] = [
+  {
+    id: "g1",
+    name: "Utvecklare",
+    resources: [
+      { id: "1", name: "Anders Svensson" },
+      { id: "2", name: "Anna Karlsson" },
+    ],
+  },
+  {
+    id: "g2",
+    name: "Designers",
+    resources: [
+      { id: "3", name: "Erik Nilsson" },
+      { id: "4", name: "Malin Berg" },
+    ],
+  },
+  {
+    id: "g3",
+    name: "Projektledare",
+    resources: [{ id: "5", name: "Gustav Vasa" }],
+  },
 ];
 
 export const Timeline = () => {
   // --- STATE ---
-  // Start 30 days in the past, strict midnight
   const [startDate, setStartDate] = useState(
     dayjs().startOf("day").subtract(30, "days")
   );
   const [daysCount, setDaysCount] = useState(200);
-
-  // FIX: Added missing isDragging state
   const [isDragging, setIsDragging] = useState(false);
+
+  // NEW: Track collapsed groups (array of Group IDs)
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 
   // Data State
   const [leaves, setLeaves] = useState<LeaveItem[]>([
@@ -64,95 +85,109 @@ export const Timeline = () => {
       name: "Nyårskonferens",
       startDate: "2026-01-01",
       durationDays: 4,
-      color: "#1976d2", // Blue
-      rowId: "1", // Row 1
+      color: "#1976d2",
+      rowId: "1", // Anders
     },
-    // NEW BLOCK ADDED HERE
     {
       id: "l3",
-      name: "Möte (Test Block)",
-      startDate: "2026-01-08", // Starts after the blue block
+      name: "Möte (Test)",
+      startDate: "2026-01-08",
       durationDays: 3,
-      color: "#d32f2f", // Red
-      rowId: "1", // SAME ROW as l1
+      color: "#d32f2f",
+      rowId: "1", // Anders
     },
     {
       id: "l2",
       name: "Vinterledigt",
       startDate: "2026-01-10",
       durationDays: 14,
-      color: "#2e7d32", // Green
-      rowId: "2",
+      color: "#2e7d32",
+      rowId: "2", // Anna
     },
   ]);
 
-  // Dragging State
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
 
-  // Refs
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousStartDate = useRef(startDate);
   const isLoadingRef = useRef(false);
   const dragStartTimeRef = useRef(startDate);
 
-  // Memoized Grid
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
     [startDate, daysCount]
   );
 
-  // --- INFINITE SCROLL SYNCHRONIZATION ---
+  // --- HELPER: FLATTEN GROUPS ---
+  // This creates a single list of rows for rendering.
+  // If a group is collapsed, its resources are skipped.
+  const visibleRows = useMemo(() => {
+    const rows: { type: "group" | "resource"; data: any }[] = [];
+
+    GROUPS.forEach((group) => {
+      // Add Group Header
+      rows.push({ type: "group", data: group });
+
+      // If NOT collapsed, add resources
+      if (!collapsedGroups.includes(group.id)) {
+        group.resources.forEach((resource) => {
+          rows.push({ type: "resource", data: resource });
+        });
+      }
+    });
+    return rows;
+  }, [collapsedGroups]);
+
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
+  // --- INFINITE SCROLL ---
   useLayoutEffect(() => {
     if (
       scrollContainerRef.current &&
       !startDate.isSame(previousStartDate.current)
     ) {
       const diffDays = previousStartDate.current.diff(startDate, "day");
-
       if (diffDays > 0) {
-        // We added days to the past. Shift scroll right to compensate.
         const pixelsAdded = diffDays * CELL_WIDTH;
         scrollContainerRef.current.scrollLeft += pixelsAdded;
       }
-
       previousStartDate.current = startDate;
       isLoadingRef.current = false;
     }
   }, [startDate]);
 
-  // --- INITIAL CENTERING ---
   useEffect(() => {
     if (scrollContainerRef.current) {
       const todayOffset = getDateOffset(
         dayjs().format("YYYY-MM-DD"),
         startDate
       );
-      // Center roughly on today
       scrollContainerRef.current.scrollLeft = todayOffset - 200;
     }
   }, []);
 
-  // --- SCROLL HANDLER ---
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
-
     if (!container || isLoadingRef.current) return;
 
     const { scrollLeft, scrollWidth, clientWidth } = container;
     const scrollThreshold = 500;
     const loadAmount = 30;
 
-    // 1. Future Expansion
     if (scrollLeft + clientWidth > scrollWidth - scrollThreshold) {
       isLoadingRef.current = true;
       setDaysCount((prev) => prev + loadAmount);
-
       setTimeout(() => {
         isLoadingRef.current = false;
       }, 100);
     }
 
-    // 2. Past Expansion
     if (scrollLeft < scrollThreshold) {
       isLoadingRef.current = true;
       setStartDate((prev) => prev.subtract(loadAmount, "day"));
@@ -160,14 +195,12 @@ export const Timeline = () => {
     }
   }, []);
 
-  // --- NAVIGATION ---
   const jumpToDate = (date: Dayjs | null) => {
     if (!date) return;
     const target = date.startOf("day");
     const newStart = target.subtract(30, "days");
     setStartDate(newStart);
     setDaysCount(300);
-    // Wait for render, then scroll
     setTimeout(() => {
       if (scrollContainerRef.current) {
         const offset = getDateOffset(target.format("YYYY-MM-DD"), newStart);
@@ -176,16 +209,14 @@ export const Timeline = () => {
     }, 10);
   };
 
-  // --- DND LOGIC ---
+  // --- DND HANDLERS ---
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
-    // 1. Capture the exact grid state when we picked up the block
     dragStartTimeRef.current = startDate;
-
     const item = leaves.find((l) => l.id === event.active.id);
     if (item) setActiveLeave(item);
   };
@@ -200,39 +231,32 @@ export const Timeline = () => {
     const finalDaysDiff = visualMovedDays + daysGridMoved;
 
     if (finalDaysDiff !== 0) {
-      // 1. Find the item we moved
       const item = leaves.find((l) => l.id === active.id);
       if (!item) return;
 
-      // 2. Calculate PROPOSED new start date
       const newStartDate = dayjs(item.startDate)
         .add(finalDaysDiff, "day")
         .format("YYYY-MM-DD");
 
-      // 3. Check for collision
       const hasCollision = checkCollision(leaves, {
         ...item,
         startDate: newStartDate,
       });
 
       if (!hasCollision) {
-        // 4. Update if safe
         setLeaves((prev) =>
           prev.map((l) =>
             l.id === active.id ? { ...l, startDate: newStartDate } : l
           )
         );
-      } else {
-        // Optional: Show error toast here ("Cannot move here")
-        console.warn("Collision detected, move reverted");
       }
     }
   };
+
   const handleResizeEnd = (id: string, newDuration: number) => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
 
-    // Check collision with NEW duration
     const hasCollision = checkCollision(leaves, {
       ...item,
       durationDays: newDuration,
@@ -242,14 +266,9 @@ export const Timeline = () => {
       setLeaves((prev) =>
         prev.map((l) => (l.id === id ? { ...l, durationDays: newDuration } : l))
       );
-    } else {
-      console.warn("Collision detected during resize");
-      // The LeaveBlock component resets its visual state automatically on mouseUp,
-      // so we just don't update the global state, snapping it back effectively.
     }
   };
 
-  // Background Grid CSS
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
 
   return (
@@ -261,7 +280,7 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      {/* TOOLBAR */}
+      {/* --- TOP NAVIGATION BAR --- */}
       <AppBar
         position="static"
         color="inherit"
@@ -308,36 +327,84 @@ export const Timeline = () => {
         </Toolbar>
       </AppBar>
 
+      {/* --- MAIN CONTENT AREA --- */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* SIDEBAR */}
+        {/* --- LEFT SIDEBAR (FIXED) --- */}
         <Box
           sx={{
-            width: 200,
-            mt: "106px",
+            width: 250,
             borderRight: "1px solid #ddd",
             bgcolor: "white",
             zIndex: 10,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          {RESOURCES.map((r) => (
-            <Box
-              key={r.id}
-              sx={{
-                height: ROW_HEIGHT,
-                display: "flex",
-                alignItems: "center",
-                px: 2,
-                borderBottom: "1px solid #f0f0f0",
-              }}
-            >
-              <Typography variant="body2" fontWeight={600}>
-                {r.name}
-              </Typography>
-            </Box>
-          ))}
+          {/* SIDEBAR SPACER: Matches Timeline Header Height (40+25+40 = 105px) */}
+          <Box
+            sx={{
+              height: 105,
+              borderBottom: "1px solid #ddd",
+              bgcolor: "white",
+              flexShrink: 0,
+              boxSizing: "border-box",
+            }}
+          />
+
+          {/* SIDEBAR ROWS */}
+          <Box sx={{ overflowY: "hidden", flex: 1 }}>
+            {visibleRows.map((row) => {
+              if (row.type === "group") {
+                const isCollapsed = collapsedGroups.includes(row.data.id);
+                return (
+                  <Box
+                    key={row.data.id}
+                    onClick={() => toggleGroup(row.data.id)}
+                    sx={{
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      px: 1,
+                      borderBottom: "1px solid #ddd",
+                      bgcolor: "#f5f5f5",
+                      cursor: "pointer",
+                      "&:hover": { bgcolor: "#e0e0e0" },
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    {isCollapsed ? (
+                      <KeyboardArrowRightIcon />
+                    ) : (
+                      <KeyboardArrowDownIcon />
+                    )}
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {row.data.name}
+                    </Typography>
+                  </Box>
+                );
+              } else {
+                return (
+                  <Box
+                    key={row.data.id}
+                    sx={{
+                      height: ROW_HEIGHT,
+                      display: "flex",
+                      alignItems: "center",
+                      pl: 5,
+                      pr: 2,
+                      borderBottom: "1px solid #f0f0f0",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <Typography variant="body2">{row.data.name}</Typography>
+                  </Box>
+                );
+              }
+            })}
+          </Box>
         </Box>
 
-        {/* TIMELINE AREA */}
+        {/* --- TIMELINE SCROLL AREA --- */}
         <Box
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -347,10 +414,10 @@ export const Timeline = () => {
             overflowY: "hidden",
             position: "relative",
             bgcolor: "#fff",
-            overflowAnchor: "none", // CRITICAL for infinite scroll stability
+            overflowAnchor: "none",
           }}
         >
-          {/* HEADER (Sticky) */}
+          {/* HEADER (STICKY) */}
           <Box
             sx={{
               position: "sticky",
@@ -360,12 +427,13 @@ export const Timeline = () => {
               width: daysCount * CELL_WIDTH,
             }}
           >
-            {/* Months */}
+            {/* 1. MONTHS ROW (Height 40) */}
             <Box
               sx={{
                 display: "flex",
                 height: 40,
                 borderBottom: "1px solid #eee",
+                boxSizing: "border-box",
               }}
             >
               {days
@@ -388,13 +456,15 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-            {/* Weeks */}
+
+            {/* 2. WEEKS ROW (Height 25) */}
             <Box
               sx={{
                 display: "flex",
                 height: 25,
                 bgcolor: "#fafafa",
                 borderBottom: "1px solid #eee",
+                boxSizing: "border-box",
               }}
             >
               {days
@@ -414,8 +484,9 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-            {/* Days */}
-            <Box sx={{ display: "flex" }}>
+
+            {/* 3. DAYS ROW (Height 40) */}
+            <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
               {days.map((day) => (
                 <Box
                   key={day.toISOString()}
@@ -423,7 +494,7 @@ export const Timeline = () => {
                     width: CELL_WIDTH,
                     minWidth: CELL_WIDTH,
                     textAlign: "center",
-                    py: 0.5,
+                    pt: 0.5,
                     borderRight: "1px solid #eee",
                     borderBottom: "1px solid #ddd",
                     bgcolor: day.isSame(dayjs(), "day")
@@ -431,12 +502,15 @@ export const Timeline = () => {
                       : day.day() === 0 || day.day() === 6
                       ? "#f5f5f5"
                       : "white",
+                    boxSizing: "border-box",
                   }}
                 >
-                  <Typography sx={{ fontSize: "0.6rem", fontWeight: 600 }}>
+                  <Typography
+                    sx={{ fontSize: "0.6rem", fontWeight: 600, lineHeight: 1 }}
+                  >
                     {day.format("ddd").toUpperCase()}
                   </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
+                  <Typography sx={{ fontWeight: 800, lineHeight: 1.2 }}>
                     {day.format("D")}
                   </Typography>
                 </Box>
@@ -444,7 +518,7 @@ export const Timeline = () => {
             </Box>
           </Box>
 
-          {/* DND CONTEXT & ROWS */}
+          {/* GRID & DRAGGABLES */}
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -453,31 +527,51 @@ export const Timeline = () => {
             autoScroll={{ threshold: { x: 0.2, y: 0 }, acceleration: 20 }}
           >
             <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
-              {RESOURCES.map((res) => (
-                <Box
-                  key={res.id}
-                  sx={{
-                    height: ROW_HEIGHT,
-                    borderBottom: "1px solid #eee",
-                    position: "relative",
-                    backgroundImage: gridBackground,
-                  }}
-                >
-                  {leaves
-                    .filter((l) => l.rowId === res.id)
-                    .map((l) => (
-                      <LeaveBlock
-                        key={l.id}
-                        leave={l}
-                        left={getDateOffset(l.startDate, startDate)}
-                        onResizeEnd={handleResizeEnd} // <--- Pass the handler
-                      />
-                    ))}
-                </Box>
-              ))}
+              {visibleRows.map((row) => {
+                // RENDER GROUP ROW (SPACER)
+                if (row.type === "group") {
+                  return (
+                    <Box
+                      key={row.data.id}
+                      sx={{
+                        height: 40,
+                        bgcolor: "#f5f5f5",
+                        borderBottom: "1px solid #ddd",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  );
+                }
+                // RENDER RESOURCE ROW (WITH BLOCKS)
+                else {
+                  const resource = row.data;
+                  return (
+                    <Box
+                      key={resource.id}
+                      sx={{
+                        height: ROW_HEIGHT,
+                        borderBottom: "1px solid #eee",
+                        position: "relative",
+                        backgroundImage: gridBackground,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {leaves
+                        .filter((l) => l.rowId === resource.id)
+                        .map((l) => (
+                          <LeaveBlock
+                            key={l.id}
+                            leave={l}
+                            left={getDateOffset(l.startDate, startDate)}
+                            onResizeEnd={handleResizeEnd}
+                          />
+                        ))}
+                    </Box>
+                  );
+                }
+              })}
             </Box>
 
-            {/* DRAG OVERLAY (Solves the "vanishing" issue) */}
             <DragOverlay adjustScale={false}>
               {activeLeave ? (
                 <LeaveBlock leave={activeLeave} isOverlay={true} />

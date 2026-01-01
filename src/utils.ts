@@ -54,6 +54,16 @@ export const getDateOffset = (
   const base = timelineStart.startOf("day");
   return start.diff(base, "day") * CELL_WIDTH;
 };
+export interface Resource {
+  id: string;
+  name: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  resources: Resource[];
+}
 
 export const checkCollision = (
   items: LeaveItem[],
