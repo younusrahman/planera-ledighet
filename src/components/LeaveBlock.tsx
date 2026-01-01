@@ -29,34 +29,22 @@ export const LeaveBlock = ({
   const [visualDuration, setVisualDuration] = useState(leave.durationDays);
   const [visualStartShift, setVisualStartShift] = useState(0);
 
-  // Refs for the animation loop
   const mouseXRef = useRef(0);
   const startXRef = useRef(0);
   const startScrollLeftRef = useRef(0);
   const isResizingRef = useRef(false);
   const directionRef = useRef<"left" | "right">("right");
   const requestRef = useRef<number>(0);
-
-  // NEW: Track previous 'left' position to detect Infinite Scroll jumps
   const prevLeftRef = useRef(left);
 
-  // --- COMPENSATE FOR INFINITE SCROLL JUMPS ---
   useLayoutEffect(() => {
-    // If the 'left' prop changed drastically (e.g. +1800px) while resizing,
-    // it means the timeline expanded to the past.
-    // We must adjust our startScrollLeftRef so the math doesn't break.
     const jump = left - prevLeftRef.current;
-
     if (jump !== 0 && isResizingRef.current) {
-      // If grid moved +1800px, the scroll container also moved +1800px.
-      // We add this to our 'start' reference so the difference (delta) remains correct.
       startScrollLeftRef.current += jump;
     }
-
     prevLeftRef.current = left;
   }, [left]);
 
-  // --- THE GAME LOOP ---
   const animate = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
 
@@ -65,7 +53,6 @@ export const LeaveBlock = ({
       container.getBoundingClientRect();
     const currentX = mouseXRef.current;
 
-    // 1. AUTO SCROLL LOGIC
     const edgeThreshold = 50;
     const scrollSpeed = 15;
 
@@ -75,10 +62,7 @@ export const LeaveBlock = ({
       container.scrollLeft += scrollSpeed;
     }
 
-    // 2. CALCULATE DELTA
     const currentScrollLeft = container.scrollLeft;
-
-    // logic: (Current Scroll - Start Scroll) + (Current Mouse - Start Mouse)
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
     const mouseDiff = currentX - startXRef.current;
 
@@ -87,14 +71,12 @@ export const LeaveBlock = ({
 
     const startDuration = leave.durationDays;
 
-    // 3. UPDATE STATE
     if (directionRef.current === "right") {
       const newDuration = Math.max(1, startDuration + deltaDays);
       setVisualDuration(newDuration);
     } else {
       const maxShift = startDuration - 1;
       const actualShift = Math.min(deltaDays, maxShift);
-
       setVisualStartShift(actualShift);
       setVisualDuration(startDuration - actualShift);
     }
@@ -117,8 +99,6 @@ export const LeaveBlock = ({
     directionRef.current = direction;
     startXRef.current = e.clientX;
     mouseXRef.current = e.clientX;
-
-    // Reset previous left ref to current to prevent jumps on start
     prevLeftRef.current = left;
 
     if (scrollContainerRef?.current) {
@@ -158,7 +138,6 @@ export const LeaveBlock = ({
         }
 
         if (onResizeEnd) {
-          // If we resized, update.
           if (finalDuration !== startDuration || finalShift !== 0) {
             onResizeEnd(leave.id, finalDuration, finalShift);
           }
@@ -179,20 +158,28 @@ export const LeaveBlock = ({
     };
   }, []);
 
+  // --- STYLES ---
   const displayDuration = isResizing ? visualDuration : leave.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
-
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
+
+  // CONSTANTS FOR CENTERING
+  const blockHeight = ROW_HEIGHT - 10;
+  const topOffset = (ROW_HEIGHT - blockHeight) / 2; // Centers the block
 
   const style: React.CSSProperties = {
     position: isOverlay ? "relative" : "absolute",
     left: isOverlay ? 0 : `${displayLeft}px`,
+    top: `${topOffset}px`, // <--- ADDED VERTICAL CENTERING
+
     transform:
       !isOverlay && transform && !isResizing
         ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
         : undefined,
+
     width: `${currentWidth}px`,
-    height: ROW_HEIGHT - 10,
+    height: `${blockHeight}px`,
+
     backgroundColor: leave.color,
     color: "white",
     padding: "4px 8px",
