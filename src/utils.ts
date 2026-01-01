@@ -54,3 +54,29 @@ export const getDateOffset = (
   const base = timelineStart.startOf("day");
   return start.diff(base, "day") * CELL_WIDTH;
 };
+
+export const checkCollision = (
+  items: LeaveItem[],
+  targetItem: {
+    id: string;
+    rowId: string;
+    startDate: string;
+    durationDays: number;
+  }
+) => {
+  const targetStart = dayjs(targetItem.startDate).startOf("day");
+  const targetEnd = targetStart.add(targetItem.durationDays, "day");
+
+  return items.some((item) => {
+    // Skip self and items in other rows
+    if (item.id === targetItem.id || item.rowId !== targetItem.rowId) {
+      return false;
+    }
+
+    const itemStart = dayjs(item.startDate).startOf("day");
+    const itemEnd = itemStart.add(item.durationDays, "day");
+
+    // Standard overlap logic: (StartA < EndB) and (EndA > StartB)
+    return targetStart.isBefore(itemEnd) && targetEnd.isAfter(itemStart);
+  });
+};

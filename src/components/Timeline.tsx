@@ -34,6 +34,7 @@ import {
   ROW_HEIGHT,
   getDaysArray,
   getDateOffset,
+  checkCollision,
   type LeaveItem,
 } from "../utils";
 import { LeaveBlock } from "./LeaveBlock";
@@ -63,15 +64,24 @@ export const Timeline = () => {
       name: "Nyårskonferens",
       startDate: "2026-01-01",
       durationDays: 4,
-      color: "#1976d2",
-      rowId: "1",
+      color: "#1976d2", // Blue
+      rowId: "1", // Row 1
+    },
+    // NEW BLOCK ADDED HERE
+    {
+      id: "l3",
+      name: "Möte (Test Block)",
+      startDate: "2026-01-08", // Starts after the blue block
+      durationDays: 3,
+      color: "#d32f2f", // Red
+      rowId: "1", // SAME ROW as l1
     },
     {
       id: "l2",
       name: "Vinterledigt",
       startDate: "2026-01-10",
       durationDays: 14,
-      color: "#2e7d32",
+      color: "#2e7d32", // Green
       rowId: "2",
     },
   ]);
@@ -185,28 +195,57 @@ export const Timeline = () => {
     setActiveLeave(null);
     const { active, delta } = event;
 
-    // 2. Calculate how many days the GRID shifted during the drag (e.g., -30 days)
     const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
-
-    // 3. Calculate how many days the MOUSE/ITEM moved visually (including auto-scroll)
     const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
-
-    // 4. The real date change is Visual Move + Grid Shift (Cancellation)
     const finalDaysDiff = visualMovedDays + daysGridMoved;
 
     if (finalDaysDiff !== 0) {
+      // 1. Find the item we moved
+      const item = leaves.find((l) => l.id === active.id);
+      if (!item) return;
+
+      // 2. Calculate PROPOSED new start date
+      const newStartDate = dayjs(item.startDate)
+        .add(finalDaysDiff, "day")
+        .format("YYYY-MM-DD");
+
+      // 3. Check for collision
+      const hasCollision = checkCollision(leaves, {
+        ...item,
+        startDate: newStartDate,
+      });
+
+      if (!hasCollision) {
+        // 4. Update if safe
+        setLeaves((prev) =>
+          prev.map((l) =>
+            l.id === active.id ? { ...l, startDate: newStartDate } : l
+          )
+        );
+      } else {
+        // Optional: Show error toast here ("Cannot move here")
+        console.warn("Collision detected, move reverted");
+      }
+    }
+  };
+  const handleResizeEnd = (id: string, newDuration: number) => {
+    const item = leaves.find((l) => l.id === id);
+    if (!item) return;
+
+    // Check collision with NEW duration
+    const hasCollision = checkCollision(leaves, {
+      ...item,
+      durationDays: newDuration,
+    });
+
+    if (!hasCollision) {
       setLeaves((prev) =>
-        prev.map((l) =>
-          l.id === active.id
-            ? {
-                ...l,
-                startDate: dayjs(l.startDate)
-                  .add(finalDaysDiff, "day")
-                  .format("YYYY-MM-DD"),
-              }
-            : l
-        )
+        prev.map((l) => (l.id === id ? { ...l, durationDays: newDuration } : l))
       );
+    } else {
+      console.warn("Collision detected during resize");
+      // The LeaveBlock component resets its visual state automatically on mouseUp,
+      // so we just don't update the global state, snapping it back effectively.
     }
   };
 
@@ -431,6 +470,7 @@ export const Timeline = () => {
                         key={l.id}
                         leave={l}
                         left={getDateOffset(l.startDate, startDate)}
+                        onResizeEnd={handleResizeEnd} // <--- Pass the handler
                       />
                     ))}
                 </Box>
