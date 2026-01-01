@@ -17,7 +17,7 @@ dayjs.updateLocale("sv", {
 
 // CONSTANTS
 export const CELL_WIDTH = 60;
-export const ROW_HEIGHT = 65;
+export const ROW_HEIGHT = 35;
 
 // TYPES
 export interface LeaveItem {

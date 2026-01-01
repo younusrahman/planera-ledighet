@@ -183,7 +183,7 @@ export const LeaveBlock = ({
     backgroundColor: leave.color,
     color: "white",
     padding: "4px 8px",
-    borderRadius: "4px",
+    borderRadius: "28px",
     display: "flex",
     alignItems: "center",
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
