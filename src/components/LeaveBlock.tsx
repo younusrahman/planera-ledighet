@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Paper, Typography, Box } from "@mui/material";
 import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
@@ -7,7 +7,8 @@ interface Props {
   leave: LeaveItem;
   left?: number;
   isOverlay?: boolean;
-  onResizeEnd?: (id: string, newDuration: number) => void; // New prop
+  // UPDATE: Callback now accepts daysShifted (change in start date)
+  onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
 }
 
 export const LeaveBlock = ({
@@ -20,71 +21,103 @@ export const LeaveBlock = ({
     useDraggable({
       id: leave.id,
       data: leave,
-      disabled: isOverlay, // Disable drag if overlay
+      disabled: isOverlay,
     });
 
-  // Local state for resizing visual feedback
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeWidth, setResizeWidth] = useState(0);
+  const [visualDuration, setVisualDuration] = useState(leave.durationDays);
+  // NEW: Track how many days the start date has shifted during resize
+  const [visualStartShift, setVisualStartShift] = useState(0);
 
-  // --- RESIZE LOGIC ---
-  const handleResizeStart = (e: React.MouseEvent) => {
-    // CRITICAL: Stop dnd-kit from picking this up as a drag
-    e.stopPropagation();
+  // --- GENERIC RESIZE HANDLER ---
+  const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     e.preventDefault();
+    e.stopPropagation();
+
+    const handle = e.currentTarget as HTMLElement;
+    handle.setPointerCapture(e.pointerId);
 
     setIsResizing(true);
-    setResizeWidth(leave.durationDays * CELL_WIDTH);
+    setVisualDuration(leave.durationDays);
+    setVisualStartShift(0);
 
     const startX = e.clientX;
-    const startWidth = leave.durationDays * CELL_WIDTH;
+    const startDuration = leave.durationDays;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const onPointerMove = (moveEvent: PointerEvent) => {
       const deltaX = moveEvent.clientX - startX;
-      // Snap to grid visually
-      const rawWidth = startWidth + deltaX;
-      const snappedWidth = Math.max(
-        CELL_WIDTH, // Minimum 1 day
-        Math.round(rawWidth / CELL_WIDTH) * CELL_WIDTH
-      );
-      setResizeWidth(snappedWidth);
+      const deltaDays = Math.round(deltaX / CELL_WIDTH);
+
+      if (direction === "right") {
+        // RIGHT: Only duration changes
+        const newDuration = Math.max(1, startDuration + deltaDays);
+        setVisualDuration(newDuration);
+      } else {
+        // LEFT: Start shifts, Duration changes inversely
+        // Example: Drag left (-1 day) -> Start -1, Duration +1
+
+        // limit: Can't shrink duration below 1
+        // (startDuration - deltaDays) >= 1  =>  deltaDays <= startDuration - 1
+        const maxShift = startDuration - 1;
+        const actualShift = Math.min(deltaDays, maxShift);
+
+        setVisualStartShift(actualShift);
+        setVisualDuration(startDuration - actualShift);
+      }
     };
 
-    const handleMouseUp = () => {
+    const onPointerUp = (upEvent: PointerEvent) => {
+      handle.releasePointerCapture(upEvent.pointerId);
+      handle.removeEventListener("pointermove", onPointerMove);
+      handle.removeEventListener("pointerup", onPointerUp);
+
       setIsResizing(false);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
 
-      // Calculate final days
-      // We use the last 'resizeWidth' stored in state (or recalculate)
-      // Actually, relying on state inside an event listener closure is tricky.
-      // Let's recalculate based on the final visual width logic.
-      // Better approach: calculate final days here.
+      // Final Calculation
+      const finalDeltaX = upEvent.clientX - startX;
+      const deltaDays = Math.round(finalDeltaX / CELL_WIDTH);
+
+      let finalDuration = startDuration;
+      let finalShift = 0;
+
+      if (direction === "right") {
+        finalDuration = Math.max(1, startDuration + deltaDays);
+      } else {
+        const maxShift = startDuration - 1;
+        finalShift = Math.min(deltaDays, maxShift);
+        finalDuration = startDuration - finalShift;
+      }
+
+      if (onResizeEnd) {
+        // Only fire if something actually changed
+        if (finalDuration !== startDuration || finalShift !== 0) {
+          onResizeEnd(leave.id, finalDuration, finalShift);
+        }
+      }
+
+      // Reset visual state
+      setVisualStartShift(0);
     };
 
-    // Better MouseUp specifically for calculating result
-    const handleMouseUpLogic = (upEvent: MouseEvent) => {
-      const deltaX = upEvent.clientX - startX;
-      const rawWidth = startWidth + deltaX;
-      const days = Math.max(1, Math.round(rawWidth / CELL_WIDTH));
-      if (onResizeEnd) onResizeEnd(leave.id, days);
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    window.addEventListener("mouseup", handleMouseUpLogic, { once: true });
+    handle.addEventListener("pointermove", onPointerMove);
+    handle.addEventListener("pointerup", onPointerUp);
   };
 
-  // Determine width: dragging/overlay? fixed. resizing? dynamic. normal? fixed.
-  const currentWidth = isResizing
-    ? resizeWidth
-    : leave.durationDays * CELL_WIDTH - 4;
+  // --- CALCULATE STYLE ---
+
+  // 1. Duration (Width)
+  const displayDuration = isResizing ? visualDuration : leave.durationDays;
+  const currentWidth = displayDuration * CELL_WIDTH - 4;
+
+  // 2. Position (Left)
+  // If resizing left, we must visually shift the block's position
+  const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
 
   const style: React.CSSProperties = {
     position: isOverlay ? "relative" : "absolute",
-    left: isOverlay ? 0 : `${left}px`,
+    left: isOverlay ? 0 : `${displayLeft}px`,
     transform:
-      !isOverlay && transform
+      !isOverlay && transform && !isResizing
         ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
         : undefined,
     width: `${currentWidth}px`,
@@ -95,11 +128,22 @@ export const LeaveBlock = ({
     borderRadius: "4px",
     display: "flex",
     alignItems: "center",
-    zIndex: isOverlay ? 999 : isResizing ? 100 : transform ? 100 : 1,
+    zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
     cursor: isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
     boxShadow: isOverlay || isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
     transition: isResizing ? "none" : "box-shadow 0.2s ease, opacity 0.1s",
+  };
+
+  // Common Handle Styles
+  const handleStyle = {
+    position: "absolute" as const,
+    top: 0,
+    bottom: 0,
+    width: "15px",
+    zIndex: 10,
+    cursor: "col-resize",
+    "&:hover": { backgroundColor: "rgba(0,0,0,0.1)" },
   };
 
   if (isOverlay) {
@@ -116,29 +160,32 @@ export const LeaveBlock = ({
     <Paper
       ref={setNodeRef}
       style={style}
-      {...listeners} // Drag listeners on the main body
+      {...listeners}
       {...attributes}
       elevation={2}
     >
-      <Typography variant="caption" noWrap fontWeight="bold">
+      {/* LEFT HANDLE */}
+      {!isDragging && (
+        <Box
+          onPointerDown={(e) => initResize(e, "left")}
+          sx={{ ...handleStyle, left: 0 }}
+        />
+      )}
+
+      <Typography
+        variant="caption"
+        noWrap
+        fontWeight="bold"
+        sx={{ flex: 1, textAlign: "center" }}
+      >
         {leave.name}
       </Typography>
 
-      {/* RESIZE HANDLE */}
+      {/* RIGHT HANDLE */}
       {!isDragging && (
         <Box
-          onPointerDown={handleResizeStart} // Use PointerDown for better touch/mouse support
-          sx={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: "10px",
-            cursor: "col-resize",
-            "&:hover": {
-              backgroundColor: "rgba(0,0,0,0.1)",
-            },
-          }}
+          onPointerDown={(e) => initResize(e, "right")}
+          sx={{ ...handleStyle, right: 0 }}
         />
       )}
     </Paper>

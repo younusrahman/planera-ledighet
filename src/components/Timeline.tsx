@@ -253,19 +253,41 @@ export const Timeline = () => {
     }
   };
 
-  const handleResizeEnd = (id: string, newDuration: number) => {
+  const handleResizeEnd = (
+    id: string,
+    newDuration: number,
+    daysShifted: number
+  ) => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
 
+    // Calculate the proposed new start date
+    const newStartDate = dayjs(item.startDate)
+      .add(daysShifted, "day")
+      .format("YYYY-MM-DD");
+
+    // Check collision with NEW start date AND NEW duration
     const hasCollision = checkCollision(leaves, {
       ...item,
+      startDate: newStartDate,
       durationDays: newDuration,
     });
 
     if (!hasCollision) {
       setLeaves((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, durationDays: newDuration } : l))
+        prev.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                startDate: newStartDate,
+                durationDays: newDuration,
+              }
+            : l
+        )
       );
+    } else {
+      console.warn("Collision detected");
+      // UI snaps back automatically on re-render
     }
   };
 
