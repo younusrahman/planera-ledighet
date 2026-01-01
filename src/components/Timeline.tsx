@@ -13,6 +13,12 @@ import {
   Toolbar,
   Button,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -45,10 +51,10 @@ import { LeaveBlock } from "./LeaveBlock";
 // --- CONFIGURATION ---
 
 const ABSENCE_TYPES = [
-  { id: "conf", color: "#1976d2", label: "Konferens" }, // Blue
-  { id: "vac", color: "#2e7d32", label: "Semester" }, // Green
-  { id: "sick", color: "#d32f2f", label: "Sjuk" }, // Red
-  { id: "vab", color: "#ed6c02", label: "VAB" }, // Orange
+  { id: "conf", color: "#1976d2", label: "Konferens" },
+  { id: "vac", color: "#2e7d32", label: "Semester" },
+  { id: "sick", color: "#d32f2f", label: "Sjuk" },
+  { id: "vab", color: "#ed6c02", label: "VAB" },
 ];
 
 const GROUPS: Group[] = [
@@ -77,22 +83,47 @@ const GROUPS: Group[] = [
 
 export const Timeline = () => {
   // --- STATE ---
-
-  // Grid State
   const [startDate, setStartDate] = useState(
     dayjs().startOf("day").subtract(30, "days")
   );
   const [daysCount, setDaysCount] = useState(200);
-
-  // Interaction State
   const [isDragging, setIsDragging] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-
-  // Navigation State
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [pickerDate, setPickerDate] = useState(dayjs()); // Tracks picker value
+  const [pickerDate, setPickerDate] = useState(dayjs());
 
-  // Data State
+  // --- CREATE / SELECTION STATE ---
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Tracks the "Drag to Create" action
+  const [selection, setSelection] = useState<{
+    isSelecting: boolean;
+    rowId: string | null;
+    startX: number; // Pixel relative to container
+    currentX: number; // Pixel relative to container
+    startIndex: number; // Day index from startDate
+  }>({
+    isSelecting: false,
+    rowId: null,
+    startX: 0,
+    currentX: 0,
+    startIndex: 0,
+  });
+
+  const [newItem, setNewItem] = useState<{
+    rowId: string;
+    startDate: Dayjs;
+    duration: number;
+    typeId: string;
+    name: string;
+  }>({
+    rowId: "",
+    startDate: dayjs(),
+    duration: 1,
+    typeId: "vac",
+    name: "Ny frånvaro",
+  });
+
   const [leaves, setLeaves] = useState<LeaveItem[]>([
     {
       id: "l1",
@@ -122,16 +153,17 @@ export const Timeline = () => {
 
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
 
-  // --- REFS ---
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
-
   const previousStartDate = useRef(startDate);
   const isLoadingRef = useRef(false);
   const dragStartTimeRef = useRef(startDate);
-  const isJumpingRef = useRef(false); // Prevents infinite scroll glitch during jumps
+  const isJumpingRef = useRef(false);
+  // NEW: Refs for Auto-Scrolling during Creation
+  const selectionScrollFrame = useRef<number>(0);
+  const isSelectingRef = useRef(false);
+  const pointerXRef = useRef(0); // Tracks raw mouse X position
 
-  // --- MEMOS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
     [startDate, daysCount]
@@ -158,13 +190,11 @@ export const Timeline = () => {
     );
   };
 
-  // --- INFINITE SCROLL LOGIC ---
   useLayoutEffect(() => {
     if (
       scrollContainerRef.current &&
       !startDate.isSame(previousStartDate.current)
     ) {
-      // If manually jumping, DO NOT adjust scroll (let jumpToDate handle it)
       if (isJumpingRef.current) {
         previousStartDate.current = startDate;
         isJumpingRef.current = false;
@@ -172,11 +202,24 @@ export const Timeline = () => {
         return;
       }
 
-      // If scrolling left naturally, adjust scroll to maintain position
       const diffDays = previousStartDate.current.diff(startDate, "day");
+
       if (diffDays > 0) {
         const pixelsAdded = diffDays * CELL_WIDTH;
+
+        // 1. Adjust Scroll Position (Keep view stable)
         scrollContainerRef.current.scrollLeft += pixelsAdded;
+
+        // 2. FIX: Adjust Selection Coordinates (Keep selection stable)
+        // If we are currently selecting, shift the coordinates so the blue box
+        // stays attached to the same dates/visual position.
+        if (isSelectingRef.current) {
+          setSelection((prev) => ({
+            ...prev,
+            startX: prev.startX + pixelsAdded,
+            currentX: prev.currentX + pixelsAdded,
+          }));
+        }
       }
 
       previousStartDate.current = startDate;
@@ -184,7 +227,6 @@ export const Timeline = () => {
     }
   }, [startDate]);
 
-  // Initial Center on Mount
   useEffect(() => {
     if (scrollContainerRef.current) {
       const todayOffset = getDateOffset(
@@ -195,6 +237,14 @@ export const Timeline = () => {
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (selectionScrollFrame.current) {
+        cancelAnimationFrame(selectionScrollFrame.current);
+      }
+    };
+  }, []);
+
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container || isLoadingRef.current) return;
@@ -203,7 +253,6 @@ export const Timeline = () => {
     const scrollThreshold = 500;
     const loadAmount = 30;
 
-    // Expand Right
     if (scrollLeft + clientWidth > scrollWidth - scrollThreshold) {
       isLoadingRef.current = true;
       setDaysCount((prev) => prev + loadAmount);
@@ -212,7 +261,6 @@ export const Timeline = () => {
       }, 100);
     }
 
-    // Expand Left
     if (scrollLeft < scrollThreshold) {
       isLoadingRef.current = true;
       setStartDate((prev) => prev.subtract(loadAmount, "day"));
@@ -220,22 +268,60 @@ export const Timeline = () => {
     }
   }, []);
 
-  // --- NAVIGATION ---
+  // --- AUTO SCROLL LOOP FOR CREATION ---
+  const performSelectionAutoScroll = () => {
+    if (!isSelectingRef.current || !scrollContainerRef.current) return;
+
+    const container = scrollContainerRef.current;
+    const { left: containerLeft, width: containerWidth } =
+      container.getBoundingClientRect();
+    const pointerX = pointerXRef.current;
+
+    const edgeThreshold = 50;
+    const scrollSpeed = 15;
+    let scrolledAmount = 0;
+
+    // Scroll Right
+    if (pointerX > containerLeft + containerWidth - edgeThreshold) {
+      container.scrollLeft += scrollSpeed;
+      scrolledAmount = scrollSpeed;
+    }
+    // Scroll Left
+    else if (pointerX < containerLeft + edgeThreshold) {
+      container.scrollLeft -= scrollSpeed;
+      scrolledAmount = -scrollSpeed;
+    }
+
+    // If we scrolled, we MUST update the selection state so the blue box grows/shrinks
+    if (scrolledAmount !== 0) {
+      setSelection((prev) => {
+        if (!prev.isSelecting) return prev;
+        // The absolute position in the grid = Mouse Client X + New Scroll Left
+        const rect = container.getBoundingClientRect();
+        const absoluteX = pointerX - rect.left + container.scrollLeft;
+
+        return {
+          ...prev,
+          currentX: absoluteX,
+        };
+      });
+    }
+
+    // Keep loop running
+    selectionScrollFrame.current = requestAnimationFrame(
+      performSelectionAutoScroll
+    );
+  };
+
   const jumpToDate = (date: Dayjs | null) => {
     if (!date) return;
-
-    // Sync picker state so Year selection works
     setPickerDate(date);
-
     isJumpingRef.current = true;
     isLoadingRef.current = true;
-
     const target = date.startOf("day");
     const newStart = target.subtract(30, "days");
-
     setStartDate(newStart);
     setDaysCount(300);
-
     setTimeout(() => {
       if (scrollContainerRef.current) {
         const offset = getDateOffset(target.format("YYYY-MM-DD"), newStart);
@@ -245,7 +331,6 @@ export const Timeline = () => {
     }, 10);
   };
 
-  // --- DND HANDLERS ---
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -289,7 +374,6 @@ export const Timeline = () => {
     }
   };
 
-  // --- RESIZE HANDLER ---
   const handleResizeEnd = (
     id: string,
     newDuration: number,
@@ -323,6 +407,130 @@ export const Timeline = () => {
     }
   };
 
+  // --- GRID DRAG SELECTION HANDLERS ---
+
+  const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
+    if (e.button !== 0 || isDragging) return;
+
+    e.preventDefault();
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Capture pointer
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+    // Init Refs for AutoScroll
+    isSelectingRef.current = true;
+    pointerXRef.current = e.clientX;
+
+    // Calculate Start
+    const rect = container.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const absoluteX = clientX + container.scrollLeft;
+
+    // Snap Start
+    const dayIndex = Math.floor(absoluteX / CELL_WIDTH);
+    const snapX = dayIndex * CELL_WIDTH;
+
+    setSelection({
+      isSelecting: true,
+      rowId,
+      startX: snapX,
+      currentX: snapX,
+      startIndex: dayIndex,
+    });
+
+    // Start the Loop
+    selectionScrollFrame.current = requestAnimationFrame(
+      performSelectionAutoScroll
+    );
+  };
+
+  const handleGridPointerMove = (e: React.PointerEvent) => {
+    if (!isSelectingRef.current) return; // Use ref for speed check
+
+    // Update ref for the loop
+    pointerXRef.current = e.clientX;
+
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const absoluteX = clientX + container.scrollLeft;
+
+    // Update visuals immediately (don't wait for loop)
+    setSelection((prev) => ({
+      ...prev,
+      currentX: absoluteX,
+    }));
+  };
+
+  const handleGridPointerUp = (e: React.PointerEvent) => {
+    if (!isSelectingRef.current) return;
+
+    // Stop Loop
+    isSelectingRef.current = false;
+    if (selectionScrollFrame.current)
+      cancelAnimationFrame(selectionScrollFrame.current);
+
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+
+    // Standard Finish Logic (Calculations)
+    const rowId = selection.rowId;
+    if (!rowId) return;
+
+    const startX = Math.min(selection.startX, selection.currentX);
+    const endX = Math.max(selection.startX, selection.currentX);
+
+    const startIdx = Math.floor(startX / CELL_WIDTH);
+    const endIdx = Math.floor(endX / CELL_WIDTH);
+
+    const duration = endIdx - startIdx + 1;
+    const finalStartDate = startDate.add(startIdx, "day");
+
+    setSelection({
+      isSelecting: false,
+      rowId: null,
+      startX: 0,
+      currentX: 0,
+      startIndex: 0,
+    });
+
+    // Open Modal
+    if (duration > 0) {
+      setNewItem({
+        rowId: rowId,
+        startDate: finalStartDate,
+        duration: duration,
+        typeId: "vac",
+        name: "Semester",
+      });
+      setIsCreateOpen(true);
+    }
+  };
+
+  const handleSaveNewItem = () => {
+    const type = ABSENCE_TYPES.find((t) => t.id === newItem.typeId);
+    if (!type) return;
+
+    const newLeave: LeaveItem = {
+      id: "new-" + Date.now(),
+      rowId: newItem.rowId,
+      name: newItem.name,
+      startDate: newItem.startDate.format("YYYY-MM-DD"),
+      durationDays: Number(newItem.duration),
+      color: type.color,
+    };
+
+    if (!checkCollision(leaves, newLeave)) {
+      setLeaves((prev) => [...prev, newLeave]);
+      setIsCreateOpen(false);
+    } else {
+      alert("Krockar med annan frånvaro!");
+    }
+  };
+
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
 
   return (
@@ -334,7 +542,6 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      {/* --- APP BAR --- */}
       <AppBar
         position="static"
         color="inherit"
@@ -345,8 +552,6 @@ export const Timeline = () => {
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Planera ledighet
           </Typography>
-
-          {/* LEGEND */}
           <Box sx={{ display: "flex", gap: 2, ml: 4, alignItems: "center" }}>
             {ABSENCE_TYPES.map((type) => (
               <Box
@@ -370,9 +575,7 @@ export const Timeline = () => {
               </Box>
             ))}
           </Box>
-
           <Box sx={{ flexGrow: 1 }} />
-          {/* NAVIGATION */}
           <Box
             sx={{
               display: "flex",
@@ -382,15 +585,12 @@ export const Timeline = () => {
               p: 0.5,
             }}
           >
-            {/* Prev Month (Relative to current selection) */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(pickerDate.subtract(1, "month"))}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
-
-            {/* Date Button - Just opens the picker, no math */}
             <Button
               ref={datePickerAnchorRef}
               onClick={() => setIsDatePickerOpen(true)}
@@ -405,8 +605,6 @@ export const Timeline = () => {
             >
               {pickerDate.format("D MMM YYYY")}, v.{pickerDate.isoWeek()}
             </Button>
-
-            {/* Next Month (Relative to current selection) */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(pickerDate.add(1, "month"))}
@@ -414,35 +612,25 @@ export const Timeline = () => {
               <ArrowForwardIosIcon fontSize="small" />
             </IconButton>
           </Box>
-
           <DatePicker
             open={isDatePickerOpen}
             onClose={() => setIsDatePickerOpen(false)}
             onChange={(newValue) => jumpToDate(newValue)}
-            onAccept={(newValue) => jumpToDate(newValue)}
             value={pickerDate}
             views={["year", "month", "day"]}
             slotProps={{
-              textField: {
-                sx: { display: "none" },
-              },
+              textField: { sx: { display: "none" } },
               popper: {
                 anchorEl: datePickerAnchorRef.current,
                 placement: "bottom-start",
               },
-              // ADD THIS SECTION:
-              actionBar: {
-                actions: ["today"], // Shows only the "Today" button
-                // You can also use: ['today', 'cancel', 'accept'] if you want more buttons
-              },
+              actionBar: { actions: ["today"] },
             }}
           />
         </Toolbar>
       </AppBar>
 
-      {/* --- CONTENT --- */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* SIDEBAR */}
         <Box
           sx={{
             width: 250,
@@ -453,7 +641,6 @@ export const Timeline = () => {
             flexDirection: "column",
           }}
         >
-          {/* Header Spacer (105px) */}
           <Box
             sx={{
               height: 105,
@@ -463,7 +650,6 @@ export const Timeline = () => {
               boxSizing: "border-box",
             }}
           />
-
           <Box sx={{ overflowY: "hidden", flex: 1 }}>
             {visibleRows.map((row) => {
               if (row.type === "group") {
@@ -516,7 +702,6 @@ export const Timeline = () => {
           </Box>
         </Box>
 
-        {/* TIMELINE */}
         <Box
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -529,7 +714,6 @@ export const Timeline = () => {
             overflowAnchor: "none",
           }}
         >
-          {/* STICKY HEADER */}
           <Box
             sx={{
               position: "sticky",
@@ -539,7 +723,6 @@ export const Timeline = () => {
               width: daysCount * CELL_WIDTH,
             }}
           >
-            {/* MONTHS */}
             <Box
               sx={{
                 display: "flex",
@@ -568,8 +751,6 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-
-            {/* WEEKS */}
             <Box
               sx={{
                 display: "flex",
@@ -596,8 +777,6 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
-
-            {/* DAYS */}
             <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
               {days.map((day) => (
                 <Box
@@ -618,11 +797,7 @@ export const Timeline = () => {
                   }}
                 >
                   <Typography
-                    sx={{
-                      fontSize: "0.6rem",
-                      fontWeight: 600,
-                      lineHeight: 1,
-                    }}
+                    sx={{ fontSize: "0.6rem", fontWeight: 600, lineHeight: 1 }}
                   >
                     {day.format("ddd").toUpperCase()}
                   </Typography>
@@ -634,7 +809,6 @@ export const Timeline = () => {
             </Box>
           </Box>
 
-          {/* GRID & BLOCKS */}
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -658,27 +832,69 @@ export const Timeline = () => {
                   );
                 } else {
                   const resource = row.data;
+                  // Is this row currently being selected?
+                  const isSelectingThisRow =
+                    selection.isSelecting && selection.rowId === resource.id;
+
+                  // Calculate selection box style
+                  let selectionStyle = {};
+                  if (isSelectingThisRow) {
+                    const startPos = Math.min(
+                      selection.startX,
+                      selection.currentX
+                    );
+                    const width = Math.abs(
+                      selection.currentX - selection.startX
+                    );
+                    selectionStyle = {
+                      position: "absolute",
+                      left: startPos,
+                      top: 5,
+                      height: ROW_HEIGHT - 10,
+                      width: width, // Allow smooth drag visuals, or snap width to grid: Math.max(CELL_WIDTH, Math.ceil(width / CELL_WIDTH) * CELL_WIDTH)
+                      backgroundColor: "rgba(25, 118, 210, 0.3)",
+                      border: "2px dashed #1976d2",
+                      borderRadius: 4,
+                      zIndex: 10,
+                      pointerEvents: "none", // Let events pass through to container
+                    };
+                  }
+
                   return (
                     <Box
                       key={resource.id}
+                      // ATTACH DRAG LISTENERS
+                      onPointerDown={(e) =>
+                        handleGridPointerDown(e, resource.id)
+                      }
+                      onPointerMove={handleGridPointerMove}
+                      onPointerUp={handleGridPointerUp}
                       sx={{
                         height: ROW_HEIGHT,
                         borderBottom: "1px solid #eee",
                         position: "relative",
                         backgroundImage: gridBackground,
                         boxSizing: "border-box",
+                        cursor: "crosshair", // Visual indicator
                       }}
                     >
+                      {/* RENDER GHOST SELECTION BLOCK */}
+                      {isSelectingThisRow && <Box sx={selectionStyle} />}
+
                       {leaves
                         .filter((l) => l.rowId === resource.id)
                         .map((l) => (
-                          <LeaveBlock
+                          <div
                             key={l.id}
-                            leave={l}
-                            left={getDateOffset(l.startDate, startDate)}
-                            onResizeEnd={handleResizeEnd}
-                            scrollContainerRef={scrollContainerRef}
-                          />
+                            onPointerDown={(e) => e.stopPropagation()}
+                          >
+                            <LeaveBlock
+                              leave={l}
+                              left={getDateOffset(l.startDate, startDate)}
+                              onResizeEnd={handleResizeEnd}
+                              scrollContainerRef={scrollContainerRef}
+                            />
+                          </div>
                         ))}
                     </Box>
                   );
@@ -694,6 +910,122 @@ export const Timeline = () => {
           </DndContext>
         </Box>
       </Box>
+
+      {/* --- CREATE NEW ABSENCE DIALOG --- */}
+      <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)}>
+        <DialogTitle>Lägg till frånvaro</DialogTitle>
+        <DialogContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            mt: 1,
+            minWidth: 400, // Made wider to fit 2 dates
+          }}
+        >
+          {/* TYPE SELECTOR */}
+          <TextField
+            select
+            label="Typ av frånvaro"
+            value={newItem.typeId}
+            onChange={(e) => {
+              const type = ABSENCE_TYPES.find((t) => t.id === e.target.value);
+              setNewItem({
+                ...newItem,
+                typeId: e.target.value,
+                name: type?.label || "",
+              });
+            }}
+            fullWidth
+          >
+            {ABSENCE_TYPES.map((option) => (
+              <MenuItem key={option.id} value={option.id}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: option.color,
+                    }}
+                  />
+                  {option.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {/* DATES ROW */}
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <DatePicker
+              label="Startdatum"
+              value={newItem.startDate}
+              onChange={(date) => {
+                if (date) {
+                  // Logic: Moving Start Date keeps duration constant (Move Block)
+                  setNewItem((prev) => ({
+                    ...prev,
+                    startDate: date.startOf("day"),
+                  }));
+                }
+              }}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+
+            <DatePicker
+              label="Slutdatum"
+              // Calculate End Date based on Start + Duration
+              value={newItem.startDate.add(newItem.duration - 1, "day")}
+              onChange={(date) => {
+                if (date) {
+                  // Logic: Changing End Date updates Duration
+                  const newEnd = date.startOf("day");
+                  const diff = newEnd.diff(newItem.startDate, "day") + 1;
+
+                  if (diff >= 1) {
+                    setNewItem((prev) => ({ ...prev, duration: diff }));
+                  } else {
+                    // If user picks date BEFORE start, move start back
+                    setNewItem((prev) => ({
+                      ...prev,
+                      startDate: newEnd,
+                      duration: 1,
+                    }));
+                  }
+                }
+              }}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          </Box>
+
+          {/* DURATION INPUT */}
+          <TextField
+            label="Antal dagar"
+            type="number"
+            value={newItem.duration}
+            onChange={(e) => {
+              const val = parseInt(e.target.value) || 0;
+              // Logic: Changing duration updates End Date (implicit)
+              setNewItem((prev) => ({
+                ...prev,
+                duration: Math.max(1, val),
+              }));
+            }}
+            fullWidth
+            slotProps={{ htmlInput: { min: 1 } }}
+            helperText={`Till: ${newItem.startDate
+              .add(newItem.duration - 1, "day")
+              .format("D MMM YYYY")}`} // Helper text to confirm end date
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setIsCreateOpen(false)}>Avbryt</Button>
+          <Button variant="contained" onClick={handleSaveNewItem}>
+            Spara
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
