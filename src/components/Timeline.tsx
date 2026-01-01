@@ -44,7 +44,6 @@ import { LeaveBlock } from "./LeaveBlock";
 
 // --- CONFIGURATION ---
 
-// 1. Define Absence Types (Legend)
 const ABSENCE_TYPES = [
   { id: "conf", color: "#1976d2", label: "Konferens" }, // Blue
   { id: "vac", color: "#2e7d32", label: "Semester" }, // Green
@@ -78,13 +77,20 @@ const GROUPS: Group[] = [
 
 export const Timeline = () => {
   // --- STATE ---
+
+  // Grid State
   const [startDate, setStartDate] = useState(
     dayjs().startOf("day").subtract(30, "days")
   );
   const [daysCount, setDaysCount] = useState(200);
+
+  // Interaction State
   const [isDragging, setIsDragging] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+
+  // Navigation State
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(dayjs()); // Tracks picker value
 
   // Data State
   const [leaves, setLeaves] = useState<LeaveItem[]>([
@@ -93,7 +99,7 @@ export const Timeline = () => {
       name: "Nyårskonferens",
       startDate: "2026-01-01",
       durationDays: 4,
-      color: "#1976d2", // Match Konferens
+      color: "#1976d2",
       rowId: "1",
     },
     {
@@ -101,7 +107,7 @@ export const Timeline = () => {
       name: "Möte (Test)",
       startDate: "2026-01-08",
       durationDays: 3,
-      color: "#d32f2f", // Match Sjuk
+      color: "#d32f2f",
       rowId: "1",
     },
     {
@@ -109,18 +115,23 @@ export const Timeline = () => {
       name: "Vinterledigt",
       startDate: "2026-01-10",
       durationDays: 14,
-      color: "#2e7d32", // Match Semester
+      color: "#2e7d32",
       rowId: "2",
     },
   ]);
 
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
-  const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
+
+  // --- REFS ---
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
+
   const previousStartDate = useRef(startDate);
   const isLoadingRef = useRef(false);
   const dragStartTimeRef = useRef(startDate);
+  const isJumpingRef = useRef(false); // Prevents infinite scroll glitch during jumps
 
+  // --- MEMOS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
     [startDate, daysCount]
@@ -147,21 +158,33 @@ export const Timeline = () => {
     );
   };
 
+  // --- INFINITE SCROLL LOGIC ---
   useLayoutEffect(() => {
     if (
       scrollContainerRef.current &&
       !startDate.isSame(previousStartDate.current)
     ) {
+      // If manually jumping, DO NOT adjust scroll (let jumpToDate handle it)
+      if (isJumpingRef.current) {
+        previousStartDate.current = startDate;
+        isJumpingRef.current = false;
+        isLoadingRef.current = false;
+        return;
+      }
+
+      // If scrolling left naturally, adjust scroll to maintain position
       const diffDays = previousStartDate.current.diff(startDate, "day");
       if (diffDays > 0) {
         const pixelsAdded = diffDays * CELL_WIDTH;
         scrollContainerRef.current.scrollLeft += pixelsAdded;
       }
+
       previousStartDate.current = startDate;
       isLoadingRef.current = false;
     }
   }, [startDate]);
 
+  // Initial Center on Mount
   useEffect(() => {
     if (scrollContainerRef.current) {
       const todayOffset = getDateOffset(
@@ -180,6 +203,7 @@ export const Timeline = () => {
     const scrollThreshold = 500;
     const loadAmount = 30;
 
+    // Expand Right
     if (scrollLeft + clientWidth > scrollWidth - scrollThreshold) {
       isLoadingRef.current = true;
       setDaysCount((prev) => prev + loadAmount);
@@ -188,6 +212,7 @@ export const Timeline = () => {
       }, 100);
     }
 
+    // Expand Left
     if (scrollLeft < scrollThreshold) {
       isLoadingRef.current = true;
       setStartDate((prev) => prev.subtract(loadAmount, "day"));
@@ -195,20 +220,32 @@ export const Timeline = () => {
     }
   }, []);
 
+  // --- NAVIGATION ---
   const jumpToDate = (date: Dayjs | null) => {
     if (!date) return;
+
+    // Sync picker state so Year selection works
+    setPickerDate(date);
+
+    isJumpingRef.current = true;
+    isLoadingRef.current = true;
+
     const target = date.startOf("day");
     const newStart = target.subtract(30, "days");
+
     setStartDate(newStart);
     setDaysCount(300);
+
     setTimeout(() => {
       if (scrollContainerRef.current) {
         const offset = getDateOffset(target.format("YYYY-MM-DD"), newStart);
         scrollContainerRef.current.scrollLeft = offset - 100;
+        isLoadingRef.current = false;
       }
     }, 10);
   };
 
+  // --- DND HANDLERS ---
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -252,6 +289,7 @@ export const Timeline = () => {
     }
   };
 
+  // --- RESIZE HANDLER ---
   const handleResizeEnd = (
     id: string,
     newDuration: number,
@@ -287,9 +325,6 @@ export const Timeline = () => {
 
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
 
-  const today = dayjs();
-  const todayLabel = `${today.format("D MMM YYYY")}, v.${today.isoWeek()}`;
-
   return (
     <Box
       sx={{
@@ -299,7 +334,7 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      {/* --- TOOLBAR --- */}
+      {/* --- APP BAR --- */}
       <AppBar
         position="static"
         color="inherit"
@@ -307,12 +342,11 @@ export const Timeline = () => {
         sx={{ borderBottom: "1px solid #ddd", bgcolor: "white" }}
       >
         <Toolbar>
-          {/* 1. TITLE */}
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Planera ledighet
           </Typography>
 
-          {/* 2. LEGEND (Populated from List) */}
+          {/* LEGEND */}
           <Box sx={{ display: "flex", gap: 2, ml: 4, alignItems: "center" }}>
             {ABSENCE_TYPES.map((type) => (
               <Box
@@ -337,10 +371,8 @@ export const Timeline = () => {
             ))}
           </Box>
 
-          {/* 3. SPACER (Pushes Navigation to Right) */}
           <Box sx={{ flexGrow: 1 }} />
-
-          {/* 4. NAVIGATION BOX */}
+          {/* NAVIGATION */}
           <Box
             sx={{
               display: "flex",
@@ -350,16 +382,17 @@ export const Timeline = () => {
               p: 0.5,
             }}
           >
+            {/* Prev Month (Relative to current selection) */}
             <IconButton
               size="small"
-              onClick={() => jumpToDate(dayjs().subtract(1, "month"))}
+              onClick={() => jumpToDate(pickerDate.subtract(1, "month"))}
             >
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
 
-            {/* 2. ATTACH REF TO THIS BUTTON */}
+            {/* Date Button - Just opens the picker, no math */}
             <Button
-              ref={datePickerAnchorRef} // <--- HERE
+              ref={datePickerAnchorRef}
               onClick={() => setIsDatePickerOpen(true)}
               startIcon={<CalendarMonthIcon fontSize="small" />}
               sx={{
@@ -370,29 +403,25 @@ export const Timeline = () => {
                 minWidth: "160px",
               }}
             >
-              {todayLabel}
+              {pickerDate.format("D MMM YYYY")}, v.{pickerDate.isoWeek()}
             </Button>
 
+            {/* Next Month (Relative to current selection) */}
             <IconButton
               size="small"
-              onClick={() => jumpToDate(dayjs().add(1, "month"))}
+              onClick={() => jumpToDate(pickerDate.add(1, "month"))}
             >
               <ArrowForwardIosIcon fontSize="small" />
             </IconButton>
           </Box>
 
-          {/* 3. UPDATE DATE PICKER */}
           <DatePicker
             open={isDatePickerOpen}
             onClose={() => setIsDatePickerOpen(false)}
-            onChange={(newValue) => {
-              // 1. Update the timeline
-              jumpToDate(newValue);
-
-              // 2. REMOVED: setIsDatePickerOpen(false);
-              // Let MUI call onClose() automatically when the selection is finished (Day picked).
-            }}
-            value={dayjs()}
+            onChange={(newValue) => jumpToDate(newValue)}
+            onAccept={(newValue) => jumpToDate(newValue)}
+            value={pickerDate}
+            views={["year", "month", "day"]}
             slotProps={{
               textField: {
                 sx: { display: "none" },
@@ -401,15 +430,19 @@ export const Timeline = () => {
                 anchorEl: datePickerAnchorRef.current,
                 placement: "bottom-start",
               },
+              // ADD THIS SECTION:
+              actionBar: {
+                actions: ["today"], // Shows only the "Today" button
+                // You can also use: ['today', 'cancel', 'accept'] if you want more buttons
+              },
             }}
-            // Optional: Ensure it behaves like a desktop picker (Year -> Day)
-            views={["year", "month", "day"]}
           />
         </Toolbar>
       </AppBar>
 
+      {/* --- CONTENT --- */}
       <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* --- SIDEBAR --- */}
+        {/* SIDEBAR */}
         <Box
           sx={{
             width: 250,
@@ -420,6 +453,7 @@ export const Timeline = () => {
             flexDirection: "column",
           }}
         >
+          {/* Header Spacer (105px) */}
           <Box
             sx={{
               height: 105,
@@ -482,7 +516,7 @@ export const Timeline = () => {
           </Box>
         </Box>
 
-        {/* --- TIMELINE AREA --- */}
+        {/* TIMELINE */}
         <Box
           ref={scrollContainerRef}
           onScroll={handleScroll}
@@ -495,7 +529,7 @@ export const Timeline = () => {
             overflowAnchor: "none",
           }}
         >
-          {/* HEADER */}
+          {/* STICKY HEADER */}
           <Box
             sx={{
               position: "sticky",
@@ -505,6 +539,7 @@ export const Timeline = () => {
               width: daysCount * CELL_WIDTH,
             }}
           >
+            {/* MONTHS */}
             <Box
               sx={{
                 display: "flex",
@@ -533,6 +568,8 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
+
+            {/* WEEKS */}
             <Box
               sx={{
                 display: "flex",
@@ -559,6 +596,8 @@ export const Timeline = () => {
                   </Typography>
                 ))}
             </Box>
+
+            {/* DAYS */}
             <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
               {days.map((day) => (
                 <Box
@@ -595,6 +634,7 @@ export const Timeline = () => {
             </Box>
           </Box>
 
+          {/* GRID & BLOCKS */}
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
