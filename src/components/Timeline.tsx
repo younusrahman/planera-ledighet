@@ -19,7 +19,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"; // Icon for the date
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import dayjs, { Dayjs } from "dayjs";
 import {
   DndContext,
@@ -42,7 +42,16 @@ import {
 } from "../utils";
 import { LeaveBlock } from "./LeaveBlock";
 
-// --- DATA STRUCTURE ---
+// --- CONFIGURATION ---
+
+// 1. Define Absence Types (Legend)
+const ABSENCE_TYPES = [
+  { id: "conf", color: "#1976d2", label: "Konferens" }, // Blue
+  { id: "vac", color: "#2e7d32", label: "Semester" }, // Green
+  { id: "sick", color: "#d32f2f", label: "Sjuk" }, // Red
+  { id: "vab", color: "#ed6c02", label: "VAB" }, // Orange
+];
+
 const GROUPS: Group[] = [
   {
     id: "g1",
@@ -75,8 +84,6 @@ export const Timeline = () => {
   const [daysCount, setDaysCount] = useState(200);
   const [isDragging, setIsDragging] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-
-  // NEW: State to control the hidden date picker
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   // Data State
@@ -86,7 +93,7 @@ export const Timeline = () => {
       name: "Nyårskonferens",
       startDate: "2026-01-01",
       durationDays: 4,
-      color: "#1976d2",
+      color: "#1976d2", // Match Konferens
       rowId: "1",
     },
     {
@@ -94,7 +101,7 @@ export const Timeline = () => {
       name: "Möte (Test)",
       startDate: "2026-01-08",
       durationDays: 3,
-      color: "#d32f2f",
+      color: "#d32f2f", // Match Sjuk
       rowId: "1",
     },
     {
@@ -102,13 +109,13 @@ export const Timeline = () => {
       name: "Vinterledigt",
       startDate: "2026-01-10",
       durationDays: 14,
-      color: "#2e7d32",
+      color: "#2e7d32", // Match Semester
       rowId: "2",
     },
   ]);
 
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
-
+  const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousStartDate = useRef(startDate);
   const isLoadingRef = useRef(false);
@@ -280,7 +287,6 @@ export const Timeline = () => {
 
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
 
-  // --- CURRENT DATE LABEL ---
   const today = dayjs();
   const todayLabel = `${today.format("D MMM YYYY")}, v.${today.isoWeek()}`;
 
@@ -293,19 +299,48 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      {/* --- TOOLBAR WITH CUSTOM DATE PICKER --- */}
+      {/* --- TOOLBAR --- */}
       <AppBar
         position="static"
         color="inherit"
         elevation={0}
         sx={{ borderBottom: "1px solid #ddd", bgcolor: "white" }}
       >
-        <Toolbar sx={{ gap: 2 }}>
+        <Toolbar>
+          {/* 1. TITLE */}
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Planera ledighet
           </Typography>
 
-          {/* Center Navigation Box */}
+          {/* 2. LEGEND (Populated from List) */}
+          <Box sx={{ display: "flex", gap: 2, ml: 4, alignItems: "center" }}>
+            {ABSENCE_TYPES.map((type) => (
+              <Box
+                key={type.id}
+                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+              >
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: type.color,
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: "#666" }}
+                >
+                  {type.label}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* 3. SPACER (Pushes Navigation to Right) */}
+          <Box sx={{ flexGrow: 1 }} />
+
+          {/* 4. NAVIGATION BOX */}
           <Box
             sx={{
               display: "flex",
@@ -315,7 +350,6 @@ export const Timeline = () => {
               p: 0.5,
             }}
           >
-            {/* Prev Month */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(dayjs().subtract(1, "month"))}
@@ -323,8 +357,9 @@ export const Timeline = () => {
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
 
-            {/* Custom Date Trigger Button */}
+            {/* 2. ATTACH REF TO THIS BUTTON */}
             <Button
+              ref={datePickerAnchorRef} // <--- HERE
               onClick={() => setIsDatePickerOpen(true)}
               startIcon={<CalendarMonthIcon fontSize="small" />}
               sx={{
@@ -332,13 +367,12 @@ export const Timeline = () => {
                 color: "text.primary",
                 fontWeight: 600,
                 textTransform: "capitalize",
-                minWidth: "160px", // Ensure text doesn't jump
+                minWidth: "160px",
               }}
             >
               {todayLabel}
             </Button>
 
-            {/* Next Month */}
             <IconButton
               size="small"
               onClick={() => jumpToDate(dayjs().add(1, "month"))}
@@ -347,20 +381,29 @@ export const Timeline = () => {
             </IconButton>
           </Box>
 
-          {/* HIDDEN DATE PICKER */}
+          {/* 3. UPDATE DATE PICKER */}
           <DatePicker
             open={isDatePickerOpen}
             onClose={() => setIsDatePickerOpen(false)}
             onChange={(newValue) => {
+              // 1. Update the timeline
               jumpToDate(newValue);
-              setIsDatePickerOpen(false);
+
+              // 2. REMOVED: setIsDatePickerOpen(false);
+              // Let MUI call onClose() automatically when the selection is finished (Day picked).
             }}
-            value={dayjs()} // Default to today
+            value={dayjs()}
             slotProps={{
               textField: {
-                sx: { display: "none" }, // Hide the default input field
+                sx: { display: "none" },
+              },
+              popper: {
+                anchorEl: datePickerAnchorRef.current,
+                placement: "bottom-start",
               },
             }}
+            // Optional: Ensure it behaves like a desktop picker (Year -> Day)
+            views={["year", "month", "day"]}
           />
         </Toolbar>
       </AppBar>
