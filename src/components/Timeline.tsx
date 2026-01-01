@@ -586,6 +586,7 @@ export const Timeline = () => {
                             leave={l}
                             left={getDateOffset(l.startDate, startDate)}
                             onResizeEnd={handleResizeEnd}
+                            scrollContainerRef={scrollContainerRef}
                           />
                         ))}
                     </Box>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { Paper, Typography, Box } from "@mui/material";
 import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
@@ -7,8 +7,8 @@ interface Props {
   leave: LeaveItem;
   left?: number;
   isOverlay?: boolean;
-  // UPDATE: Callback now accepts daysShifted (change in start date)
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const LeaveBlock = ({
@@ -16,6 +16,7 @@ export const LeaveBlock = ({
   left = 0,
   isOverlay = false,
   onResizeEnd,
+  scrollContainerRef,
 }: Props) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -26,10 +27,81 @@ export const LeaveBlock = ({
 
   const [isResizing, setIsResizing] = useState(false);
   const [visualDuration, setVisualDuration] = useState(leave.durationDays);
-  // NEW: Track how many days the start date has shifted during resize
   const [visualStartShift, setVisualStartShift] = useState(0);
 
-  // --- GENERIC RESIZE HANDLER ---
+  // Refs for the animation loop
+  const mouseXRef = useRef(0);
+  const startXRef = useRef(0);
+  const startScrollLeftRef = useRef(0);
+  const isResizingRef = useRef(false);
+  const directionRef = useRef<"left" | "right">("right");
+  const requestRef = useRef<number>(0);
+
+  // NEW: Track previous 'left' position to detect Infinite Scroll jumps
+  const prevLeftRef = useRef(left);
+
+  // --- COMPENSATE FOR INFINITE SCROLL JUMPS ---
+  useLayoutEffect(() => {
+    // If the 'left' prop changed drastically (e.g. +1800px) while resizing,
+    // it means the timeline expanded to the past.
+    // We must adjust our startScrollLeftRef so the math doesn't break.
+    const jump = left - prevLeftRef.current;
+
+    if (jump !== 0 && isResizingRef.current) {
+      // If grid moved +1800px, the scroll container also moved +1800px.
+      // We add this to our 'start' reference so the difference (delta) remains correct.
+      startScrollLeftRef.current += jump;
+    }
+
+    prevLeftRef.current = left;
+  }, [left]);
+
+  // --- THE GAME LOOP ---
+  const animate = () => {
+    if (!isResizingRef.current || !scrollContainerRef?.current) return;
+
+    const container = scrollContainerRef.current;
+    const { left: containerLeft, width: containerWidth } =
+      container.getBoundingClientRect();
+    const currentX = mouseXRef.current;
+
+    // 1. AUTO SCROLL LOGIC
+    const edgeThreshold = 50;
+    const scrollSpeed = 15;
+
+    if (currentX < containerLeft + edgeThreshold) {
+      container.scrollLeft -= scrollSpeed;
+    } else if (currentX > containerLeft + containerWidth - edgeThreshold) {
+      container.scrollLeft += scrollSpeed;
+    }
+
+    // 2. CALCULATE DELTA
+    const currentScrollLeft = container.scrollLeft;
+
+    // logic: (Current Scroll - Start Scroll) + (Current Mouse - Start Mouse)
+    const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
+    const mouseDiff = currentX - startXRef.current;
+
+    const totalDeltaX = mouseDiff + scrollDiff;
+    const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
+
+    const startDuration = leave.durationDays;
+
+    // 3. UPDATE STATE
+    if (directionRef.current === "right") {
+      const newDuration = Math.max(1, startDuration + deltaDays);
+      setVisualDuration(newDuration);
+    } else {
+      const maxShift = startDuration - 1;
+      const actualShift = Math.min(deltaDays, maxShift);
+
+      setVisualStartShift(actualShift);
+      setVisualDuration(startDuration - actualShift);
+    }
+
+    requestRef.current = requestAnimationFrame(animate);
+  };
+
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     e.preventDefault();
     e.stopPropagation();
@@ -41,29 +113,20 @@ export const LeaveBlock = ({
     setVisualDuration(leave.durationDays);
     setVisualStartShift(0);
 
-    const startX = e.clientX;
-    const startDuration = leave.durationDays;
+    isResizingRef.current = true;
+    directionRef.current = direction;
+    startXRef.current = e.clientX;
+    mouseXRef.current = e.clientX;
+
+    // Reset previous left ref to current to prevent jumps on start
+    prevLeftRef.current = left;
+
+    if (scrollContainerRef?.current) {
+      startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
+    }
 
     const onPointerMove = (moveEvent: PointerEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const deltaDays = Math.round(deltaX / CELL_WIDTH);
-
-      if (direction === "right") {
-        // RIGHT: Only duration changes
-        const newDuration = Math.max(1, startDuration + deltaDays);
-        setVisualDuration(newDuration);
-      } else {
-        // LEFT: Start shifts, Duration changes inversely
-        // Example: Drag left (-1 day) -> Start -1, Duration +1
-
-        // limit: Can't shrink duration below 1
-        // (startDuration - deltaDays) >= 1  =>  deltaDays <= startDuration - 1
-        const maxShift = startDuration - 1;
-        const actualShift = Math.min(deltaDays, maxShift);
-
-        setVisualStartShift(actualShift);
-        setVisualDuration(startDuration - actualShift);
-      }
+      mouseXRef.current = moveEvent.clientX;
     };
 
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -71,46 +134,54 @@ export const LeaveBlock = ({
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
 
+      isResizingRef.current = false;
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
       setIsResizing(false);
 
-      // Final Calculation
-      const finalDeltaX = upEvent.clientX - startX;
-      const deltaDays = Math.round(finalDeltaX / CELL_WIDTH);
+      if (scrollContainerRef?.current) {
+        const finalScrollLeft = scrollContainerRef.current.scrollLeft;
+        const scrollDiff = finalScrollLeft - startScrollLeftRef.current;
+        const mouseDiff = upEvent.clientX - startXRef.current;
+        const totalDeltaX = mouseDiff + scrollDiff;
+        const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
 
-      let finalDuration = startDuration;
-      let finalShift = 0;
+        const startDuration = leave.durationDays;
+        let finalDuration = startDuration;
+        let finalShift = 0;
 
-      if (direction === "right") {
-        finalDuration = Math.max(1, startDuration + deltaDays);
-      } else {
-        const maxShift = startDuration - 1;
-        finalShift = Math.min(deltaDays, maxShift);
-        finalDuration = startDuration - finalShift;
-      }
+        if (direction === "right") {
+          finalDuration = Math.max(1, startDuration + deltaDays);
+        } else {
+          const maxShift = startDuration - 1;
+          finalShift = Math.min(deltaDays, maxShift);
+          finalDuration = startDuration - finalShift;
+        }
 
-      if (onResizeEnd) {
-        // Only fire if something actually changed
-        if (finalDuration !== startDuration || finalShift !== 0) {
-          onResizeEnd(leave.id, finalDuration, finalShift);
+        if (onResizeEnd) {
+          // If we resized, update.
+          if (finalDuration !== startDuration || finalShift !== 0) {
+            onResizeEnd(leave.id, finalDuration, finalShift);
+          }
         }
       }
-
-      // Reset visual state
       setVisualStartShift(0);
     };
 
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
+
+    requestRef.current = requestAnimationFrame(animate);
   };
 
-  // --- CALCULATE STYLE ---
+  useEffect(() => {
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, []);
 
-  // 1. Duration (Width)
   const displayDuration = isResizing ? visualDuration : leave.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
 
-  // 2. Position (Left)
-  // If resizing left, we must visually shift the block's position
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
 
   const style: React.CSSProperties = {
@@ -135,14 +206,16 @@ export const LeaveBlock = ({
     transition: isResizing ? "none" : "box-shadow 0.2s ease, opacity 0.1s",
   };
 
-  // Common Handle Styles
   const handleStyle = {
     position: "absolute" as const,
     top: 0,
     bottom: 0,
-    width: "15px",
+    width: "20px",
     zIndex: 10,
     cursor: "col-resize",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     "&:hover": { backgroundColor: "rgba(0,0,0,0.1)" },
   };
 
@@ -164,12 +237,20 @@ export const LeaveBlock = ({
       {...attributes}
       elevation={2}
     >
-      {/* LEFT HANDLE */}
       {!isDragging && (
         <Box
           onPointerDown={(e) => initResize(e, "left")}
           sx={{ ...handleStyle, left: 0 }}
-        />
+        >
+          <Box
+            sx={{
+              width: "4px",
+              height: "50%",
+              bgcolor: "rgba(255,255,255,0.5)",
+              borderRadius: 1,
+            }}
+          />
+        </Box>
       )}
 
       <Typography
@@ -181,12 +262,20 @@ export const LeaveBlock = ({
         {leave.name}
       </Typography>
 
-      {/* RIGHT HANDLE */}
       {!isDragging && (
         <Box
           onPointerDown={(e) => initResize(e, "right")}
           sx={{ ...handleStyle, right: 0 }}
-        />
+        >
+          <Box
+            sx={{
+              width: "4px",
+              height: "50%",
+              bgcolor: "rgba(255,255,255,0.5)",
+              borderRadius: 1,
+            }}
+          />
+        </Box>
       )}
     </Paper>
   );
