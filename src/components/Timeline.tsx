@@ -92,36 +92,28 @@ export const Timeline = () => {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pickerDate, setPickerDate] = useState(dayjs());
 
-  // --- CREATE / SELECTION STATE ---
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-
-  // Tracks the "Drag to Create" action
-  const [selection, setSelection] = useState<{
-    isSelecting: boolean;
-    rowId: string | null;
-    startX: number; // Pixel relative to container
-    currentX: number; // Pixel relative to container
-    startIndex: number; // Day index from startDate
+  // --- DIALOG STATE (Create & Edit) ---
+  const [dialogState, setDialogState] = useState<{
+    isOpen: boolean;
+    mode: "create" | "edit";
+    data: {
+      id?: string;
+      rowId: string;
+      startDate: Dayjs;
+      duration: number;
+      typeId: string;
+      name: string;
+    };
   }>({
-    isSelecting: false,
-    rowId: null,
-    startX: 0,
-    currentX: 0,
-    startIndex: 0,
-  });
-
-  const [newItem, setNewItem] = useState<{
-    rowId: string;
-    startDate: Dayjs;
-    duration: number;
-    typeId: string;
-    name: string;
-  }>({
-    rowId: "",
-    startDate: dayjs(),
-    duration: 1,
-    typeId: "vac",
-    name: "Ny frånvaro",
+    isOpen: false,
+    mode: "create",
+    data: {
+      rowId: "",
+      startDate: dayjs(),
+      duration: 1,
+      typeId: "vac",
+      name: "",
+    },
   });
 
   const [leaves, setLeaves] = useState<LeaveItem[]>([
@@ -159,10 +151,26 @@ export const Timeline = () => {
   const isLoadingRef = useRef(false);
   const dragStartTimeRef = useRef(startDate);
   const isJumpingRef = useRef(false);
-  // NEW: Refs for Auto-Scrolling during Creation
+
+  // Auto-scroll refs
   const selectionScrollFrame = useRef<number>(0);
   const isSelectingRef = useRef(false);
-  const pointerXRef = useRef(0); // Tracks raw mouse X position
+  const pointerXRef = useRef(0);
+
+  // Selection visual state
+  const [selection, setSelection] = useState<{
+    isSelecting: boolean;
+    rowId: string | null;
+    startX: number;
+    currentX: number;
+    startIndex: number;
+  }>({
+    isSelecting: false,
+    rowId: null,
+    startX: 0,
+    currentX: 0,
+    startIndex: 0,
+  });
 
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
@@ -201,18 +209,11 @@ export const Timeline = () => {
         isLoadingRef.current = false;
         return;
       }
-
       const diffDays = previousStartDate.current.diff(startDate, "day");
-
       if (diffDays > 0) {
         const pixelsAdded = diffDays * CELL_WIDTH;
-
-        // 1. Adjust Scroll Position (Keep view stable)
         scrollContainerRef.current.scrollLeft += pixelsAdded;
 
-        // 2. FIX: Adjust Selection Coordinates (Keep selection stable)
-        // If we are currently selecting, shift the coordinates so the blue box
-        // stays attached to the same dates/visual position.
         if (isSelectingRef.current) {
           setSelection((prev) => ({
             ...prev,
@@ -221,7 +222,6 @@ export const Timeline = () => {
           }));
         }
       }
-
       previousStartDate.current = startDate;
       isLoadingRef.current = false;
     }
@@ -235,14 +235,6 @@ export const Timeline = () => {
       );
       scrollContainerRef.current.scrollLeft = todayOffset - 200;
     }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (selectionScrollFrame.current) {
-        cancelAnimationFrame(selectionScrollFrame.current);
-      }
-    };
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -268,7 +260,6 @@ export const Timeline = () => {
     }
   }, []);
 
-  // --- AUTO SCROLL LOOP FOR CREATION ---
   const performSelectionAutoScroll = () => {
     if (!isSelectingRef.current || !scrollContainerRef.current) return;
 
@@ -281,33 +272,25 @@ export const Timeline = () => {
     const scrollSpeed = 15;
     let scrolledAmount = 0;
 
-    // Scroll Right
     if (pointerX > containerLeft + containerWidth - edgeThreshold) {
       container.scrollLeft += scrollSpeed;
       scrolledAmount = scrollSpeed;
-    }
-    // Scroll Left
-    else if (pointerX < containerLeft + edgeThreshold) {
+    } else if (pointerX < containerLeft + edgeThreshold) {
       container.scrollLeft -= scrollSpeed;
       scrolledAmount = -scrollSpeed;
     }
 
-    // If we scrolled, we MUST update the selection state so the blue box grows/shrinks
     if (scrolledAmount !== 0) {
       setSelection((prev) => {
         if (!prev.isSelecting) return prev;
-        // The absolute position in the grid = Mouse Client X + New Scroll Left
         const rect = container.getBoundingClientRect();
         const absoluteX = pointerX - rect.left + container.scrollLeft;
-
         return {
           ...prev,
           currentX: absoluteX,
         };
       });
     }
-
-    // Keep loop running
     selectionScrollFrame.current = requestAnimationFrame(
       performSelectionAutoScroll
     );
@@ -407,28 +390,19 @@ export const Timeline = () => {
     }
   };
 
-  // --- GRID DRAG SELECTION HANDLERS ---
-
   const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
     if (e.button !== 0 || isDragging) return;
-
     e.preventDefault();
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    // Capture pointer
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-
-    // Init Refs for AutoScroll
     isSelectingRef.current = true;
     pointerXRef.current = e.clientX;
 
-    // Calculate Start
     const rect = container.getBoundingClientRect();
     const clientX = e.clientX - rect.left;
     const absoluteX = clientX + container.scrollLeft;
-
-    // Snap Start
     const dayIndex = Math.floor(absoluteX / CELL_WIDTH);
     const snapX = dayIndex * CELL_WIDTH;
 
@@ -440,52 +414,37 @@ export const Timeline = () => {
       startIndex: dayIndex,
     });
 
-    // Start the Loop
     selectionScrollFrame.current = requestAnimationFrame(
       performSelectionAutoScroll
     );
   };
 
   const handleGridPointerMove = (e: React.PointerEvent) => {
-    if (!isSelectingRef.current) return; // Use ref for speed check
-
-    // Update ref for the loop
+    if (!isSelectingRef.current) return;
     pointerXRef.current = e.clientX;
-
     const container = scrollContainerRef.current;
     if (!container) return;
-
     const rect = container.getBoundingClientRect();
     const clientX = e.clientX - rect.left;
     const absoluteX = clientX + container.scrollLeft;
-
-    // Update visuals immediately (don't wait for loop)
-    setSelection((prev) => ({
-      ...prev,
-      currentX: absoluteX,
-    }));
+    setSelection((prev) => ({ ...prev, currentX: absoluteX }));
   };
 
   const handleGridPointerUp = (e: React.PointerEvent) => {
     if (!isSelectingRef.current) return;
-
-    // Stop Loop
     isSelectingRef.current = false;
     if (selectionScrollFrame.current)
       cancelAnimationFrame(selectionScrollFrame.current);
 
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 
-    // Standard Finish Logic (Calculations)
     const rowId = selection.rowId;
     if (!rowId) return;
 
     const startX = Math.min(selection.startX, selection.currentX);
     const endX = Math.max(selection.startX, selection.currentX);
-
     const startIdx = Math.floor(startX / CELL_WIDTH);
     const endIdx = Math.floor(endX / CELL_WIDTH);
-
     const duration = endIdx - startIdx + 1;
     const finalStartDate = startDate.add(startIdx, "day");
 
@@ -497,38 +456,96 @@ export const Timeline = () => {
       startIndex: 0,
     });
 
-    // Open Modal
     if (duration > 0) {
-      setNewItem({
-        rowId: rowId,
-        startDate: finalStartDate,
-        duration: duration,
-        typeId: "vac",
-        name: "Semester",
+      setDialogState({
+        isOpen: true,
+        mode: "create",
+        data: {
+          rowId: rowId,
+          startDate: finalStartDate,
+          duration: duration,
+          typeId: "vac",
+          name: "Semester",
+        },
       });
-      setIsCreateOpen(true);
     }
   };
 
-  const handleSaveNewItem = () => {
-    const type = ABSENCE_TYPES.find((t) => t.id === newItem.typeId);
+  useEffect(() => {
+    return () => {
+      if (selectionScrollFrame.current) {
+        cancelAnimationFrame(selectionScrollFrame.current);
+      }
+    };
+  }, []);
+
+  const handleSaveDialog = () => {
+    const { mode, data } = dialogState;
+    const type = ABSENCE_TYPES.find((t) => t.id === data.typeId);
     if (!type) return;
 
-    const newLeave: LeaveItem = {
-      id: "new-" + Date.now(),
-      rowId: newItem.rowId,
-      name: newItem.name,
-      startDate: newItem.startDate.format("YYYY-MM-DD"),
-      durationDays: Number(newItem.duration),
-      color: type.color,
-    };
+    if (mode === "create") {
+      const newLeave: LeaveItem = {
+        id: "new-" + Date.now(),
+        rowId: data.rowId,
+        name: data.name,
+        startDate: data.startDate.format("YYYY-MM-DD"),
+        durationDays: Number(data.duration),
+        color: type.color,
+      };
 
-    if (!checkCollision(leaves, newLeave)) {
-      setLeaves((prev) => [...prev, newLeave]);
-      setIsCreateOpen(false);
-    } else {
-      alert("Krockar med annan frånvaro!");
+      if (!checkCollision(leaves, newLeave)) {
+        setLeaves((prev) => [...prev, newLeave]);
+        setDialogState((prev) => ({ ...prev, isOpen: false }));
+      } else {
+        alert("Krockar med annan frånvaro!");
+      }
+    } else if (mode === "edit" && data.id) {
+      const updatedLeave: LeaveItem = {
+        id: data.id,
+        rowId: data.rowId,
+        name: data.name,
+        startDate: data.startDate.format("YYYY-MM-DD"),
+        durationDays: Number(data.duration),
+        color: type.color,
+      };
+
+      if (!checkCollision(leaves, updatedLeave)) {
+        setLeaves((prev) =>
+          prev.map((l) => (l.id === data.id ? updatedLeave : l))
+        );
+        setDialogState((prev) => ({ ...prev, isOpen: false }));
+      } else {
+        alert("Krockar med annan frånvaro!");
+      }
     }
+  };
+
+  // --- ACTIONS (PASSED TO BLOCKS) ---
+  const handleDelete = (id: string) => {
+    setLeaves((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  const handleEdit = (id: string) => {
+    const leave = leaves.find((l) => l.id === id);
+    if (!leave) return;
+
+    // Find Type ID from color
+    const type =
+      ABSENCE_TYPES.find((t) => t.color === leave.color) || ABSENCE_TYPES[0];
+
+    setDialogState({
+      isOpen: true,
+      mode: "edit",
+      data: {
+        id: leave.id,
+        rowId: leave.rowId,
+        name: leave.name,
+        startDate: dayjs(leave.startDate),
+        duration: leave.durationDays,
+        typeId: type.id,
+      },
+    });
   };
 
   const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
@@ -580,7 +597,6 @@ export const Timeline = () => {
             sx={{
               display: "flex",
               alignItems: "center",
-              bgcolor: "#f0f0f0",
               borderRadius: 2,
               p: 0.5,
             }}
@@ -599,6 +615,10 @@ export const Timeline = () => {
                 mx: 1,
                 color: "text.primary",
                 fontWeight: 600,
+                "&:hover": {
+                  backgroundColor: "transparent",
+                  boxShadow: "none",
+                },
                 textTransform: "capitalize",
                 minWidth: "160px",
               }}
@@ -832,11 +852,8 @@ export const Timeline = () => {
                   );
                 } else {
                   const resource = row.data;
-                  // Is this row currently being selected?
                   const isSelectingThisRow =
                     selection.isSelecting && selection.rowId === resource.id;
-
-                  // Calculate selection box style
                   let selectionStyle = {};
                   if (isSelectingThisRow) {
                     const startPos = Math.min(
@@ -851,19 +868,18 @@ export const Timeline = () => {
                       left: startPos,
                       top: 5,
                       height: ROW_HEIGHT - 10,
-                      width: width, // Allow smooth drag visuals, or snap width to grid: Math.max(CELL_WIDTH, Math.ceil(width / CELL_WIDTH) * CELL_WIDTH)
+                      width: width,
                       backgroundColor: "rgba(25, 118, 210, 0.3)",
                       border: "2px dashed #1976d2",
                       borderRadius: 4,
                       zIndex: 10,
-                      pointerEvents: "none", // Let events pass through to container
+                      pointerEvents: "none",
                     };
                   }
 
                   return (
                     <Box
                       key={resource.id}
-                      // ATTACH DRAG LISTENERS
                       onPointerDown={(e) =>
                         handleGridPointerDown(e, resource.id)
                       }
@@ -875,26 +891,23 @@ export const Timeline = () => {
                         position: "relative",
                         backgroundImage: gridBackground,
                         boxSizing: "border-box",
-                        cursor: "crosshair", // Visual indicator
+                        cursor: "crosshair",
                       }}
                     >
-                      {/* RENDER GHOST SELECTION BLOCK */}
                       {isSelectingThisRow && <Box sx={selectionStyle} />}
-
                       {leaves
                         .filter((l) => l.rowId === resource.id)
                         .map((l) => (
-                          <div
+                          <LeaveBlock
                             key={l.id}
-                            onPointerDown={(e) => e.stopPropagation()}
-                          >
-                            <LeaveBlock
-                              leave={l}
-                              left={getDateOffset(l.startDate, startDate)}
-                              onResizeEnd={handleResizeEnd}
-                              scrollContainerRef={scrollContainerRef}
-                            />
-                          </div>
+                            leave={l}
+                            left={getDateOffset(l.startDate, startDate)}
+                            onResizeEnd={handleResizeEnd}
+                            scrollContainerRef={scrollContainerRef}
+                            // PASS HANDLERS HERE
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                          />
                         ))}
                     </Box>
                   );
@@ -911,30 +924,38 @@ export const Timeline = () => {
         </Box>
       </Box>
 
-      {/* --- CREATE NEW ABSENCE DIALOG --- */}
-      <Dialog open={isCreateOpen} onClose={() => setIsCreateOpen(false)}>
-        <DialogTitle>Lägg till frånvaro</DialogTitle>
+      <Dialog
+        open={dialogState.isOpen}
+        onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+      >
+        <DialogTitle>
+          {dialogState.mode === "create"
+            ? "Lägg till frånvaro"
+            : "Redigera frånvaro"}
+        </DialogTitle>
         <DialogContent
           sx={{
             display: "flex",
             flexDirection: "column",
             gap: 2,
             mt: 1,
-            minWidth: 400, // Made wider to fit 2 dates
+            minWidth: 400,
           }}
         >
-          {/* TYPE SELECTOR */}
           <TextField
             select
             label="Typ av frånvaro"
-            value={newItem.typeId}
+            value={dialogState.data.typeId}
             onChange={(e) => {
               const type = ABSENCE_TYPES.find((t) => t.id === e.target.value);
-              setNewItem({
-                ...newItem,
-                typeId: e.target.value,
-                name: type?.label || "",
-              });
+              setDialogState((prev) => ({
+                ...prev,
+                data: {
+                  ...prev.data,
+                  typeId: e.target.value,
+                  name: type?.label || "",
+                },
+              }));
             }}
             fullWidth
           >
@@ -955,41 +976,40 @@ export const Timeline = () => {
             ))}
           </TextField>
 
-          {/* DATES ROW */}
           <Box sx={{ display: "flex", gap: 2 }}>
             <DatePicker
               label="Startdatum"
-              value={newItem.startDate}
+              value={dialogState.data.startDate}
               onChange={(date) => {
                 if (date) {
-                  // Logic: Moving Start Date keeps duration constant (Move Block)
-                  setNewItem((prev) => ({
+                  setDialogState((prev) => ({
                     ...prev,
-                    startDate: date.startOf("day"),
+                    data: { ...prev.data, startDate: date.startOf("day") },
                   }));
                 }
               }}
               slotProps={{ textField: { fullWidth: true } }}
             />
-
             <DatePicker
               label="Slutdatum"
-              // Calculate End Date based on Start + Duration
-              value={newItem.startDate.add(newItem.duration - 1, "day")}
+              value={dialogState.data.startDate.add(
+                dialogState.data.duration - 1,
+                "day"
+              )}
               onChange={(date) => {
                 if (date) {
-                  // Logic: Changing End Date updates Duration
                   const newEnd = date.startOf("day");
-                  const diff = newEnd.diff(newItem.startDate, "day") + 1;
-
+                  const diff =
+                    newEnd.diff(dialogState.data.startDate, "day") + 1;
                   if (diff >= 1) {
-                    setNewItem((prev) => ({ ...prev, duration: diff }));
-                  } else {
-                    // If user picks date BEFORE start, move start back
-                    setNewItem((prev) => ({
+                    setDialogState((prev) => ({
                       ...prev,
-                      startDate: newEnd,
-                      duration: 1,
+                      data: { ...prev.data, duration: diff },
+                    }));
+                  } else {
+                    setDialogState((prev) => ({
+                      ...prev,
+                      data: { ...prev.data, startDate: newEnd, duration: 1 },
                     }));
                   }
                 }
@@ -998,30 +1018,30 @@ export const Timeline = () => {
             />
           </Box>
 
-          {/* DURATION INPUT */}
           <TextField
             label="Antal dagar"
             type="number"
-            value={newItem.duration}
+            value={dialogState.data.duration}
             onChange={(e) => {
               const val = parseInt(e.target.value) || 0;
-              // Logic: Changing duration updates End Date (implicit)
-              setNewItem((prev) => ({
+              setDialogState((prev) => ({
                 ...prev,
-                duration: Math.max(1, val),
+                data: { ...prev.data, duration: Math.max(1, val) },
               }));
             }}
             fullWidth
             slotProps={{ htmlInput: { min: 1 } }}
-            helperText={`Till: ${newItem.startDate
-              .add(newItem.duration - 1, "day")
-              .format("D MMM YYYY")}`} // Helper text to confirm end date
           />
         </DialogContent>
-
         <DialogActions>
-          <Button onClick={() => setIsCreateOpen(false)}>Avbryt</Button>
-          <Button variant="contained" onClick={handleSaveNewItem}>
+          <Button
+            onClick={() =>
+              setDialogState((prev) => ({ ...prev, isOpen: false }))
+            }
+          >
+            Avbryt
+          </Button>
+          <Button variant="contained" onClick={handleSaveDialog}>
             Spara
           </Button>
         </DialogActions>
