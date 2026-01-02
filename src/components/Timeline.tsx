@@ -19,6 +19,11 @@ import {
   DialogActions,
   TextField,
   MenuItem,
+  Stack,
+  FormControl,
+  Grid,
+  InputLabel,
+  Select,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -932,150 +937,169 @@ export const Timeline = () => {
       <Dialog
         open={dialogState.isOpen}
         onClose={() => setDialogState((prev) => ({ ...prev, isOpen: false }))}
+        maxWidth="sm"
+        fullWidth
       >
         <DialogTitle>
           {dialogState.mode === "create"
-            ? "Lägg till frånvaro"
+            ? "Registrera frånvaro"
             : "Redigera frånvaro"}
         </DialogTitle>
-        <DialogContent
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            mt: 1,
-            minWidth: 400,
-          }}
-        >
-          <TextField
-            select
-            label="Typ av frånvaro"
-            value={dialogState.data.typeId}
-            onChange={(e) => {
-              const type = ABSENCE_TYPES.find((t) => t.id === e.target.value);
-              setDialogState((prev) => ({
-                ...prev,
-                data: {
-                  ...prev.data,
-                  typeId: e.target.value,
-                  name: type?.label || "",
-                },
-              }));
-            }}
-            fullWidth
-          >
-            {ABSENCE_TYPES.map((option) => (
-              <MenuItem key={option.id} value={option.id}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Box
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      bgcolor: option.color,
-                    }}
-                  />
-                  {option.label}
-                </Box>
-              </MenuItem>
-            ))}
-          </TextField>
 
-          <Box sx={{ display: "flex", gap: 2 }}>
-            <DatePicker
-              label="Startdatum"
-              value={dialogState.data.startDate}
-              onChange={(date) => {
-                if (date) {
-                  const newStart = date.startOf("day");
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1, pt: 1 }}>
+            {/* Absence Type Selection */}
+            <FormControl fullWidth>
+              <InputLabel id="absence-type-label">Typ av frånvaro</InputLabel>
+              <Select
+                labelId="absence-type-label"
+                value={dialogState.data.typeId}
+                label="Typ av frånvaro"
+                onChange={(e) => {
+                  const selectedType = ABSENCE_TYPES.find(
+                    (t) => t.id === e.target.value
+                  );
+                  setDialogState((prev) => ({
+                    ...prev,
+                    data: {
+                      ...prev.data,
+                      typeId: e.target.value,
+                      name: selectedType?.label || "",
+                    },
+                  }));
+                }}
+              >
+                {ABSENCE_TYPES.map((option) => (
+                  <MenuItem key={option.id} value={option.id}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: "50%",
+                          backgroundColor: option.color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography variant="body2">{option.label}</Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-                  // 1. Calculate the CURRENT End Date
-                  const currentEnd = dialogState.data.startDate.add(
+            {/* Date Range Selection */}
+            <Box>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
+                Datumperiod
+              </Typography>
+              <Box sx={{ display: "flex", gap: 2 }}>
+                <DatePicker
+                  label="Startdatum"
+                  value={dialogState.data.startDate}
+                  onChange={(date) => {
+                    if (date) {
+                      const newStartDate = date.startOf("day");
+                      const currentEndDate = dialogState.data.startDate.add(
+                        dialogState.data.duration - 1,
+                        "day"
+                      );
+                      const dayDifference =
+                        currentEndDate.diff(newStartDate, "day") + 1;
+
+                      setDialogState((prev) => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          startDate: newStartDate,
+                          duration: dayDifference >= 1 ? dayDifference : 1,
+                        },
+                      }));
+                    }
+                  }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: "small",
+                    },
+                  }}
+                />
+                <DatePicker
+                  label="Slutdatum"
+                  value={dialogState.data.startDate.add(
                     dialogState.data.duration - 1,
                     "day"
-                  );
+                  )}
+                  onChange={(date) => {
+                    if (date) {
+                      const newEndDate = date.startOf("day");
+                      const dayDifference =
+                        newEndDate.diff(dialogState.data.startDate, "day") + 1;
 
-                  // 2. Calculate new duration: Distance between New Start and Fixed End
-                  const diff = currentEnd.diff(newStart, "day") + 1;
+                      setDialogState((prev) => ({
+                        ...prev,
+                        data: {
+                          ...prev.data,
+                          duration: dayDifference >= 1 ? dayDifference : 1,
+                          ...(dayDifference < 1 && { startDate: newEndDate }),
+                        },
+                      }));
+                    }
+                  }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: "small",
+                    },
+                  }}
+                />
+              </Box>
+            </Box>
 
-                  if (diff >= 1) {
-                    // Scenario A: New Start is before End Date -> Update Duration, Keep End Fixed
-                    setDialogState((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        startDate: newStart,
-                        duration: diff,
-                      },
-                    }));
-                  } else {
-                    // Scenario B: New Start is after End Date -> Move End Date (Duration = 1)
-                    setDialogState((prev) => ({
-                      ...prev,
-                      data: {
-                        ...prev.data,
-                        startDate: newStart,
-                        duration: 1,
-                      },
-                    }));
-                  }
-                }
+            {/* Duration Input */}
+            <TextField
+              label="Antal dagar"
+              type="number"
+              value={dialogState.data.duration}
+              onChange={(e) => {
+                const days = parseInt(e.target.value) || 1;
+                setDialogState((prev) => ({
+                  ...prev,
+                  data: { ...prev.data, duration: Math.max(1, days) },
+                }));
               }}
-              slotProps={{ textField: { fullWidth: true } }}
-            />
-            <DatePicker
-              label="Slutdatum"
-              value={dialogState.data.startDate.add(
-                dialogState.data.duration - 1,
-                "day"
-              )}
-              onChange={(date) => {
-                if (date) {
-                  const newEnd = date.startOf("day");
-                  const diff =
-                    newEnd.diff(dialogState.data.startDate, "day") + 1;
-                  if (diff >= 1) {
-                    setDialogState((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, duration: diff },
-                    }));
-                  } else {
-                    setDialogState((prev) => ({
-                      ...prev,
-                      data: { ...prev.data, startDate: newEnd, duration: 1 },
-                    }));
-                  }
-                }
+              fullWidth
+              size="small"
+              slotProps={{
+                htmlInput: {
+                  min: 1,
+                  step: 1,
+                },
               }}
-              slotProps={{ textField: { fullWidth: true } }}
+              helperText="Minimiantal: 1 dag"
             />
-          </Box>
-
-          <TextField
-            label="Antal dagar"
-            type="number"
-            value={dialogState.data.duration}
-            onChange={(e) => {
-              const val = parseInt(e.target.value) || 0;
-              setDialogState((prev) => ({
-                ...prev,
-                data: { ...prev.data, duration: Math.max(1, val) },
-              }));
-            }}
-            fullWidth
-            slotProps={{ htmlInput: { min: 1 } }}
-          />
+          </Stack>
         </DialogContent>
-        <DialogActions>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button
             onClick={() =>
               setDialogState((prev) => ({ ...prev, isOpen: false }))
             }
+            color="inherit"
           >
             Avbryt
           </Button>
-          <Button variant="contained" onClick={handleSaveDialog}>
-            Spara
+          <Button
+            variant="contained"
+            onClick={handleSaveDialog}
+            color="primary"
+          >
+            {dialogState.mode === "create" ? "Registrera" : "Spara ändringar"}
           </Button>
         </DialogActions>
       </Dialog>

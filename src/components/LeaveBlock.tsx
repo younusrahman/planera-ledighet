@@ -402,8 +402,6 @@ export const LeaveBlock = ({
         open={isTooltipOpen}
         arrow
         placement="top"
-        // @ts-ignore
-        interactive
         slotProps={{
           popper: {
             popperRef: popperRef,
