@@ -4,16 +4,16 @@ import {
   Paper,
   Typography,
   Box,
-  Tooltip,
   IconButton,
-  Button,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
+import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
 
 interface Props {
@@ -22,9 +22,10 @@ interface Props {
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
-  // NEW CALLBACKS
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onTooltipOpen?: () => void;
+  onTooltipClose?: () => void;
 }
 
 export const LeaveBlock = ({
@@ -35,6 +36,8 @@ export const LeaveBlock = ({
   scrollContainerRef,
   onEdit,
   onDelete,
+  onTooltipOpen,
+  onTooltipClose,
 }: Props) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -43,11 +46,21 @@ export const LeaveBlock = ({
       disabled: isOverlay,
     });
 
+  // --- STATE ---
   const [isResizing, setIsResizing] = useState(false);
   const [visualDuration, setVisualDuration] = useState(leave.durationDays);
   const [visualStartShift, setVisualStartShift] = useState(0);
 
-  // Refs
+  // Tooltip State
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  // --- REFS FOR VIRTUAL POSITIONING ---
+  const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const popperRef = useRef<Instance | null>(null);
+  const blockRef = useRef<HTMLDivElement | null>(null);
+  const closeTimeoutRef = useRef<number>(0);
+
+  // --- RESIZE REFS ---
   const mouseXRef = useRef(0);
   const startXRef = useRef(0);
   const startScrollLeftRef = useRef(0);
@@ -67,26 +80,23 @@ export const LeaveBlock = ({
   const animate = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
     const container = scrollContainerRef.current;
-    const { left: containerLeft, width: containerWidth } =
-      container.getBoundingClientRect();
-    const currentX = mouseXRef.current;
-    const edgeThreshold = 50;
-    const scrollSpeed = 15;
-    if (currentX < containerLeft + edgeThreshold)
-      container.scrollLeft -= scrollSpeed;
-    else if (currentX > containerLeft + containerWidth - edgeThreshold)
-      container.scrollLeft += scrollSpeed;
+    const { left: cL, width: cW } = container.getBoundingClientRect();
+    const pX = mouseXRef.current;
+    const eT = 50;
+    const sS = 15;
+
+    if (pX < cL + eT) container.scrollLeft -= sS;
+    else if (pX > cL + cW - eT) container.scrollLeft += sS;
 
     const currentScrollLeft = container.scrollLeft;
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
-    const mouseDiff = currentX - startXRef.current;
+    const mouseDiff = pX - startXRef.current;
     const totalDeltaX = mouseDiff + scrollDiff;
     const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
     const startDuration = leave.durationDays;
 
     if (directionRef.current === "right") {
-      const newDuration = Math.max(1, startDuration + deltaDays);
-      setVisualDuration(newDuration);
+      setVisualDuration(Math.max(1, startDuration + deltaDays));
     } else {
       const maxShift = startDuration - 1;
       const actualShift = Math.min(deltaDays, maxShift);
@@ -109,6 +119,7 @@ export const LeaveBlock = ({
     startXRef.current = e.clientX;
     mouseXRef.current = e.clientX;
     prevLeftRef.current = left;
+
     if (scrollContainerRef?.current)
       startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
 
@@ -130,21 +141,19 @@ export const LeaveBlock = ({
         const totalDeltaX = mouseDiff + scrollDiff;
         const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
         const startDuration = leave.durationDays;
-        let finalDuration = startDuration;
-        let finalShift = 0;
+        let fDur = startDuration;
+        let fS = 0;
 
         if (direction === "right")
-          finalDuration = Math.max(1, startDuration + deltaDays);
+          fDur = Math.max(1, startDuration + deltaDays);
         else {
-          const maxShift = startDuration - 1;
-          finalShift = Math.min(deltaDays, maxShift);
-          finalDuration = startDuration - finalShift;
+          const mS = startDuration - 1;
+          fS = Math.min(deltaDays, mS);
+          fDur = startDuration - fS;
         }
-        if (
-          onResizeEnd &&
-          (finalDuration !== startDuration || finalShift !== 0)
-        ) {
-          onResizeEnd(leave.id, finalDuration, finalShift);
+
+        if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
+          onResizeEnd(leave.id, fDur, fS);
         }
       }
       setVisualStartShift(0);
@@ -160,6 +169,31 @@ export const LeaveBlock = ({
     };
   }, []);
 
+  // --- MOUSE TRACKING FOR TOOLTIP ---
+  const handleMouseMove = (event: React.MouseEvent) => {
+    // 1. Update Position
+    positionRef.current = { x: event.clientX, y: event.clientY };
+    // 2. Force Popper Update
+    if (popperRef.current != null) {
+      popperRef.current.update();
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (isDragging || isResizing || isOverlay) return;
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    setIsTooltipOpen(true);
+    onTooltipOpen?.();
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setIsTooltipOpen(false);
+      onTooltipClose?.();
+    }, 200);
+  };
+
+  // --- STYLES ---
   const displayDuration = isResizing ? visualDuration : leave.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
@@ -179,7 +213,7 @@ export const LeaveBlock = ({
     backgroundColor: leave.color,
     color: "white",
     padding: "4px 8px",
-    borderRadius: "50px",
+    borderRadius: "30px",
     display: "flex",
     alignItems: "center",
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
@@ -201,7 +235,6 @@ export const LeaveBlock = ({
     justifyContent: "center",
     "&:hover": { backgroundColor: "rgba(0,0,0,0.1)" },
   };
-
   const handleBar = (
     <Box
       sx={{
@@ -213,10 +246,15 @@ export const LeaveBlock = ({
     />
   );
 
-  // --- RICH TOOLTIP CONTENT ---
+  // --- TOOLTIP CONTENT ---
   const tooltipContent = (
-    <Box>
-      {/* Header Color Bar */}
+    <Box
+      sx={{ border: `2px solid ${leave.color}` }}
+      onMouseEnter={() => {
+        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+      }}
+      onMouseLeave={handleMouseLeave}
+    >
       <Box sx={{ bgcolor: leave.color, height: 6, width: "100%" }} />
       <Box sx={{ p: 2 }}>
         <Typography
@@ -257,11 +295,10 @@ export const LeaveBlock = ({
             </Typography>
           </Box>
         </Box>
-
-        {/* Buttons */}
         <Box
           sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
         >
+          {/* DELETE */}
           <IconButton
             size="small"
             color="error"
@@ -269,29 +306,50 @@ export const LeaveBlock = ({
               e.stopPropagation();
               onDelete?.(leave.id);
             }}
-            sx={{ border: "1px solid", borderColor: "rgba(211, 47, 47, 0.3)" }}
+            sx={{
+              border: "1px solid",
+              borderColor: "rgba(211, 47, 47, 0.3)",
+              "&:hover": {
+                bgcolor: "error.main",
+                color: "#fff",
+              },
+            }}
           >
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>
+
+          {/* EDIT (PRIMARY) */}
           <IconButton
             size="small"
-            color="error"
+            color="primary"
             onClick={(e) => {
               e.stopPropagation();
               onEdit?.(leave.id);
             }}
-            sx={{ border: "1px solid", borderColor: "rgba(3, 0, 189, 0.57)" }}
+            sx={{
+              border: "1px solid",
+              borderColor: "primary.main",
+              color: "primary.main",
+              "&:hover": {
+                bgcolor: "primary.main",
+                color: "#fff",
+              },
+            }}
           >
-            <EditOutlinedIcon fontSize="small" color="primary" />
+            <EditOutlinedIcon fontSize="small" />
           </IconButton>
         </Box>
       </Box>
     </Box>
   );
 
-  const paperContent = (
+  // --- RENDER BLOCK ---
+  const blockContent = (
     <Paper
-      ref={setNodeRef}
+      ref={(el) => {
+        setNodeRef(el);
+        blockRef.current = el as HTMLDivElement;
+      }}
       style={style}
       {...listeners}
       {...attributes}
@@ -300,6 +358,9 @@ export const LeaveBlock = ({
         e.stopPropagation();
         listeners?.onPointerDown?.(e);
       }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove} // Update Virtual Coordinates
     >
       {!isDragging && (
         <Box
@@ -309,7 +370,6 @@ export const LeaveBlock = ({
           {handleBar}
         </Box>
       )}
-
       <Typography
         variant="caption"
         noWrap
@@ -318,7 +378,6 @@ export const LeaveBlock = ({
       >
         {leave.name}
       </Typography>
-
       {!isDragging && (
         <Box
           onPointerDown={(e) => initResize(e, "right")}
@@ -330,46 +389,70 @@ export const LeaveBlock = ({
     </Paper>
   );
 
-  if (isOverlay || isDragging || isResizing) return paperContent;
+  if (isOverlay || isDragging || isResizing) return blockContent;
 
   return (
-    <Tooltip
-      title={tooltipContent}
-      arrow
-      interactive // CRITICAL: Allows moving mouse into the tooltip to click buttons
-      placement="top"
-      enterDelay={200} // Small delay to prevent flickering
-      leaveDelay={200}
-      slotProps={{
-        tooltip: {
-          sx: {
-            bgcolor: "white",
-            color: "text.primary",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-            p: 0, // Reset padding so we control it in Box
-            minWidth: 260,
-            borderRadius: 2,
-            border: "1px solid #eee",
+    <>
+      {/* 1. RENDER THE BLOCK */}
+      {blockContent}
+
+      {/* 2. RENDER THE VIRTUAL TOOLTIP */}
+      <Tooltip
+        title={tooltipContent}
+        open={isTooltipOpen}
+        arrow
+        placement="top"
+        // @ts-ignore
+        interactive
+        slotProps={{
+          popper: {
+            popperRef: popperRef,
+            anchorEl: {
+              getBoundingClientRect: () => {
+                // VIRTUAL ELEMENT LOGIC
+                // X = Mouse Position (from positionRef)
+                // Y = Top of the Block (from blockRef)
+                const blockRect = blockRef.current?.getBoundingClientRect();
+                return new DOMRect(
+                  positionRef.current.x,
+                  blockRect ? blockRect.top : positionRef.current.y,
+                  0,
+                  0
+                );
+              },
+            },
           },
-        },
-        arrow: { sx: { color: "white" } },
-      }}
-    >
-      {/* We need a wrapping span/div here because Tooltip needs a ref, but Paper already has the dnd-kit ref */}
-      <Box
-        component="div"
-        sx={{
-          position: "absolute",
-          left: style.left,
-          top: style.top,
-          zIndex: style.zIndex,
+
+          // ✅ DYNAMIC ARROW COLOR
+          arrow: {
+            sx: { color: leave.color },
+          },
+        }}
+        componentsProps={{
+          tooltip: {
+            sx: {
+              bgcolor: "white",
+              color: "text.primary",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+              p: 0,
+              minWidth: 260,
+              borderRadius: 2,
+              border: "1px solid #eee",
+              pointerEvents: "auto",
+            },
+          },
         }}
       >
-        {/* We override position here to fit the wrapper, then pass relative to paper */}
-        {React.cloneElement(paperContent, {
-          style: { ...style, position: "relative", left: 0, top: 0 },
-        })}
-      </Box>
-    </Tooltip>
+        {/* Dummy child to satisfy Tooltip requirements */}
+        <div
+          style={{
+            position: "absolute",
+            width: 0,
+            height: 0,
+            pointerEvents: "none",
+          }}
+        />
+      </Tooltip>
+    </>
   );
 };

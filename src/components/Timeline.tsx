@@ -91,7 +91,7 @@ export const Timeline = () => {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pickerDate, setPickerDate] = useState(dayjs());
-
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
   // --- DIALOG STATE (Create & Edit) ---
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;
@@ -391,7 +391,10 @@ export const Timeline = () => {
   };
 
   const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
-    if (e.button !== 0 || isDragging) return;
+    // FIX: Do not start selection if a tooltip is open
+    if (e.button !== 0 || isDragging || isTooltipOpen) return;
+
+    // ... rest of the function remains the same ...
     e.preventDefault();
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -413,7 +416,6 @@ export const Timeline = () => {
       currentX: snapX,
       startIndex: dayIndex,
     });
-
     selectionScrollFrame.current = requestAnimationFrame(
       performSelectionAutoScroll
     );
@@ -904,9 +906,12 @@ export const Timeline = () => {
                             left={getDateOffset(l.startDate, startDate)}
                             onResizeEnd={handleResizeEnd}
                             scrollContainerRef={scrollContainerRef}
-                            // PASS HANDLERS HERE
+                            // PASS HANDLERS
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            // PASS TOOLTIP CALLBACKS
+                            onTooltipOpen={() => setIsTooltipOpen(true)}
+                            onTooltipClose={() => setIsTooltipOpen(false)}
                           />
                         ))}
                     </Box>
@@ -982,10 +987,38 @@ export const Timeline = () => {
               value={dialogState.data.startDate}
               onChange={(date) => {
                 if (date) {
-                  setDialogState((prev) => ({
-                    ...prev,
-                    data: { ...prev.data, startDate: date.startOf("day") },
-                  }));
+                  const newStart = date.startOf("day");
+
+                  // 1. Calculate the CURRENT End Date
+                  const currentEnd = dialogState.data.startDate.add(
+                    dialogState.data.duration - 1,
+                    "day"
+                  );
+
+                  // 2. Calculate new duration: Distance between New Start and Fixed End
+                  const diff = currentEnd.diff(newStart, "day") + 1;
+
+                  if (diff >= 1) {
+                    // Scenario A: New Start is before End Date -> Update Duration, Keep End Fixed
+                    setDialogState((prev) => ({
+                      ...prev,
+                      data: {
+                        ...prev.data,
+                        startDate: newStart,
+                        duration: diff,
+                      },
+                    }));
+                  } else {
+                    // Scenario B: New Start is after End Date -> Move End Date (Duration = 1)
+                    setDialogState((prev) => ({
+                      ...prev,
+                      data: {
+                        ...prev.data,
+                        startDate: newStart,
+                        duration: 1,
+                      },
+                    }));
+                  }
                 }
               }}
               slotProps={{ textField: { fullWidth: true } }}
