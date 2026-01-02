@@ -59,7 +59,7 @@ import AddIcon from "@mui/icons-material/Add";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-
+import MenuIcon from "@mui/icons-material/Menu";
 // --- CONFIGURATION ---
 const ABSENCE_TYPES = [
   { id: "conf", color: "#1976d2", label: "Konferens" },
@@ -452,6 +452,38 @@ export const Timeline = () => {
     }
   };
 
+  const handleResizeEnd = (
+    id: string,
+    newDuration: number,
+    daysShifted: number
+  ) => {
+    setLeaves((prev) =>
+      prev.map((l) => {
+        if (l.id === id) {
+          // Calculate new start date if the left handle was dragged (daysShifted)
+          const newStartDate = dayjs(l.startDate)
+            .add(daysShifted, "day")
+            .format("YYYY-MM-DD");
+
+          const updatedItem = {
+            ...l,
+            durationDays: newDuration,
+            startDate: newStartDate,
+          };
+
+          // Optional: Check for collisions before updating
+          if (checkCollision(prev, updatedItem)) {
+            alert("Krockar med annan frånvaro!");
+            return l; // Return original if collision
+          }
+
+          return updatedItem;
+        }
+        return l;
+      })
+    );
+  };
+
   const handleEdit = (id: string) => {
     const leave = leaves.find((l) => l.id === id);
     if (leave)
@@ -767,7 +799,7 @@ export const Timeline = () => {
               >
                 <Button
                   fullWidth
-                  startIcon={<MoreVertIcon />}
+                  startIcon={<MenuIcon />}
                   onClick={(e) => setMainMenuAnchor(e.currentTarget)}
                   sx={{
                     justifyContent:
@@ -984,6 +1016,8 @@ export const Timeline = () => {
                                 left={getDateOffset(l.startDate, startDate)}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
+                                // ADD THIS LINE BELOW:
+                                onResizeEnd={handleResizeEnd}
                                 scrollContainerRef={scrollContainerRef}
                                 onTooltipOpen={() => setIsTooltipOpen(true)}
                                 onTooltipClose={() => setIsTooltipOpen(false)}
