@@ -881,7 +881,7 @@ export const Timeline = () => {
                       fontWeight: 700,
                     }}
                   >
-                    v.{day.isoWeek()}
+                    Vecka.{day.isoWeek()}
                   </Typography>
                 ))}
             </Box>
