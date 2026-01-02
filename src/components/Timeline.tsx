@@ -120,6 +120,8 @@ export const Timeline = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
+  const [newResourceName, setNewResourceName] = useState("");
 
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;
@@ -262,7 +264,25 @@ export const Timeline = () => {
     setSelectedGroupId(null);
     setIsGroupDialogOpen(false);
   };
+  const handleOpenAddResource = () => {
+    setNewResourceName("");
+    setIsResourceDialogOpen(true);
+    setGroupMenuAnchor(null);
+  };
 
+  const handleSaveResource = () => {
+    if (!newResourceName.trim() || !selectedGroupId) return;
+    const newRes = { id: "r-" + Date.now(), name: newResourceName };
+    setGroups((prev) =>
+      prev.map((g) =>
+        g.id === selectedGroupId
+          ? { ...g, resources: [...g.resources, newRes] }
+          : g
+      )
+    );
+    setIsResourceDialogOpen(false);
+    setNewResourceName("");
+  };
   // --- TIMELINE LOGIC ---
   useLayoutEffect(() => {
     if (
@@ -735,9 +755,10 @@ export const Timeline = () => {
                       header
                     )}
                     <Collapse in={!isCollapsed}>
-                      {group.resources.map((res) => {
+                      {group.resources.map((res, index) => {
                         const resRow = (
                           <Box
+                            key={index}
                             sx={{
                               height: ROW_HEIGHT,
                               display: "flex",
@@ -1044,6 +1065,9 @@ export const Timeline = () => {
         open={Boolean(groupMenuAnchor)}
         onClose={handleGroupMenuClose}
       >
+        <MenuItem onClick={handleOpenAddResource} sx={{ gap: 1.5 }}>
+          <AddIcon fontSize="small" /> Lägg till anställd
+        </MenuItem>
         <MenuItem onClick={handleEditGroupTrigger} sx={{ gap: 1.5 }}>
           <EditIcon fontSize="small" /> Redigera
         </MenuItem>
@@ -1247,6 +1271,28 @@ export const Timeline = () => {
           </Button>
           <Button variant="contained" onClick={handleSaveDialog}>
             {dialogState.mode === "create" ? "Registrera" : "Spara ändringar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={isResourceDialogOpen}
+        onClose={() => setIsResourceDialogOpen(false)}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Lägg till anställd</DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <TextField
+            autoFocus
+            label="Namn på anställd"
+            fullWidth
+            value={newResourceName}
+            onChange={(e) => setNewResourceName(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleSaveResource()}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setIsResourceDialogOpen(false)}>Avbryt</Button>
+          <Button variant="contained" onClick={handleSaveResource}>
+            Spara
           </Button>
         </DialogActions>
       </Dialog>
