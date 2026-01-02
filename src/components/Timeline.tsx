@@ -26,12 +26,12 @@ import {
   Tooltip,
   Menu,
   Collapse,
+  Grow,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import dayjs, { Dayjs } from "dayjs";
 import {
@@ -91,7 +91,16 @@ const INITIAL_GROUPS: Group[] = [
     resources: [{ id: "5", name: "Gustav Vasa" }],
   },
 ];
-
+const animationStyles = `
+  @keyframes popIn {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes marchingAnts {
+    from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
+    to { background-position: 30px 0, -30px 100%, 0 -30px, 100% 30px; }
+  }
+`;
 export const Timeline = () => {
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -598,6 +607,7 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
+      <style>{animationStyles}</style>
       {/* 1. APP BAR */}
       <AppBar
         position="static"
@@ -919,7 +929,7 @@ export const Timeline = () => {
             size="small"
             sx={{
               position: "absolute",
-              top: 64,
+              bottom: 104,
               right: sidebarMode === "hidden" ? -24 : -14,
               zIndex: 1200,
               width: 38,
@@ -1092,9 +1102,11 @@ export const Timeline = () => {
                                   position: "absolute",
                                   top: 5,
                                   height: ROW_HEIGHT - 10,
-                                  bgcolor: "rgba(25, 118, 210, 0.3)",
+                                  bgcolor: "rgba(25, 118, 210, 0.15)", // Slightly lighter
                                   border: "2px dashed #1976d2",
                                   borderRadius: 1,
+                                  zIndex: 10,
+                                  pointerEvents: "none",
                                   left: Math.min(
                                     selection.startX,
                                     selection.currentX
@@ -1102,8 +1114,19 @@ export const Timeline = () => {
                                   width: Math.abs(
                                     selection.currentX - selection.startX
                                   ),
-                                  zIndex: 10,
-                                  pointerEvents: "none",
+                                  // ADD THIS ANIMATION:
+                                  animation:
+                                    "marchingAnts 0.5s linear infinite",
+                                  backgroundImage: `linear-gradient(90deg, #1976d2 50%, transparent 50%), 
+                        linear-gradient(90deg, #1976d2 50%, transparent 50%), 
+                        linear-gradient(0deg, #1976d2 50%, transparent 50%), 
+                        linear-gradient(0deg, #1976d2 50%, transparent 50%)`,
+                                  backgroundRepeat:
+                                    "repeat-x, repeat-x, repeat-y, repeat-y",
+                                  backgroundSize:
+                                    "15px 2px, 15px 2px, 2px 15px, 2px 15px",
+                                  backgroundPosition:
+                                    "0 0, 0 100%, 0 0, 100% 0",
                                 }}
                               />
                             )}
@@ -1116,7 +1139,6 @@ export const Timeline = () => {
                                 left={getDateOffset(l.startDate, startDate)}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
-                                // ADD THIS LINE BELOW:
                                 onResizeEnd={handleResizeEnd}
                                 scrollContainerRef={scrollContainerRef}
                                 onTooltipOpen={() => setIsTooltipOpen(true)}
@@ -1143,6 +1165,16 @@ export const Timeline = () => {
         anchorEl={resourceMenuAnchor}
         open={Boolean(resourceMenuAnchor)}
         onClose={() => setResourceMenuAnchor(null)}
+        slots={{ transition: Grow }}
+        slotProps={{
+          transition: { timeout: 450 },
+          paper: {
+            sx: {
+              borderRadius: 2,
+              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
+            },
+          },
+        }}
       >
         <MenuItem onClick={handleEditResourceTrigger} sx={{ gap: 1.5 }}>
           <EditIcon fontSize="small" /> Redigera
@@ -1158,6 +1190,16 @@ export const Timeline = () => {
         anchorEl={groupMenuAnchor}
         open={Boolean(groupMenuAnchor)}
         onClose={handleGroupMenuClose}
+        slots={{ transition: Grow }}
+        slotProps={{
+          transition: { timeout: 450 },
+          paper: {
+            sx: {
+              borderRadius: 2,
+              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
+            },
+          },
+        }}
       >
         <MenuItem onClick={handleOpenAddResource} sx={{ gap: 1.5 }}>
           <AddIcon fontSize="small" /> Lägg till anställd
@@ -1178,8 +1220,24 @@ export const Timeline = () => {
         anchorEl={mainMenuAnchor}
         open={Boolean(mainMenuAnchor)}
         onClose={() => setMainMenuAnchor(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-        transformOrigin={{ vertical: "bottom", horizontal: "left" }}
+        anchorOrigin={{
+          vertical: "top",
+          horizontal: "center",
+        }}
+        transformOrigin={{
+          vertical: "bottom",
+          horizontal: "center",
+        }}
+        slots={{ transition: Grow }}
+        slotProps={{
+          transition: { timeout: 450 },
+          paper: {
+            sx: {
+              borderRadius: 2,
+              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
+            },
+          },
+        }}
       >
         <MenuItem
           onClick={() => {
@@ -1198,6 +1256,8 @@ export const Timeline = () => {
       <Dialog
         open={isGroupDialogOpen}
         onClose={() => setIsGroupDialogOpen(false)}
+        slots={{ transition: Grow }}
+        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {selectedGroupId ? "Redigera grupp" : "Skapa ny grupp"}
@@ -1235,6 +1295,8 @@ export const Timeline = () => {
         onClose={() => setDialogState((p) => ({ ...p, isOpen: false }))}
         fullWidth
         maxWidth="sm"
+        slots={{ transition: Grow }}
+        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle>
           {dialogState.mode === "create"
@@ -1371,6 +1433,8 @@ export const Timeline = () => {
       <Dialog
         open={isResourceDialogOpen}
         onClose={() => setIsResourceDialogOpen(false)}
+        slots={{ transition: Grow }}
+        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {resourceDialogMode === "edit"
