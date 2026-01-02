@@ -137,9 +137,17 @@ export const Timeline = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [absenceTypes, setAbsenceTypes] = useState(ABSENCE_TYPES);
+  const [isTypeDialogOpen, setIsTypeDialogOpen] = useState(false);
+  const [newTypeLabel, setNewTypeLabel] = useState("");
+  const [newTypeColor, setNewTypeColor] = useState("#9c27b0"); // Startfärg lila
+
   const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
   const [newResourceName, setNewResourceName] = useState("");
-
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [typeDialogMode, setTypeDialogMode] = useState<"create" | "edit">(
+    "create"
+  );
   const [dialogState, setDialogState] = useState<{
     isOpen: boolean;
     mode: "create" | "edit";
@@ -299,7 +307,43 @@ export const Timeline = () => {
       handleGroupMenuClose();
     }
   };
+  // --- OLD CODE (Referens) ---
+  const handleSaveAbsenceType = () => {
+    if (!newTypeLabel.trim()) return;
 
+    // Kontrollera färg (hoppa över kontrollen om vi sparar samma färg på samma objekt)
+    const isColorTaken = absenceTypes.some(
+      (t) =>
+        t.color.toLowerCase() === newTypeColor.toLowerCase() &&
+        t.id !== selectedTypeId
+    );
+
+    if (isColorTaken) {
+      alert("Färgen används redan!");
+      return;
+    }
+
+    if (typeDialogMode === "edit") {
+      setAbsenceTypes((prev) =>
+        prev.map((t) =>
+          t.id === selectedTypeId
+            ? { ...t, label: newTypeLabel, color: newTypeColor }
+            : t
+        )
+      );
+    } else {
+      const newType = {
+        id: "custom-" + Date.now(),
+        color: newTypeColor,
+        label: newTypeLabel,
+      };
+      setAbsenceTypes((prev) => [...prev, newType]);
+    }
+
+    setIsTypeDialogOpen(false);
+    setNewTypeLabel("");
+    setSelectedTypeId(null);
+  };
   const handleSaveGroup = () => {
     if (!newGroupName.trim()) return;
     if (selectedGroupId) {
@@ -520,7 +564,7 @@ export const Timeline = () => {
   };
   const handleSaveDialog = () => {
     const { mode, data } = dialogState;
-    const type = ABSENCE_TYPES.find((t) => t.id === data.typeId);
+    const type = absenceTypes.find((t) => t.id === data.typeId);
     if (!type) return;
     const entry = {
       id: data.id || "new-" + Date.now(),
@@ -542,7 +586,24 @@ export const Timeline = () => {
       setDialogState((p) => ({ ...p, isOpen: false }));
     }
   };
+  // 1. Öppna dialogen i edit-läge
+  const handleEditTypeOpen = (type: any) => {
+    setSelectedTypeId(type.id);
+    setNewTypeLabel(type.label);
+    setNewTypeColor(type.color);
+    setTypeDialogMode("edit");
+    setIsTypeDialogOpen(true);
+  };
 
+  // 2. Ta bort en ledighetstyp
+  const handleDeleteAbsenceType = () => {
+    if (!selectedTypeId) return;
+
+    // Kontrollera om du vill tillåta borttagning av standardtyper (valfritt)
+    setAbsenceTypes((prev) => prev.filter((t) => t.id !== selectedTypeId));
+    setIsTypeDialogOpen(false);
+    setSelectedTypeId(null);
+  };
   const handleResizeEnd = (
     id: string,
     newDuration: number,
@@ -586,7 +647,7 @@ export const Timeline = () => {
           startDate: dayjs(leave.startDate),
           duration: leave.durationDays,
           typeId:
-            ABSENCE_TYPES.find((t) => t.color === leave.color)?.id || "vac",
+            absenceTypes.find((t) => t.color === leave.color)?.id || "vac",
         },
       });
   };
@@ -620,10 +681,19 @@ export const Timeline = () => {
             Planera ledighet
           </Typography>
           <Box sx={{ display: "flex", gap: 2, ml: 4, alignItems: "center" }}>
-            {ABSENCE_TYPES.map((type) => (
+            {absenceTypes.map((type) => (
               <Box
                 key={type.id}
-                sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                onClick={() => handleEditTypeOpen(type)} // <--- LÄGG TILL DENNA
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  cursor: "pointer", // <--- GÖR DEN KLICKBAR
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  "&:hover": { bgcolor: "rgba(0,0,0,0.05)" },
+                }}
               >
                 <Box
                   sx={{
@@ -1250,6 +1320,18 @@ export const Timeline = () => {
         >
           <AddIcon fontSize="small" /> Lägg till grupp
         </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setTypeDialogMode("create"); // <--- LÄGG TILL DENNA
+            setNewTypeLabel("");
+            setNewTypeColor("#9c27b0");
+            setIsTypeDialogOpen(true);
+            setMainMenuAnchor(null);
+          }}
+          sx={{ gap: 1.5 }}
+        >
+          <CalendarMonthIcon fontSize="small" /> Lägg till ledighetstyp
+        </MenuItem>
       </Menu>
 
       {/* Group Dialog */}
@@ -1324,7 +1406,7 @@ export const Timeline = () => {
                   }));
                 }}
               >
-                {ABSENCE_TYPES.map((opt) => (
+                {absenceTypes.map((opt) => (
                   <MenuItem key={opt.id} value={opt.id}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Box
@@ -1456,6 +1538,70 @@ export const Timeline = () => {
           <Button variant="contained" onClick={handleSaveResource}>
             Spara
           </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={isTypeDialogOpen}
+        onClose={() => setIsTypeDialogOpen(false)}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {typeDialogMode === "edit"
+            ? "Redigera ledighetstyp"
+            : "Skapa ny ledighetstyp"}
+        </DialogTitle>
+
+        <DialogContent
+          sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 3 }}
+        >
+          <TextField
+            autoFocus
+            label="Namn"
+            fullWidth
+            value={newTypeLabel}
+            onChange={(e) => setNewTypeLabel(e.target.value)}
+          />
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, mb: 1, display: "block" }}
+            >
+              Välj färg:
+            </Typography>
+            <input
+              type="color"
+              value={newTypeColor}
+              onChange={(e) => setNewTypeColor(e.target.value)}
+              style={{
+                width: "100%",
+                height: "40px",
+                cursor: "pointer",
+                border: "1px solid #ddd",
+                borderRadius: "4px",
+              }}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: "space-between" }}>
+          {/* TA BORT-KNAPP: Visas bara i edit-läge */}
+          {typeDialogMode === "edit" ? (
+            <Button
+              color="error"
+              onClick={handleDeleteAbsenceType}
+              startIcon={<DeleteIcon />}
+            >
+              Ta bort
+            </Button>
+          ) : (
+            <Box />
+          )}{" "}
+          {/* Tom box för att hålla Spara-knappen till höger */}
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button onClick={() => setIsTypeDialogOpen(false)}>Avbryt</Button>
+            <Button variant="contained" onClick={handleSaveAbsenceType}>
+              Spara
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
     </Box>
