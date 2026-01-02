@@ -117,6 +117,14 @@ export const Timeline = () => {
   const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
     null
   );
+  const [resourceMenuAnchor, setResourceMenuAnchor] =
+    useState<null | HTMLElement>(null);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
+    null
+  );
+  const [resourceDialogMode, setResourceDialogMode] = useState<
+    "create" | "edit"
+  >("create");
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -216,6 +224,43 @@ export const Timeline = () => {
     else setSidebarMode("full");
   };
 
+  const handleResourceMenuOpen = (
+    e: React.MouseEvent<HTMLElement>,
+    groupId: string,
+    resId: string
+  ) => {
+    e.stopPropagation();
+    setResourceMenuAnchor(e.currentTarget);
+    setSelectedGroupId(groupId); // We need to know which group they belong to
+    setSelectedResourceId(resId);
+  };
+
+  const handleEditResourceTrigger = () => {
+    // Find the resource name to pre-fill the dialog
+    const group = groups.find((g) => g.id === selectedGroupId);
+    const resource = group?.resources.find((r) => r.id === selectedResourceId);
+    if (resource) {
+      setNewResourceName(resource.name);
+      setResourceDialogMode("edit");
+      setIsResourceDialogOpen(true);
+    }
+    setResourceMenuAnchor(null);
+  };
+
+  const handleDeleteResource = () => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === selectedGroupId) {
+          return {
+            ...g,
+            resources: g.resources.filter((r) => r.id !== selectedResourceId),
+          };
+        }
+        return g;
+      })
+    );
+    setResourceMenuAnchor(null);
+  };
   // --- GROUP ACTIONS ---
   const handleGroupMenuOpen = (
     e: React.MouseEvent<HTMLElement>,
@@ -265,6 +310,7 @@ export const Timeline = () => {
     setIsGroupDialogOpen(false);
   };
   const handleOpenAddResource = () => {
+    setResourceDialogMode("create");
     setNewResourceName("");
     setIsResourceDialogOpen(true);
     setGroupMenuAnchor(null);
@@ -272,14 +318,30 @@ export const Timeline = () => {
 
   const handleSaveResource = () => {
     if (!newResourceName.trim() || !selectedGroupId) return;
-    const newRes = { id: "r-" + Date.now(), name: newResourceName };
+
     setGroups((prev) =>
-      prev.map((g) =>
-        g.id === selectedGroupId
-          ? { ...g, resources: [...g.resources, newRes] }
-          : g
-      )
+      prev.map((g) => {
+        if (g.id !== selectedGroupId) return g;
+
+        if (resourceDialogMode === "edit") {
+          return {
+            ...g,
+            resources: g.resources.map((r) =>
+              r.id === selectedResourceId ? { ...r, name: newResourceName } : r
+            ),
+          };
+        } else {
+          return {
+            ...g,
+            resources: [
+              ...g.resources,
+              { id: "r-" + Date.now(), name: newResourceName },
+            ],
+          };
+        }
+      })
     );
+
     setIsResourceDialogOpen(false);
     setNewResourceName("");
   };
@@ -771,6 +833,11 @@ export const Timeline = () => {
                               borderBottom: "1px solid rgba(0,0,0,0.03)",
                               pl: sidebarMode === "full" ? 5 : 0,
                               boxSizing: "border-box",
+                              // LÄGG TILL DESSA RADER:
+                              "&:hover": {
+                                bgcolor: "rgba(0,0,0,0.04)",
+                                "& .res-menu-btn": { opacity: 1 },
+                              },
                             }}
                           >
                             <Typography
@@ -788,6 +855,18 @@ export const Timeline = () => {
                                 ? getInitials(res.name)
                                 : res.name}
                             </Typography>
+                            {sidebarMode === "full" && (
+                              <IconButton
+                                className="res-menu-btn"
+                                size="small"
+                                sx={{ opacity: 0, ml: "auto", mr: 1 }}
+                                onClick={(e) =>
+                                  handleResourceMenuOpen(e, group.id, res.id)
+                                }
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            )}
                           </Box>
                         );
                         return sidebarMode === "initials" ? (
@@ -1061,6 +1140,21 @@ export const Timeline = () => {
       {/* MENUS & DIALOGS */}
       {/* Group Actions Menu */}
       <Menu
+        anchorEl={resourceMenuAnchor}
+        open={Boolean(resourceMenuAnchor)}
+        onClose={() => setResourceMenuAnchor(null)}
+      >
+        <MenuItem onClick={handleEditResourceTrigger} sx={{ gap: 1.5 }}>
+          <EditIcon fontSize="small" /> Redigera
+        </MenuItem>
+        <MenuItem
+          onClick={handleDeleteResource}
+          sx={{ gap: 1.5, color: "error.main" }}
+        >
+          <DeleteIcon fontSize="small" /> Ta bort
+        </MenuItem>
+      </Menu>
+      <Menu
         anchorEl={groupMenuAnchor}
         open={Boolean(groupMenuAnchor)}
         onClose={handleGroupMenuClose}
@@ -1278,7 +1372,11 @@ export const Timeline = () => {
         open={isResourceDialogOpen}
         onClose={() => setIsResourceDialogOpen(false)}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>Lägg till anställd</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {resourceDialogMode === "edit"
+            ? "Redigera anställd"
+            : "Lägg till anställd"}
+        </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField
             autoFocus
