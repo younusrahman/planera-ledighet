@@ -982,8 +982,7 @@ export const Timeline = () => {
                   startIcon={<MenuIcon />}
                   onClick={(e) => setMainMenuAnchor(e.currentTarget)}
                   sx={{
-                    justifyContent:
-                      sidebarMode === "initials" ? "center" : "flex-start",
+                    justifyContent: "center",
                     textTransform: "none",
                     fontWeight: 700,
                   }}
