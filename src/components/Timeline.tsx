@@ -627,10 +627,14 @@ export const Timeline = () => {
     const absoluteX = e.clientX - rect.left + container.scrollLeft;
 
     if (selectionBoxRef.current) {
-      const snappedX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
-      const left = Math.min(startXRef.current, snappedX);
-      const width = Math.abs(snappedX - startXRef.current) + CELL_WIDTH;
+      // Use the raw, un-snapped mouse position for the visual update.
+      const currentX = absoluteX;
 
+      // Calculate left and width based on the direction of the drag.
+      const left = Math.min(startXRef.current, currentX);
+      const width = Math.abs(currentX - startXRef.current);
+
+      // Update the style directly for a smooth, pixel-perfect movement.
       selectionBoxRef.current.style.left = `${left}px`;
       selectionBoxRef.current.style.width = `${width}px`;
     }
