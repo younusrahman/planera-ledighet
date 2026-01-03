@@ -131,6 +131,8 @@ export const LeaveBlock = ({
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     e.preventDefault();
     e.stopPropagation();
+    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+    setIsTooltipOpen(false);
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
     setIsResizing(true);
