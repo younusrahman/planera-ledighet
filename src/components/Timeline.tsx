@@ -60,12 +60,47 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
+
+const PREDEFINED_COLORS = [
+  // Blues & Purples
+  "#1976d2", // Material UI Blue 700
+  "#0288d1", // Material UI Light Blue 700
+  "#7b1fa2", // Material UI Purple 700
+  "#512da8", // Material UI Deep Purple 700
+
+  // Greens & Teals
+  "#2e7d32", // Material UI Green 700
+  "#00796b", // Material UI Teal 700
+  "#689f38", // Material UI Light Green 700
+
+  // Reds & Pinks
+  "#d32f2f", // Material UI Red 700
+  "#c2185b", // Material UI Pink 700
+  "#ad1457", // Material UI Pink 800
+
+  // Oranges & Yellows
+  "#ed6c02", // Material UI Orange 700
+  "#f57c00", // Material UI Orange 600
+  "#ffa000", // Material UI Amber 700
+  "#afb42b", // Material UI Lime 700
+
+  // Greys & Browns
+  "#616161", // Material UI Grey 700
+  "#455a64", // Material UI Blue Grey 700
+  "#5d4037", // Material UI Brown 700
+
+  // Unique Colors
+  "#00acc1", // Material UI Cyan 600
+  "#e64a19", // Material UI Deep Orange 700
+  "#303f9f", // Material UI Indigo 600
+];
+
 // --- CONFIGURATION ---
 const ABSENCE_TYPES = [
-  { id: "conf", color: "#1976d2", label: "Konferens" },
-  { id: "vac", color: "#2e7d32", label: "Semester" },
-  { id: "sick", color: "#d32f2f", label: "Sjuk" },
-  { id: "vab", color: "#ed6c02", label: "VAB" },
+  { id: "conf", color: PREDEFINED_COLORS[0], label: "Konferens" },
+  { id: "vac", color: PREDEFINED_COLORS[4], label: "Semester" },
+  { id: "sick", color: PREDEFINED_COLORS[8], label: "Sjuk" },
+  { id: "vab", color: PREDEFINED_COLORS[11], label: "VAB" },
 ];
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
@@ -184,6 +219,14 @@ export const Timeline = () => {
       id: "l2",
       name: "Vinterledigt",
       startDate: "2026-01-10",
+      durationDays: 14,
+      color: "#2e7d32",
+      rowId: "2",
+    },
+    {
+      id: "l4",
+      name: "Vinterledigt",
+      startDate: "2025-12-12",
       durationDays: 14,
       color: "#2e7d32",
       rowId: "2",
@@ -469,6 +512,11 @@ export const Timeline = () => {
       stopAutoScroll();
     };
   }, []);
+  // 1. Calculate the width of the disabled area
+  const disabledOverlayWidth = useMemo(() => {
+    const offset = getDateOffset(today.format("YYYY-MM-DD"), startDate);
+    return Math.max(0, offset); // Ensure width is not negative
+  }, [startDate]);
 
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -508,18 +556,28 @@ export const Timeline = () => {
 
   // --- BLOCK CREATION LOGIC (UNCHANGED FROM YOUR ORIGINAL) ---
   const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
+    // --- Start with all exit conditions ---
     if (e.button !== 0 || isDragging || isTooltipOpen) return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    // --- Perform calculations once ---
+    const rect = container.getBoundingClientRect();
+    const absoluteX = e.clientX - rect.left + container.scrollLeft;
+    const dayIndex = Math.floor(absoluteX / CELL_WIDTH);
+    const clickedDate = startDate.add(dayIndex, "day");
+
+    // --- Perform the validation check ---
+    if (clickedDate.isBefore(today)) {
+      return; // This completely stops the selection from starting
+    }
+
+    // --- If validation passes, proceed with the selection logic ---
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     isSelectingRef.current = true;
     lastPointerXRef.current = e.clientX;
-
-    const rect = container.getBoundingClientRect();
-    const absoluteX = e.clientX - rect.left + container.scrollLeft;
 
     // Snappa direkt till rutans start för att undvika "random" hopp
     const snappedStartX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
@@ -633,12 +691,23 @@ export const Timeline = () => {
     const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
     const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
     const finalDaysDiff = visualMovedDays + daysGridMoved;
+
     if (finalDaysDiff !== 0) {
       const item = leaves.find((l) => l.id === active.id);
       if (item) {
         const newStartDate = dayjs(item.startDate)
           .add(finalDaysDiff, "day")
           .format("YYYY-MM-DD");
+
+        // --- START OF VALIDATION ---
+        if (dayjs(newStartDate).isBefore(today)) {
+          alert(
+            "Du kan inte flytta en ledighet till ett datum som redan har passerat."
+          );
+          return; // This aborts the move, snapping the block back.
+        }
+        // --- END OF VALIDATION ---
+
         if (!checkCollision(leaves, { ...item, startDate: newStartDate })) {
           setLeaves((prev) =>
             prev.map((l) =>
@@ -707,10 +776,18 @@ export const Timeline = () => {
     setLeaves((prev) =>
       prev.map((l) => {
         if (l.id === id) {
-          // Calculate new start date if the left handle was dragged (daysShifted)
           const newStartDate = dayjs(l.startDate)
             .add(daysShifted, "day")
             .format("YYYY-MM-DD");
+
+          // --- START OF VALIDATION ---
+          if (dayjs(newStartDate).isBefore(today)) {
+            alert(
+              "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat."
+            );
+            return l; // This aborts the resize, returning the original block.
+          }
+          // --- END OF VALIDATION ---
 
           const updatedItem = {
             ...l,
@@ -718,7 +795,6 @@ export const Timeline = () => {
             startDate: newStartDate,
           };
 
-          // Optional: Check for collisions before updating
           if (checkCollision(prev, updatedItem)) {
             alert("Krockar med annan frånvaro!");
             return l; // Return original if collision
@@ -1125,6 +1201,27 @@ export const Timeline = () => {
             zIndex: 1,
           }}
         >
+          {/* 2. Render the overlay */}
+          {disabledOverlayWidth > 0 && (
+            <Box
+              sx={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                height: "100%",
+                width: `${disabledOverlayWidth}px`,
+                bgcolor: "rgba(0, 0, 0, 0)", // Semi-transparent grey
+                // borderRight: "1px dashed #999",
+                zIndex: 1, // Above grid background, below content
+                pointerEvents: "none", // Allows clicks to pass through if needed
+                background: "rgba(0, 0, 0, 0.02)",
+                boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+                backdropFilter: "blur(5px)",
+                WebkitBackdropFilter: "blur(5px)",
+                border: "1px solid rgba(255, 255, 255, 0.3)",
+              }}
+            />
+          )}
           <Box
             sx={{
               position: "sticky",
@@ -1660,18 +1757,53 @@ export const Timeline = () => {
             >
               Välj färg:
             </Typography>
-            <input
-              type="color"
-              value={newTypeColor}
-              onChange={(e) => setNewTypeColor(e.target.value)}
-              style={{
-                width: "100%",
-                height: "40px",
-                cursor: "pointer",
-                border: "1px solid #ddd",
-                borderRadius: "4px",
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(32px, 1fr))",
+                gap: 1,
               }}
-            />
+            >
+              {PREDEFINED_COLORS.map((color) => {
+                const isSelected =
+                  newTypeColor.toLowerCase() === color.toLowerCase();
+
+                // A color is taken if it's used by ANOTHER absence type
+                const isTaken = absenceTypes.some(
+                  (t) =>
+                    t.color.toLowerCase() === color.toLowerCase() &&
+                    t.id !== selectedTypeId
+                );
+
+                return (
+                  <Tooltip title={color} key={color}>
+                    <Box
+                      onClick={() => {
+                        if (!isTaken) {
+                          setNewTypeColor(color);
+                        }
+                      }}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        bgcolor: color,
+                        cursor: isTaken ? "not-allowed" : "pointer",
+                        opacity: isTaken ? 0.3 : 1,
+                        border: isSelected
+                          ? "3px solid #1976d2" // Highlight for selected color
+                          : "1px solid #ddd",
+                        boxSizing: "border-box",
+                        transition: "transform 0.1s ease",
+                        "&:hover": {
+                          transform: isTaken ? "none" : "scale(1.15)",
+                        },
+                      }}
+                    />
+                  </Tooltip>
+                );
+              })}
+            </Box>
           </Box>
         </DialogContent>
 

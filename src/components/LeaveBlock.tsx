@@ -15,6 +15,7 @@ import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"; // <-- AND ADD THIS
 
 interface Props {
   leave: LeaveItem;
@@ -27,6 +28,7 @@ interface Props {
   onTooltipOpen?: () => void;
   onTooltipClose?: () => void;
 }
+const today = dayjs().startOf("day");
 
 export const LeaveBlock = ({
   leave,
@@ -39,13 +41,13 @@ export const LeaveBlock = ({
   onTooltipOpen,
   onTooltipClose,
 }: Props) => {
+  const isPast = dayjs(leave.startDate).isBefore(today);
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: leave.id,
       data: leave,
-      disabled: isOverlay,
+      disabled: isOverlay || isPast,
     });
-
   // --- STATE ---
   const [isResizing, setIsResizing] = useState(false);
   const [visualDuration, setVisualDuration] = useState(leave.durationDays);
@@ -169,7 +171,6 @@ export const LeaveBlock = ({
     };
   }, []);
 
-  
   // --- MOUSE TRACKING FOR TOOLTIP ---
   const handleMouseMove = (event: React.MouseEvent) => {
     // 1. Update Position
@@ -218,7 +219,7 @@ export const LeaveBlock = ({
     display: "flex",
     alignItems: "center",
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
-    cursor: isOverlay ? "grabbing" : "grab",
+    cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
     boxShadow: isOverlay || isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
     transition: isResizing ? "none" : "box-shadow 0.2s ease, opacity 0.1s",
@@ -296,10 +297,36 @@ export const LeaveBlock = ({
             </Typography>
           </Box>
         </Box>
+        {isPast && (
+          <Typography color="warning" variant="h6" sx={{ fontSize: "0.85rem" }}>
+            Denna ledighet har passerat och kan inte ändras.
+          </Typography>
+        )}
         <Box
           sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
         >
           {/* DELETE */}
+          {!isPast && (
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(leave.id);
+              }}
+              sx={{
+                border: "1px solid",
+                borderColor: "primary.main",
+                color: "primary.main",
+                "&:hover": {
+                  bgcolor: "primary.main",
+                  color: "#fff",
+                },
+              }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          )}
           <IconButton
             size="small"
             color="error"
@@ -317,27 +344,6 @@ export const LeaveBlock = ({
             }}
           >
             <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-
-          {/* EDIT (PRIMARY) */}
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit?.(leave.id);
-            }}
-            sx={{
-              border: "1px solid",
-              borderColor: "primary.main",
-              color: "primary.main",
-              "&:hover": {
-                bgcolor: "primary.main",
-                color: "#fff",
-              },
-            }}
-          >
-            <EditOutlinedIcon fontSize="small" />
           </IconButton>
         </Box>
       </Box>
@@ -363,7 +369,7 @@ export const LeaveBlock = ({
       onMouseLeave={handleMouseLeave}
       onMouseMove={handleMouseMove} // Update Virtual Coordinates
     >
-      {!isDragging && (
+      {!isDragging && !isPast && (
         <Box
           onPointerDown={(e) => initResize(e, "left")}
           sx={{ ...handleStyle, left: 0 }}
@@ -379,7 +385,7 @@ export const LeaveBlock = ({
       >
         {leave.name}
       </Typography>
-      {!isDragging && (
+      {!isDragging && !isPast && (
         <Box
           onPointerDown={(e) => initResize(e, "right")}
           sx={{ ...handleStyle, right: 0 }}
