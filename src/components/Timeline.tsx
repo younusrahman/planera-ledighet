@@ -1356,7 +1356,7 @@ export const Timeline = () => {
                     bgcolor: day.isSame(dayjs(), "day")
                       ? "#fff9c4"
                       : day.day() === 0 || day.day() === 6
-                      ? "#f5f5f5"
+                      ? "#bd0a0a3d"
                       : "white",
                     boxSizing: "border-box",
                   }}
@@ -1387,7 +1387,7 @@ export const Timeline = () => {
                     <Box
                       sx={{
                         height: 40,
-                        bgcolor: "#fcfcfc",
+                        bgcolor: "#31313116",
                         borderBottom: "1px solid #eee",
                         boxSizing: "border-box",
                       }}
