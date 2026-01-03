@@ -31,7 +31,7 @@ interface Props {
   isPastDaysBlocked?: boolean; // <-- ADD THIS
 }
 const today = dayjs().startOf("day");
-
+const TOOLTIP_DELAY = 500;
 export const LeaveBlock = ({
   leave,
   left = 0,
@@ -67,7 +67,7 @@ export const LeaveBlock = ({
   const popperRef = useRef<Instance | null>(null);
   const blockRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<number>(0);
-
+  const openTimeoutRef = useRef<number>(0);
   // --- RESIZE REFS ---
   const mouseXRef = useRef(0);
   const startXRef = useRef(0);
@@ -207,9 +207,21 @@ export const LeaveBlock = ({
 
   // --- MOUSE TRACKING FOR TOOLTIP ---
   const handleMouseMove = (event: React.MouseEvent) => {
-    // 1. Update Position
+    // --- START OF NEW LOGIC ---
+    // If a timer to open the tooltip is running, cancel it and start a new one.
+    // This ensures the tooltip only opens if the mouse is stationary.
+    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+
+    openTimeoutRef.current = window.setTimeout(() => {
+      setIsTooltipOpen(true);
+      onTooltipOpen?.();
+    }, TOOLTIP_DELAY);
+    // --- END OF NEW LOGIC ---
+
+    // 1. Update Position (Your existing logic)
     positionRef.current = { x: event.clientX, y: event.clientY };
-    // 2. Force Popper Update
+
+    // 2. Force Popper Update (Your existing logic)
     if (popperRef.current != null) {
       popperRef.current.update();
     }
@@ -217,12 +229,21 @@ export const LeaveBlock = ({
 
   const handleMouseEnter = () => {
     if (isDragging || isResizing || isOverlay) return;
-    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-    setIsTooltipOpen(true);
-    onTooltipOpen?.();
-  };
 
+    // Clear any lingering close timers
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+
+    // Start the timer to open the tooltip. This timer will be reset if the mouse moves.
+    openTimeoutRef.current = window.setTimeout(() => {
+      setIsTooltipOpen(true);
+      onTooltipOpen?.();
+    }, TOOLTIP_DELAY); // 2000 milliseconds = 2 seconds
+  };
   const handleMouseLeave = () => {
+    // Cancel any pending timer to OPEN the tooltip.
+    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+
+    // Start a timer to close the tooltip if it's already open.
     closeTimeoutRef.current = window.setTimeout(() => {
       setIsTooltipOpen(false);
       onTooltipClose?.();
