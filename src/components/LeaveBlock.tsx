@@ -77,6 +77,12 @@ export const LeaveBlock = ({
   const requestRef = useRef<number>(0);
   const prevLeftRef = useRef(left);
 
+  useEffect(() => {
+    if (!isResizing) {
+      setVisualDuration(leave.durationDays);
+      setVisualStartShift(0);
+    }
+  }, [leave.durationDays, isResizing]);
   useLayoutEffect(() => {
     const jump = left - prevLeftRef.current;
     if (jump !== 0 && isResizingRef.current) {
@@ -100,16 +106,24 @@ export const LeaveBlock = ({
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
     const mouseDiff = pX - startXRef.current;
     const totalDeltaX = mouseDiff + scrollDiff;
-    const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
     const startDuration = leave.durationDays;
 
     if (directionRef.current === "right") {
-      setVisualDuration(Math.max(1, startDuration + deltaDays));
+      const newVisualWidth = startDuration * CELL_WIDTH + totalDeltaX;
+      const newVisualDuration = newVisualWidth / CELL_WIDTH;
+      setVisualDuration(Math.max(1, newVisualDuration));
     } else {
-      const maxShift = startDuration - 1;
-      const actualShift = Math.min(deltaDays, maxShift);
-      setVisualStartShift(actualShift);
-      setVisualDuration(startDuration - actualShift);
+      const newVisualWidth = startDuration * CELL_WIDTH - totalDeltaX;
+
+      if (newVisualWidth < CELL_WIDTH) {
+        setVisualStartShift(startDuration - 1);
+        setVisualDuration(1);
+      } else {
+        const actualShiftInPixels = totalDeltaX;
+        const actualShiftInDays = actualShiftInPixels / CELL_WIDTH;
+        setVisualStartShift(actualShiftInDays);
+        setVisualDuration(startDuration - actualShiftInDays);
+      }
     }
     requestRef.current = requestAnimationFrame(animate);
   };
@@ -135,13 +149,22 @@ export const LeaveBlock = ({
       mouseXRef.current = moveEvent.clientX;
     };
     const onPointerUp = (upEvent: PointerEvent) => {
+      // 1. Clean up event listeners and refs to stop tracking mouse movement.
       handle.releasePointerCapture(upEvent.pointerId);
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
       isResizingRef.current = false;
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = 0;
+      }
+
+      // 2. Set isResizing to false. This is the most critical step.
+      // It triggers a re-render where the block's CSS `transition` property becomes active.
+      // The block is still visually at its last dragged position.
       setIsResizing(false);
 
+      // 3. Calculate the final, snapped values based on the total mouse travel.
       if (scrollContainerRef?.current) {
         const finalScrollLeft = scrollContainerRef.current.scrollLeft;
         const scrollDiff = finalScrollLeft - startScrollLeftRef.current;
@@ -152,19 +175,24 @@ export const LeaveBlock = ({
         let fDur = startDuration;
         let fS = 0;
 
-        if (direction === "right")
+        if (directionRef.current === "right") {
           fDur = Math.max(1, startDuration + deltaDays);
-        else {
+        } else {
           const mS = startDuration - 1;
-          fS = Math.min(deltaDays, mS);
+          // Clamp the final shift value to prevent the block from inverting
+          fS = Math.max(Math.min(deltaDays, mS), -mS);
           fDur = startDuration - fS;
         }
 
+        // 4. Report these final values to the parent component.
+        // This will cause the parent to update its state and send down new props,
+        // which will trigger the animation.
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
           onResizeEnd(leave.id, fDur, fS);
         }
       }
-      setVisualStartShift(0);
+      // NOTE: We do NOT reset visualStartShift here. The useEffect hook will handle it
+      // after the animation is complete, which prevents the visual "jump-back" glitch.
     };
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
@@ -228,7 +256,6 @@ export const LeaveBlock = ({
     cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
     boxShadow: isOverlay || isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
-    transition: isResizing ? "none" : "box-shadow 0.2s ease, opacity 0.1s",
   };
 
   const handleStyle = {
