@@ -255,16 +255,11 @@ export const LeaveBlock = ({
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
   const blockHeight = ROW_HEIGHT - 10;
-  const topOffset = (ROW_HEIGHT - blockHeight) / 2;
 
   const style: React.CSSProperties = {
     position: isOverlay ? "relative" : "absolute",
     left: isOverlay ? 0 : `${displayLeft}px`,
-    top: `${topOffset}px`,
-    transform:
-      !isOverlay && transform && !isResizing
-        ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-        : undefined,
+
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
     backgroundColor: leave.color,
@@ -276,7 +271,7 @@ export const LeaveBlock = ({
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
     cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
-    boxShadow: isOverlay || isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
+    boxShadow: isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
   };
 
   const handleStyle = {
