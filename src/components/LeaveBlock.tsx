@@ -15,7 +15,7 @@ import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined"; // <-- AND ADD THIS
+import PersonIcon from "@mui/icons-material/Person";
 
 interface Props {
   leave: LeaveItem;
@@ -29,6 +29,7 @@ interface Props {
   onTooltipClose?: () => void;
   isDeletionDisabled?: boolean; // <-- ADD THIS
   isPastDaysBlocked?: boolean; // <-- ADD THIS
+  resourceName: string; // ADD THIS
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -37,6 +38,7 @@ export const LeaveBlock = ({
   left = 0,
   isOverlay = false,
   onResizeEnd,
+  resourceName,
   scrollContainerRef,
   onEdit,
   onDelete,
@@ -319,6 +321,19 @@ export const LeaveBlock = ({
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              color: "text.secondary",
+            }}
+          >
+            <PersonIcon fontSize="small" />
+            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+              {resourceName}
+            </Typography>
+          </Box>
           <Box
             sx={{
               display: "flex",

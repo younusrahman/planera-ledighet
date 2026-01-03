@@ -16,7 +16,7 @@ dayjs.updateLocale("sv", {
 });
 
 // CONSTANTS
-export const CELL_WIDTH = 60;
+export const CELL_WIDTH = 45;
 export const ROW_HEIGHT = 35;
 
 // TYPES

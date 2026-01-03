@@ -136,6 +136,15 @@ export const Timeline = () => {
   const [startDate, setStartDate] = useState(
     dayjs().startOf("day").subtract(30, "days")
   );
+  const weekendOffset = ((startDate.day() - 1 + 7) % 7) * CELL_WIDTH;
+
+  const weekendGrid = `repeating-linear-gradient(
+  90deg, 
+  transparent 0px, 
+  transparent ${5 * CELL_WIDTH}px, 
+  rgba(255, 0, 0, 0.05) ${5 * CELL_WIDTH}px, 
+  rgba(255, 0, 0, 0.05) ${7 * CELL_WIDTH}px
+)`;
   const [daysCount, setDaysCount] = useState(200);
   const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
   const [sidebarMode, setSidebarMode] = useState<
@@ -854,7 +863,6 @@ export const Timeline = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
-  const gridBackground = `repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 1px, transparent 1px, transparent ${CELL_WIDTH}px)`;
 
   return (
     <Box
@@ -1407,13 +1415,14 @@ export const Timeline = () => {
                           onPointerUp={handleGridPointerUp}
                           sx={{
                             height: ROW_HEIGHT,
-                            borderBottom: "1px solid #eee",
-                            backgroundImage: gridBackground,
+                            borderBottom: "1px solid #eee", // This creates the horizontal "line" look
                             position: "relative",
-                            cursor: "crosshair",
-                            boxSizing: "border-box",
                             display: "flex",
                             alignItems: "center",
+                            // ADD THESE THREE LINES:
+                            backgroundImage: weekendGrid,
+                            backgroundSize: `${7 * CELL_WIDTH}px 100%`,
+                            backgroundPosition: `-${weekendOffset}px 0`,
                           }}
                         >
                           {selection.isSelecting &&
@@ -1452,6 +1461,7 @@ export const Timeline = () => {
                             .filter((l) => l.rowId === res.id)
                             .map((l) => (
                               <LeaveBlock
+                                resourceName={res.name}
                                 key={l.id}
                                 leave={l}
                                 left={getDateOffset(l.startDate, startDate)}
