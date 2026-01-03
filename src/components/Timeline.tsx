@@ -67,6 +67,7 @@ const ABSENCE_TYPES = [
   { id: "sick", color: "#d32f2f", label: "Sjuk" },
   { id: "vab", color: "#ed6c02", label: "VAB" },
 ];
+const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 const INITIAL_GROUPS: Group[] = [
   {
@@ -91,16 +92,7 @@ const INITIAL_GROUPS: Group[] = [
     resources: [{ id: "5", name: "Gustav Vasa" }],
   },
 ];
-const animationStyles = `
-  @keyframes popIn {
-    0% { transform: scale(0.95); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  @keyframes marchingAnts {
-    from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
-    to { background-position: 30px 0, -30px 100%, 0 -30px, 100% 30px; }
-  }
-`;
+
 export const Timeline = () => {
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -206,6 +198,11 @@ export const Timeline = () => {
   const isJumpingRef = useRef(false);
   const isSelectingRef = useRef(false);
   const pointerXRef = useRef(0);
+  const scrollRequestRef = useRef<number | null>(null);
+  const lastPointerXRef = useRef<number>(0);
+  const startXRef = useRef<number>(0);
+
+  const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState({
     isSelecting: false,
     rowId: null as string | null,
@@ -239,6 +236,47 @@ export const Timeline = () => {
     if (sidebarMode === "full") setSidebarMode("initials");
     else if (sidebarMode === "initials") setSidebarMode("hidden");
     else setSidebarMode("full");
+  };
+
+  const startAutoScroll = () => {
+    if (scrollRequestRef.current) return;
+    const animate = () => {
+      if (!isSelectingRef.current || !scrollContainerRef.current)
+        return stopAutoScroll();
+
+      const container = scrollContainerRef.current;
+      const rect = container.getBoundingClientRect();
+      const threshold = 80;
+      const speed = 15;
+      let delta = 0;
+
+      if (lastPointerXRef.current > rect.right - threshold) delta = speed;
+      else if (lastPointerXRef.current < rect.left + threshold) delta = -speed;
+
+      if (delta !== 0) {
+        container.scrollLeft += delta;
+        // Uppdatera DOM direkt för att undvika lagg
+        if (selectionBoxRef.current) {
+          const absoluteX =
+            lastPointerXRef.current - rect.left + container.scrollLeft;
+          const snappedX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
+          const left = Math.min(startXRef.current, snappedX);
+          const width = Math.abs(snappedX - startXRef.current) + CELL_WIDTH;
+
+          selectionBoxRef.current.style.left = `${left}px`;
+          selectionBoxRef.current.style.width = `${width}px`;
+        }
+      }
+      scrollRequestRef.current = requestAnimationFrame(animate);
+    };
+    scrollRequestRef.current = requestAnimationFrame(animate);
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollRequestRef.current) {
+      cancelAnimationFrame(scrollRequestRef.current);
+      scrollRequestRef.current = null;
+    }
   };
 
   const handleResourceMenuOpen = (
@@ -427,6 +465,9 @@ export const Timeline = () => {
       );
       scrollContainerRef.current.scrollLeft = todayOffset - 200;
     }
+    return () => {
+      stopAutoScroll();
+    };
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -468,49 +509,88 @@ export const Timeline = () => {
   // --- BLOCK CREATION LOGIC (UNCHANGED FROM YOUR ORIGINAL) ---
   const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
     if (e.button !== 0 || isDragging || isTooltipOpen) return;
-    e.preventDefault();
     const container = scrollContainerRef.current;
     if (!container) return;
+
+    e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
     isSelectingRef.current = true;
-    pointerXRef.current = e.clientX;
+    lastPointerXRef.current = e.clientX;
+
     const rect = container.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const absoluteX = clientX + container.scrollLeft;
-    const dayIndex = Math.floor(absoluteX / CELL_WIDTH);
-    const snapX = dayIndex * CELL_WIDTH;
+    const absoluteX = e.clientX - rect.left + container.scrollLeft;
+
+    // Snappa direkt till rutans start för att undvika "random" hopp
+    const snappedStartX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
+    startXRef.current = snappedStartX;
+
     setSelection({
       isSelecting: true,
       rowId,
-      startX: snapX,
-      currentX: snapX,
-      startIndex: dayIndex,
+      startX: snappedStartX,
+      currentX: snappedStartX,
+      startIndex: Math.floor(snappedStartX / CELL_WIDTH),
     });
+
+    startAutoScroll();
   };
 
   const handleGridPointerMove = (e: React.PointerEvent) => {
     if (!isSelectingRef.current) return;
-    pointerXRef.current = e.clientX;
+    lastPointerXRef.current = e.clientX;
+
     const container = scrollContainerRef.current;
     if (!container) return;
+
     const rect = container.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const absoluteX = clientX + container.scrollLeft;
-    setSelection((prev) => ({ ...prev, currentX: absoluteX }));
+    const absoluteX = e.clientX - rect.left + container.scrollLeft;
+
+    if (selectionBoxRef.current) {
+      const snappedX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
+      const left = Math.min(startXRef.current, snappedX);
+      const width = Math.abs(snappedX - startXRef.current) + CELL_WIDTH;
+
+      selectionBoxRef.current.style.left = `${left}px`;
+      selectionBoxRef.current.style.width = `${width}px`;
+    }
   };
 
   const handleGridPointerUp = (e: React.PointerEvent) => {
     if (!isSelectingRef.current) return;
     isSelectingRef.current = false;
+    stopAutoScroll();
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+
     const rowId = selection.rowId;
-    if (!rowId) return;
-    const startX = Math.min(selection.startX, selection.currentX);
-    const endX = Math.max(selection.startX, selection.currentX);
-    const startIdx = Math.floor(startX / CELL_WIDTH);
-    const endIdx = Math.floor(endX / CELL_WIDTH);
+    const container = scrollContainerRef.current;
+
+    if (!container || !rowId) {
+      setSelection({
+        isSelecting: false,
+        rowId: null,
+        startX: 0,
+        currentX: 0,
+        startIndex: 0,
+      });
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const finalAbsoluteX = e.clientX - rect.left + container.scrollLeft;
+    const snappedFinalX = Math.floor(finalAbsoluteX / CELL_WIDTH) * CELL_WIDTH;
+
+    // Använd startXRef för att garantera synk med klicket
+    const minX = Math.min(startXRef.current, snappedFinalX);
+    const maxX = Math.max(startXRef.current, snappedFinalX);
+
+    const startIdx = Math.round(minX / CELL_WIDTH);
+    const endIdx = Math.round(maxX / CELL_WIDTH);
+
     const duration = endIdx - startIdx + 1;
     const finalStartDate = startDate.add(startIdx, "day");
+
+    // Stäng markeringen i React
     setSelection({
       isSelecting: false,
       rowId: null,
@@ -518,16 +598,23 @@ export const Timeline = () => {
       currentX: 0,
       startIndex: 0,
     });
+    if (finalStartDate.isBefore(today)) {
+      alert(
+        "Du kan inte registrera frånvaro på ett datum som redan har passerat."
+      );
+      return; // Stop the function here
+    }
     if (duration > 0) {
       setDialogState({
         isOpen: true,
         mode: "create",
         data: {
+          id: "",
           rowId,
           startDate: finalStartDate,
           duration,
-          typeId: "vac",
-          name: "Semester",
+          typeId: absenceTypes[0]?.id || "vac",
+          name: absenceTypes[0]?.label || "Semester",
         },
       });
     }
@@ -566,6 +653,14 @@ export const Timeline = () => {
     const { mode, data } = dialogState;
     const type = absenceTypes.find((t) => t.id === data.typeId);
     if (!type) return;
+    // Final validation check before creating the entry
+    if (data.startDate.isBefore(today)) {
+      alert(
+        "Ogiltigt datum. Du kan inte registrera frånvaro på ett datum som redan har passerat."
+      );
+      setDialogState((p) => ({ ...p, isOpen: false })); // Close dialog on error
+      return;
+    }
     const entry = {
       id: data.id || "new-" + Date.now(),
       rowId: data.rowId,
@@ -668,7 +763,6 @@ export const Timeline = () => {
         overflow: "hidden",
       }}
     >
-      <style>{animationStyles}</style>
       {/* 1. APP BAR */}
       <AppBar
         position="static"
@@ -1167,23 +1261,20 @@ export const Timeline = () => {
                           {selection.isSelecting &&
                             selection.rowId === res.id && (
                               <Box
+                                ref={selectionBoxRef}
+                                style={{
+                                  left: selection.startX, // Initial position från state
+                                  width: CELL_WIDTH, // Starta med en full ruta
+                                }}
                                 sx={{
                                   position: "absolute",
                                   top: 5,
                                   height: ROW_HEIGHT - 10,
-                                  bgcolor: "rgba(25, 118, 210, 0.15)", // Slightly lighter
+                                  bgcolor: "rgba(25, 118, 210, 0.15)",
                                   border: "2px dashed #1976d2",
                                   borderRadius: 1,
                                   zIndex: 10,
                                   pointerEvents: "none",
-                                  left: Math.min(
-                                    selection.startX,
-                                    selection.currentX
-                                  ),
-                                  width: Math.abs(
-                                    selection.currentX - selection.startX
-                                  ),
-                                  // ADD THIS ANIMATION:
                                   animation:
                                     "marchingAnts 0.5s linear infinite",
                                   backgroundImage: `linear-gradient(90deg, #1976d2 50%, transparent 50%), 
@@ -1435,6 +1526,7 @@ export const Timeline = () => {
                 <DatePicker
                   label="Startdatum"
                   value={dialogState.data.startDate}
+                  minDate={today}
                   onChange={(date) => {
                     if (date) {
                       const newStart = date.startOf("day");
@@ -1542,6 +1634,8 @@ export const Timeline = () => {
       <Dialog
         open={isTypeDialogOpen}
         onClose={() => setIsTypeDialogOpen(false)}
+        slots={{ transition: Grow }}
+        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {typeDialogMode === "edit"
