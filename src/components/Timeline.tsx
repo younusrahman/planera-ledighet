@@ -27,6 +27,9 @@ import {
   Menu,
   Collapse,
   Grow,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -60,6 +63,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
+import SettingsIcon from "@mui/icons-material/Settings";
 
 const PREDEFINED_COLORS = [
   // Blues & Purples
@@ -254,6 +258,20 @@ export const Timeline = () => {
     startIndex: 0,
   });
 
+  // State for the new Configuration Dialog
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  // State for the checkbox "Spärr för gångna dagar"
+  const [blockPastDays, setBlockPastDays] = useState(true); // Default to ON
+  // State for the checkbox "Ta bort möjligheten att radera"
+  const [disableDeletion, setDisableDeletion] = useState(false); // Default to OFF
+  // --- END OF NEW CODE ---
+  useEffect(() => {
+    // If the parent "block past days" is unchecked,
+    // the child "disable deletion" must also be unchecked.
+    if (!blockPastDays) {
+      setDisableDeletion(false);
+    }
+  }, [blockPastDays]); // Re-run this effect only when blockPastDays changes
   // --- HELPERS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
@@ -568,7 +586,7 @@ export const Timeline = () => {
     const clickedDate = startDate.add(dayIndex, "day");
 
     // --- Perform the validation check ---
-    if (clickedDate.isBefore(today)) {
+    if (blockPastDays && clickedDate.isBefore(today)) {
       return; // This completely stops the selection from starting
     }
 
@@ -656,7 +674,7 @@ export const Timeline = () => {
       currentX: 0,
       startIndex: 0,
     });
-    if (finalStartDate.isBefore(today)) {
+    if (blockPastDays && finalStartDate.isBefore(today)) {
       alert(
         "Du kan inte registrera frånvaro på ett datum som redan har passerat."
       );
@@ -700,7 +718,7 @@ export const Timeline = () => {
           .format("YYYY-MM-DD");
 
         // --- START OF VALIDATION ---
-        if (dayjs(newStartDate).isBefore(today)) {
+        if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
           alert(
             "Du kan inte flytta en ledighet till ett datum som redan har passerat."
           );
@@ -723,7 +741,7 @@ export const Timeline = () => {
     const type = absenceTypes.find((t) => t.id === data.typeId);
     if (!type) return;
     // Final validation check before creating the entry
-    if (data.startDate.isBefore(today)) {
+    if (blockPastDays && data.startDate.isBefore(today)) {
       alert(
         "Ogiltigt datum. Du kan inte registrera frånvaro på ett datum som redan har passerat."
       );
@@ -781,7 +799,7 @@ export const Timeline = () => {
             .format("YYYY-MM-DD");
 
           // --- START OF VALIDATION ---
-          if (dayjs(newStartDate).isBefore(today)) {
+          if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
             alert(
               "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat."
             );
@@ -1202,7 +1220,7 @@ export const Timeline = () => {
           }}
         >
           {/* 2. Render the overlay */}
-          {disabledOverlayWidth > 0 && (
+          {blockPastDays && disabledOverlayWidth > 0 && (
             <Box
               sx={{
                 position: "absolute",
@@ -1210,15 +1228,47 @@ export const Timeline = () => {
                 top: 0,
                 height: "100%",
                 width: `${disabledOverlayWidth}px`,
-                bgcolor: "rgba(0, 0, 0, 0)", // Semi-transparent grey
-                // borderRight: "1px dashed #999",
-                zIndex: 1, // Above grid background, below content
-                pointerEvents: "none", // Allows clicks to pass through if needed
-                background: "rgba(0, 0, 0, 0.02)",
-                boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-                backdropFilter: "blur(5px)",
-                WebkitBackdropFilter: "blur(5px)",
-                border: "1px solid rgba(255, 255, 255, 0.3)",
+                background: "rgba(255, 255, 255, 0.7)",
+                backdropFilter: "blur(10px) saturate(180%)",
+                WebkitBackdropFilter: "blur(10px) saturate(180%)",
+                boxShadow:
+                  "inset -4px 0 12px -6px rgba(0, 0, 0, 0.1), 4px 0 8px -4px rgba(0, 0, 0, 0.05)",
+                borderRight: "1px solid rgba(255, 255, 255, 0.8)",
+                zIndex: 1,
+                pointerEvents: "none",
+                backgroundImage: `repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 0, 0, 0.03) 10px,
+      rgba(0, 0, 0, 0.03) 20px
+    )`,
+                "&::before": {
+                  content: '""',
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 60px,
+        rgba(0, 0, 0, 0.02) 60px,
+        rgba(0, 0, 0, 0.02) 120px
+      )`,
+                  maskImage: `linear-gradient(rgba(0,0,0,0.8), transparent), 
+                  repeating-linear-gradient(0deg, 
+                    transparent 0px, 
+                    transparent 30px, 
+                    rgba(0,0,0,1) 30px, 
+                    rgba(0,0,0,1) 60px
+                  )`,
+                  maskComposite: "source-in",
+                  maskSize: "auto, auto 120px",
+                  maskRepeat: "no-repeat, repeat",
+                  pointerEvents: "none",
+                },
               }}
             />
           )}
@@ -1400,6 +1450,8 @@ export const Timeline = () => {
                                 scrollContainerRef={scrollContainerRef}
                                 onTooltipOpen={() => setIsTooltipOpen(true)}
                                 onTooltipClose={() => setIsTooltipOpen(false)}
+                                isDeletionDisabled={disableDeletion} // <-- ADD THIS
+                                isPastDaysBlocked={blockPastDays} // <-- ADD THIS
                               />
                             ))}
                         </Box>
@@ -1436,12 +1488,14 @@ export const Timeline = () => {
         <MenuItem onClick={handleEditResourceTrigger} sx={{ gap: 1.5 }}>
           <EditIcon fontSize="small" /> Redigera
         </MenuItem>
-        <MenuItem
-          onClick={handleDeleteResource}
-          sx={{ gap: 1.5, color: "error.main" }}
-        >
-          <DeleteIcon fontSize="small" /> Ta bort
-        </MenuItem>
+        {!disableDeletion && (
+          <MenuItem
+            onClick={handleDeleteResource}
+            sx={{ gap: 1.5, color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" /> Ta bort
+          </MenuItem>
+        )}
       </Menu>
       <Menu
         anchorEl={groupMenuAnchor}
@@ -1464,12 +1518,14 @@ export const Timeline = () => {
         <MenuItem onClick={handleEditGroupTrigger} sx={{ gap: 1.5 }}>
           <EditIcon fontSize="small" /> Redigera
         </MenuItem>
-        <MenuItem
-          onClick={handleDeleteGroup}
-          sx={{ gap: 1.5, color: "error.main" }}
-        >
-          <DeleteIcon fontSize="small" /> Ta bort
-        </MenuItem>
+        {!disableDeletion && (
+          <MenuItem
+            onClick={handleDeleteGroup}
+            sx={{ gap: 1.5, color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" /> Ta bort
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Sidebar Bottom Menu */}
@@ -1518,6 +1574,15 @@ export const Timeline = () => {
           sx={{ gap: 1.5 }}
         >
           <CalendarMonthIcon fontSize="small" /> Lägg till ledighetstyp
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setIsConfigDialogOpen(true);
+            setMainMenuAnchor(null);
+          }}
+          sx={{ gap: 1.5 }}
+        >
+          <SettingsIcon fontSize="small" /> Konfigurera
         </MenuItem>
       </Menu>
 
@@ -1623,7 +1688,7 @@ export const Timeline = () => {
                 <DatePicker
                   label="Startdatum"
                   value={dialogState.data.startDate}
-                  minDate={today}
+                  minDate={blockPastDays ? today : undefined}
                   onChange={(date) => {
                     if (date) {
                       const newStart = date.startOf("day");
@@ -1827,6 +1892,45 @@ export const Timeline = () => {
               Spara
             </Button>
           </Box>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={isConfigDialogOpen}
+        onClose={() => setIsConfigDialogOpen(false)}
+        slots={{ transition: Grow }}
+        slotProps={{ transition: { timeout: 450 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Konfiguration</DialogTitle>
+        <DialogContent>
+          <FormGroup sx={{ mt: 1 }}>
+            {/* Parent Checkbox */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={blockPastDays}
+                  onChange={(e) => setBlockPastDays(e.target.checked)}
+                />
+              }
+              label="Spärr för gångna dagar"
+            />
+
+            {/* Child Checkbox - Indented and Conditionally Disabled */}
+            <Box sx={{ pl: 4 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={disableDeletion}
+                    onChange={(e) => setDisableDeletion(e.target.checked)}
+                    disabled={!blockPastDays} // This is the key change!
+                  />
+                }
+                label="Ta bort möjligheten att radera"
+              />
+            </Box>
+          </FormGroup>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setIsConfigDialogOpen(false)}>Stäng</Button>
         </DialogActions>
       </Dialog>
     </Box>

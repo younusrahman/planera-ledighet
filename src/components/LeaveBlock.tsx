@@ -27,6 +27,8 @@ interface Props {
   onDelete?: (id: string) => void;
   onTooltipOpen?: () => void;
   onTooltipClose?: () => void;
+  isDeletionDisabled?: boolean; // <-- ADD THIS
+  isPastDaysBlocked?: boolean; // <-- ADD THIS
 }
 const today = dayjs().startOf("day");
 
@@ -40,8 +42,12 @@ export const LeaveBlock = ({
   onDelete,
   onTooltipOpen,
   onTooltipClose,
+  isDeletionDisabled = false, // <-- ADD THIS
+  isPastDaysBlocked = true, // <-- ADD THIS
 }: Props) => {
-  const isPast = dayjs(leave.startDate).isBefore(today);
+  const isPast = isPastDaysBlocked && dayjs(leave.startDate).isBefore(today);
+  const isFactuallyPast = dayjs(leave.startDate).isBefore(today);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: leave.id,
@@ -297,9 +303,19 @@ export const LeaveBlock = ({
             </Typography>
           </Box>
         </Box>
-        {isPast && (
-          <Typography color="warning" variant="h6" sx={{ fontSize: "0.85rem" }}>
-            Denna ledighet har passerat och kan inte ändras.
+        {isFactuallyPast && (
+          <Typography
+            color="warning"
+            variant="h4"
+            sx={{
+              fontSize: "0.85rem",
+              mt: 2,
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
+            Den valda perioden har redan påbörjats eller passerat.
           </Typography>
         )}
         <Box
@@ -318,33 +334,29 @@ export const LeaveBlock = ({
                 border: "1px solid",
                 borderColor: "primary.main",
                 color: "primary.main",
-                "&:hover": {
-                  bgcolor: "primary.main",
-                  color: "#fff",
-                },
+                "&:hover": { bgcolor: "primary.main", color: "#fff" },
               }}
             >
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
           )}
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete?.(leave.id);
-            }}
-            sx={{
-              border: "1px solid",
-              borderColor: "rgba(211, 47, 47, 0.3)",
-              "&:hover": {
-                bgcolor: "error.main",
-                color: "#fff",
-              },
-            }}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
+          {!(isPast && isDeletionDisabled) && (
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.(leave.id);
+              }}
+              sx={{
+                border: "1px solid",
+                borderColor: "rgba(211, 47, 47, 0.3)",
+                "&:hover": { bgcolor: "error.main", color: "#fff" },
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          )}
         </Box>
       </Box>
     </Box>
