@@ -64,7 +64,6 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
-
 const PREDEFINED_COLORS = [
   // Blues & Purples
   "#1976d2", // Material UI Blue 700
@@ -239,6 +238,7 @@ export const Timeline = () => {
 
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const previousStartDate = useRef(startDate);
   const isLoadingRef = useRef(false);
   const dragStartTimeRef = useRef(startDate);
@@ -556,12 +556,16 @@ export const Timeline = () => {
 
   const jumpToDate = (date: Dayjs | null) => {
     if (!date) return;
+
+    // This is the key: set the pickerDate to the new date
+    // so the calendar opens at the right spot next time.
     setPickerDate(date);
+
     isJumpingRef.current = true;
     isLoadingRef.current = true;
     const target = date.startOf("day");
     const newStart = target.subtract(30, "days");
-    setStartDate(newStart);
+    setStartDate(newStart); // This will update the button text correctly
     setDaysCount(300);
     setTimeout(() => {
       if (scrollContainerRef.current) {
@@ -909,6 +913,7 @@ export const Timeline = () => {
               <ArrowBackIosNewIcon fontSize="small" />
             </IconButton>
             <Button
+              ref={datePickerAnchorRef}
               onClick={() => setIsDatePickerOpen(true)}
               startIcon={<CalendarMonthIcon fontSize="small" />}
               sx={{
@@ -918,7 +923,7 @@ export const Timeline = () => {
                 minWidth: 160,
               }}
             >
-              {startDate.format("D MMM YYYY")}, v.{startDate.isoWeek()}
+              {pickerDate.format("D MMM YYYY")}, v.{pickerDate.isoWeek()}
             </Button>
             <IconButton
               size="small"
@@ -1616,11 +1621,30 @@ export const Timeline = () => {
 
       {/* Date Jump Picker */}
       <DatePicker
+        displayWeekNumber
         open={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        value={startDate}
-        onChange={jumpToDate}
-        slotProps={{ textField: { sx: { display: "none" } } }}
+        desktopModeMediaQuery="@media (min-width: 0px)"
+        value={pickerDate}
+        onChange={(newValue) => {
+          // Only update the date, do NOT close
+          if (newValue) jumpToDate(newValue);
+        }}
+        onAccept={() => {
+          setIsDatePickerOpen(false);
+        }}
+        onClose={() => {
+          setIsDatePickerOpen(false);
+        }}
+        slotProps={{
+          textField: { sx: { display: "none" } },
+          popper: {
+            anchorEl: datePickerAnchorRef.current,
+            placement: "bottom-end",
+          },
+          actionBar: {
+            actions: ["today"],
+          },
+        }}
       />
 
       {/* DIN ORIGINAL-DIALOG FÖR LEDIGHET (ORÖRD) */}
