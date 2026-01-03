@@ -1412,7 +1412,8 @@ export const Timeline = () => {
                             position: "relative",
                             cursor: "crosshair",
                             boxSizing: "border-box",
-                            display: "flex", alignItems: "center",
+                            display: "flex",
+                            alignItems: "center",
                           }}
                         >
                           {selection.isSelecting &&

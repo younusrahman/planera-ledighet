@@ -271,18 +271,7 @@ export const LeaveBlock = ({
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
     cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
-    boxShadow: isResizing
-      ? "0 8px 24px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)"
-      : isDragging
-      ? "0 8px 32px rgba(0,0,0,0.25)"
-      : "0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.25)",
-
-    border: "1px solid rgba(0,0,0,0.08)",
-    borderTop: "1px solid rgba(255,255,255,0.15)",
-    borderBottom: "1px solid rgba(0,0,0,0.12)",
-
-    textShadow: "0 1px 1px rgba(0,0,0,0.2)",
-    letterSpacing: "0.3px",
+    boxShadow: isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
   };
 
   const handleStyle = {
@@ -303,7 +292,7 @@ export const LeaveBlock = ({
       sx={{
         width: "10px",
         height: "10px",
-        bgcolor: "rgba(255, 255, 255, 0.65)",
+        bgcolor: "rgba(255,255,255,0.5)",
         borderRadius: "50%",
       }}
     />
