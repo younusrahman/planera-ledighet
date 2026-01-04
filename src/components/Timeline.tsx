@@ -860,10 +860,6 @@ export const Timeline = () => {
   const handleDelete = (id: string) =>
     setLeaves((prev) => prev.filter((l) => l.id !== id));
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
   return (
     <Box
       sx={{
@@ -1385,7 +1381,6 @@ export const Timeline = () => {
           </Box>
 
           <DndContext
-            sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             modifiers={[restrictToHorizontalAxis]}
@@ -1483,7 +1478,7 @@ export const Timeline = () => {
               })}
             </Box>
             <DragOverlay adjustScale={false}>
-              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
+              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay resourceName={""} />}
             </DragOverlay>
           </DndContext>
         </Box>
