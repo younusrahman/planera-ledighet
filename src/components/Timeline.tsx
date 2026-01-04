@@ -990,9 +990,7 @@ export const Timeline = () => {
   const handleDelete = (id: string) =>
     setLeaves((prev) => prev.filter((l) => l.id !== id));
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const sensors = useSensors(useSensor(PointerSensor));
 
   return (
     <Box
