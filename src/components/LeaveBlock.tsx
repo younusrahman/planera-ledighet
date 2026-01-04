@@ -29,7 +29,7 @@ interface Props {
   onTooltipClose?: () => void;
   isDeletionDisabled?: boolean; // <-- ADD THIS
   isPastDaysBlocked?: boolean; // <-- ADD THIS
-  resourceName: string; // ADD THIS
+  resourceName?: string; // ADD THIS
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -38,7 +38,7 @@ export const LeaveBlock = ({
   left = 0,
   isOverlay = false,
   onResizeEnd,
-  resourceName,
+  resourceName = "Not specified",
   scrollContainerRef,
   onEdit,
   onDelete,
@@ -133,42 +133,52 @@ export const LeaveBlock = ({
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     e.preventDefault();
     e.stopPropagation();
+
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
     setIsTooltipOpen(false);
+
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
+
+    // 1. Set refs to start the animation loop
     setIsResizing(true);
-    setVisualDuration(leave.durationDays);
-    setVisualStartShift(0);
     isResizingRef.current = true;
     directionRef.current = direction;
     startXRef.current = e.clientX;
     mouseXRef.current = e.clientX;
     prevLeftRef.current = left;
 
-    if (scrollContainerRef?.current)
+    if (scrollContainerRef?.current) {
       startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
+    }
 
+    // Define the move handler
     const onPointerMove = (moveEvent: PointerEvent) => {
       mouseXRef.current = moveEvent.clientX;
     };
+
+    // Define the release handler
     const onPointerUp = (upEvent: PointerEvent) => {
-      // 1. Clean up event listeners and refs to stop tracking mouse movement.
-      handle.releasePointerCapture(upEvent.pointerId);
-      handle.removeEventListener("pointermove", onPointerMove);
-      handle.removeEventListener("pointerup", onPointerUp);
-      isResizingRef.current = false;
+      // IMPORTANT: Stop propagation so the click doesn't trigger
+      // a new selection or drag elsewhere on the timeline
+      upEvent.stopPropagation();
+
+      // 2. IMMEDIATE CLEANUP - This stops the "ghost" movement
+      isResizingRef.current = false; // Stops the 'animate' function loop
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+
+      // Release the mouse focus from the handle
+      if (handle.hasPointerCapture(upEvent.pointerId)) {
+        handle.releasePointerCapture(upEvent.pointerId);
+      }
+
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
         requestRef.current = 0;
       }
 
-      // 2. Set isResizing to false. This is the most critical step.
-      // It triggers a re-render where the block's CSS `transition` property becomes active.
-      // The block is still visually at its last dragged position.
-      setIsResizing(false);
-
-      // 3. Calculate the final, snapped values based on the total mouse travel.
+      // 3. CALCULATE FINAL POSITION
       if (scrollContainerRef?.current) {
         const finalScrollLeft = scrollContainerRef.current.scrollLeft;
         const scrollDiff = finalScrollLeft - startScrollLeftRef.current;
@@ -176,30 +186,35 @@ export const LeaveBlock = ({
         const totalDeltaX = mouseDiff + scrollDiff;
         const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
         const startDuration = leave.durationDays;
+
         let fDur = startDuration;
         let fS = 0;
 
         if (directionRef.current === "right") {
           fDur = Math.max(1, startDuration + deltaDays);
         } else {
-          const mS = startDuration - 1;
-          // Clamp the final shift value to prevent the block from inverting
-          fS = Math.max(Math.min(deltaDays, mS), -mS);
+          const maxShrink = startDuration - 1;
+          fS = Math.min(deltaDays, maxShrink);
           fDur = startDuration - fS;
         }
 
-        // 4. Report these final values to the parent component.
-        // This will cause the parent to update its state and send down new props,
-        // which will trigger the animation.
+        // 4. REPORT TO PARENT
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
           onResizeEnd(leave.id, fDur, fS);
         }
+
+        // Trigger re-render to turn off resizing mode
+        setIsResizing(false);
       }
-      // NOTE: We do NOT reset visualStartShift here. The useEffect hook will handle it
-      // after the animation is complete, which prevents the visual "jump-back" glitch.
     };
-    handle.addEventListener("pointermove", onPointerMove);
-    handle.addEventListener("pointerup", onPointerUp);
+
+    // 5. ATTACH TO WINDOW
+    // We attach to 'window' so movement is tracked even if the mouse
+    // leaves the small handle area.
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+
+    // Start the visual growth animation
     requestRef.current = requestAnimationFrame(animate);
   };
 

@@ -45,6 +45,8 @@ import {
   useSensor,
   useSensors,
   DragOverlay,
+  useDroppable,
+  useDraggable,
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import {
@@ -130,7 +132,80 @@ const INITIAL_GROUPS: Group[] = [
     resources: [{ id: "5", name: "Gustav Vasa" }],
   },
 ];
+const DraggableResourceRow = ({
+  res,
+  children,
+  groupId,
+}: {
+  res: any;
+  children: React.ReactNode;
+  groupId: string;
+}) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `res-${res.id}`,
+      data: { type: "resource", resource: res, fromGroupId: groupId },
+    });
 
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 9999,
+        opacity: 0.8,
+      }
+    : undefined;
+
+  return (
+    <Box ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      {children}
+    </Box>
+  );
+};
+
+const DroppableGroup = ({
+  groupId,
+  children,
+}: {
+  groupId: string;
+  children: React.ReactNode;
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `group-${groupId}`,
+    data: { type: "group", groupId },
+  });
+
+  return (
+    <Box
+      ref={setNodeRef}
+      sx={{
+        bgcolor: isOver ? "rgba(25, 118, 210, 0.12)" : "transparent",
+        transition: "background 0.2s",
+      }}
+    >
+      {children}
+    </Box>
+  );
+};
+const restrictBlocksToHorizontal = ({ transform, active }: any) => {
+  // 1. Safety check: If nothing is being dragged, do nothing
+  if (!active || !active.id) return transform;
+
+  // 2. Convert ID to string safely
+  const id = active.id.toString();
+
+  // 3. Check if it's a leave block (starts with "l" or "new-")
+  if (id.startsWith("l") || id.startsWith("new-")) {
+    return {
+      ...transform,
+      y: 0, // This locks the vertical movement
+    };
+  }
+
+  // 4. For everything else (like moving employees between groups),
+  // allow free movement
+  return transform;
+};
+// --- END PASTE ---
 export const Timeline = () => {
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -713,42 +788,97 @@ export const Timeline = () => {
     }
   };
   const handleDragStart = (event: DragStartEvent) => {
-    setIsDragging(true);
-    dragStartTimeRef.current = startDate;
-    const item = leaves.find((l) => l.id === event.active.id);
-    if (item) setActiveLeave(item);
+    const { active } = event;
+    if (!active) return;
+    const id = active.id.toString();
+    // Handle Leave Block Drag
+    if (
+      id.startsWith("l") ||
+      id.startsWith("new-") ||
+      !active.data.current?.type
+    ) {
+      setIsDragging(true);
+      dragStartTimeRef.current = startDate;
+      const item = leaves.find((l) => l.id === active.id);
+      if (item) setActiveLeave(item);
+    }
+    // Handle Resource Drag
+    else if (active.data.current?.type === "resource") {
+      setIsDragging(true);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setIsDragging(false);
     setActiveLeave(null);
-    const { active, delta } = event;
-    const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
-    const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
-    const finalDaysDiff = visualMovedDays + daysGridMoved;
+    const { active, over, delta } = event;
 
-    if (finalDaysDiff !== 0) {
-      const item = leaves.find((l) => l.id === active.id);
-      if (item) {
-        const newStartDate = dayjs(item.startDate)
-          .add(finalDaysDiff, "day")
-          .format("YYYY-MM-DD");
+    // 1. LOGIK FÖR ATT FLYTTA ANSTÄLLDA (Vertical drag)
+    // Här behöver vi 'over' för att veta vilken grupp vi släpper på
+    if (active.data.current?.type === "resource") {
+      if (!over || over.data.current?.type !== "group") return;
 
-        // --- START OF VALIDATION ---
-        if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-          alert(
-            "Du kan inte flytta en ledighet till ett datum som redan har passerat."
-          );
-          return; // This aborts the move, snapping the block back.
-        }
-        // --- END OF VALIDATION ---
+      const fromGroupId = active.data.current.fromGroupId;
+      const toGroupId = over.data.current.groupId;
+      const resourceToMove = active.data.current.resource;
 
-        if (!checkCollision(leaves, { ...item, startDate: newStartDate })) {
-          setLeaves((prev) =>
-            prev.map((l) =>
-              l.id === active.id ? { ...l, startDate: newStartDate } : l
-            )
-          );
+      if (fromGroupId === toGroupId) return;
+
+      setGroups((prev) =>
+        prev.map((group) => {
+          if (group.id === fromGroupId) {
+            return {
+              ...group,
+              resources: group.resources.filter(
+                (r) => r.id !== resourceToMove.id
+              ),
+            };
+          }
+          if (group.id === toGroupId) {
+            return {
+              ...group,
+              resources: [...group.resources, resourceToMove],
+            };
+          }
+          return group;
+        })
+      );
+      return;
+    }
+
+    // 2. LOGIK FÖR ATT FLYTTA SEMESTERBLOCK (Horizontal drag)
+    // Vi kollar på ID:t (l1, l2 etc) istället för 'over'
+    if (
+      active.id.toString().startsWith("l") ||
+      active.id.toString().startsWith("new-")
+    ) {
+      const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
+      const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
+      const finalDaysDiff = visualMovedDays + daysGridMoved;
+
+      if (finalDaysDiff !== 0) {
+        const item = leaves.find((l) => l.id === active.id);
+        if (item) {
+          const newStartDate = dayjs(item.startDate)
+            .add(finalDaysDiff, "day")
+            .format("YYYY-MM-DD");
+
+          // Validering: Spärr för dåtid
+          if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
+            alert(
+              "Du kan inte flytta en ledighet till ett datum som redan har passerat."
+            );
+            return;
+          }
+
+          // Validering: Kollision
+          if (!checkCollision(leaves, { ...item, startDate: newStartDate })) {
+            setLeaves((prev) =>
+              prev.map((l) =>
+                l.id === active.id ? { ...l, startDate: newStartDate } : l
+              )
+            );
+          }
         }
       }
     }
@@ -888,12 +1018,12 @@ export const Timeline = () => {
             {absenceTypes.map((type) => (
               <Box
                 key={type.id}
-                onClick={() => handleEditTypeOpen(type)} // <--- LÄGG TILL DENNA
+                onClick={() => handleEditTypeOpen(type)}
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   gap: 0.5,
-                  cursor: "pointer", // <--- GÖR DEN KLICKBAR
+                  cursor: "pointer",
                   padding: "4px 8px",
                   borderRadius: "4px",
                   "&:hover": { bgcolor: "rgba(0,0,0,0.05)" },
@@ -947,467 +1077,459 @@ export const Timeline = () => {
         </Toolbar>
       </AppBar>
 
-      {/* 2. MAIN CONTENT AREA */}
-      <Box
-        sx={{
-          display: "flex",
-          flex: 1,
-          overflow: "hidden",
-          position: "relative",
-        }}
+      {/* 2. MAIN CONTENT AREA WRAPPED IN DNDCONTEXT */}
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        modifiers={[restrictBlocksToHorizontal]}
+        // Modifiers borttagna för att tillåta vertikal dragning av anställda
       >
-        {/* SIDEBAR (GLASSMORPHISM) */}
         <Box
           sx={{
-            width:
-              sidebarMode === "full"
-                ? 200
-                : sidebarMode === "initials"
-                ? 70
-                : 0,
-            transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            display: "flex",
+            flex: 1,
+            overflow: "hidden",
             position: "relative",
-            zIndex: 1100,
-            overflow: "visible",
           }}
         >
+          {/* SIDEBAR */}
           <Box
             sx={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              background: "rgba(255, 255, 255, 0.7)",
-              backdropFilter: "blur(20px)",
-              borderRight:
-                sidebarMode === "hidden"
-                  ? "none"
-                  : "1px solid rgba(0, 0, 0, 0.1)",
-              boxShadow:
-                sidebarMode === "hidden"
-                  ? "none"
-                  : "4px 0 15px rgba(0,0,0,0.05)",
+              width:
+                sidebarMode === "full"
+                  ? 200
+                  : sidebarMode === "initials"
+                  ? 70
+                  : 0,
+              transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+              position: "relative",
+              zIndex: 1100,
+              overflow: "visible",
             }}
           >
             <Box
               sx={{
-                height: 105,
-                borderBottom: "1px solid rgba(0,0,0,0.1)",
+                width: "100%",
+                height: "100%",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                flexDirection: "column",
+                overflow: "hidden",
+                background: "rgba(255, 255, 255, 0.7)",
+                backdropFilter: "blur(20px)",
+                borderRight:
+                  sidebarMode === "hidden"
+                    ? "none"
+                    : "1px solid rgba(0, 0, 0, 0.1)",
+                boxShadow:
+                  sidebarMode === "hidden"
+                    ? "none"
+                    : "4px 0 15px rgba(0,0,0,0.05)",
               }}
             >
+              <Box
+                sx={{
+                  height: 105,
+                  borderBottom: "1px solid rgba(0,0,0,0.1)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {sidebarMode !== "hidden" && (
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      bgcolor: "primary.main",
+                      borderRadius: 1.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontWeight: "bold",
+                      fontSize: "1.2rem",
+                    }}
+                  >
+                    P
+                  </Box>
+                )}
+              </Box>
+
+              <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden" }}>
+                {groups.map((group) => {
+                  const isCollapsed = collapsedGroups.includes(group.id);
+                  const header = (
+                    <Box
+                      onClick={() => toggleGroup(group.id)}
+                      sx={{
+                        height: 40,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent:
+                          sidebarMode === "initials"
+                            ? "center"
+                            : "space-between",
+                        px: sidebarMode === "initials" ? 0 : 2,
+                        bgcolor: "rgba(0,0,0,0.04)",
+                        borderBottom: "1px solid rgba(0,0,0,0.03)",
+                        cursor: "pointer",
+                        boxSizing: "border-box",
+                        "&:hover": {
+                          bgcolor: "rgba(0,0,0,0.08)",
+                          "& .group-menu-btn": { opacity: 1 },
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {sidebarMode === "full" && (
+                          <Box
+                            sx={{
+                              mr: 1,
+                              display: "flex",
+                              transition: "transform 0.3s",
+                              transform: isCollapsed
+                                ? "rotate(-90deg)"
+                                : "rotate(0deg)",
+                            }}
+                          >
+                            <KeyboardArrowDownIcon fontSize="small" />
+                          </Box>
+                        )}
+                        <Typography
+                          variant="subtitle1"
+                          noWrap
+                          sx={{
+                            fontWeight: 700,
+                            textAlign:
+                              sidebarMode === "initials" ? "center" : "left",
+                          }}
+                        >
+                          {sidebarMode === "initials"
+                            ? getInitials(group.name)
+                            : group.name}
+                        </Typography>
+                      </Box>
+                      {sidebarMode === "full" && (
+                        <IconButton
+                          className="group-menu-btn"
+                          size="small"
+                          sx={{ opacity: 0 }}
+                          onClick={(e) => handleGroupMenuOpen(e, group.id)}
+                        >
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  );
+
+                  return (
+                    <DroppableGroup key={group.id} groupId={group.id}>
+                      <Box>
+                        {sidebarMode === "initials" ? (
+                          <Tooltip title={group.name} placement="right" arrow>
+                            {header}
+                          </Tooltip>
+                        ) : (
+                          header
+                        )}
+                        <Collapse in={!isCollapsed}>
+                          {group.resources.map((res) => {
+                            const resRowContent = (
+                              <Box
+                                sx={{
+                                  height: ROW_HEIGHT,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  px: sidebarMode === "initials" ? 0 : 2,
+                                  justifyContent:
+                                    sidebarMode === "initials"
+                                      ? "center"
+                                      : "flex-start",
+                                  borderBottom: "1px solid rgba(0,0,0,0.03)",
+                                  pl: sidebarMode === "full" ? 5 : 0,
+                                  boxSizing: "border-box",
+                                  "&:hover": {
+                                    bgcolor: "rgba(0,0,0,0.04)",
+                                    "& .res-menu-btn": { opacity: 1 },
+                                  },
+                                }}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  noWrap
+                                  sx={{
+                                    fontWeight: 500,
+                                    textAlign:
+                                      sidebarMode === "initials"
+                                        ? "center"
+                                        : "left",
+                                  }}
+                                >
+                                  {sidebarMode === "initials"
+                                    ? getInitials(res.name)
+                                    : res.name}
+                                </Typography>
+                                {sidebarMode === "full" && (
+                                  <IconButton
+                                    className="res-menu-btn"
+                                    size="small"
+                                    sx={{ opacity: 0, ml: "auto", mr: 1 }}
+                                    onClick={(e) =>
+                                      handleResourceMenuOpen(
+                                        e,
+                                        group.id,
+                                        res.id
+                                      )
+                                    }
+                                  >
+                                    <MoreVertIcon fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </Box>
+                            );
+
+                            return (
+                              <DraggableResourceRow
+                                key={res.id}
+                                res={res}
+                                groupId={group.id}
+                              >
+                                {sidebarMode === "initials" ? (
+                                  <Tooltip
+                                    title={res.name}
+                                    placement="right"
+                                    arrow
+                                  >
+                                    {resRowContent}
+                                  </Tooltip>
+                                ) : (
+                                  resRowContent
+                                )}
+                              </DraggableResourceRow>
+                            );
+                          })}
+                        </Collapse>
+                      </Box>
+                    </DroppableGroup>
+                  );
+                })}
+              </Box>
+
               {sidebarMode !== "hidden" && (
                 <Box
                   sx={{
-                    width: 40,
-                    height: 40,
-                    bgcolor: "primary.main",
-                    borderRadius: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
+                    p: 1,
+                    borderTop: "1px solid rgba(0,0,0,0.1)",
+                    bgcolor: "white",
                   }}
                 >
-                  P
+                  <Button
+                    fullWidth
+                    startIcon={<MenuIcon />}
+                    onClick={(e) => setMainMenuAnchor(e.currentTarget)}
+                    sx={{
+                      justifyContent: "center",
+                      textTransform: "none",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {sidebarMode === "full" && "Meny"}
+                  </Button>
                 </Box>
               )}
             </Box>
 
-            {/* List with Collapsible Animation */}
-            <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden" }}>
-              {groups.map((group) => {
-                const isCollapsed = collapsedGroups.includes(group.id);
-                const header = (
-                  <Box
-                    onClick={() => toggleGroup(group.id)}
-                    sx={{
-                      height: 40,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent:
-                        sidebarMode === "initials" ? "center" : "space-between",
-                      px: sidebarMode === "initials" ? 0 : 2,
-                      bgcolor: "rgba(0,0,0,0.04)",
-                      borderBottom: "1px solid rgba(0,0,0,0.03)",
-                      cursor: "pointer",
-                      boxSizing: "border-box",
-                      "&:hover": {
-                        bgcolor: "rgba(0,0,0,0.08)",
-                        "& .group-menu-btn": { opacity: 1 },
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {sidebarMode === "full" && (
-                        <Box
-                          sx={{
-                            mr: 1,
-                            display: "flex",
-                            transition: "transform 0.3s",
-                            transform: isCollapsed
-                              ? "rotate(-90deg)"
-                              : "rotate(0deg)",
-                          }}
-                        >
-                          <KeyboardArrowDownIcon fontSize="small" />
-                        </Box>
-                      )}
-                      <Typography
-                        variant="subtitle1"
-                        noWrap
-                        sx={{
-                          fontWeight: 700,
-                          textAlign:
-                            sidebarMode === "initials" ? "center" : "left",
-                        }}
-                      >
-                        {sidebarMode === "initials"
-                          ? getInitials(group.name)
-                          : group.name}
-                      </Typography>
-                    </Box>
-                    {sidebarMode === "full" && (
-                      <IconButton
-                        className="group-menu-btn"
-                        size="small"
-                        sx={{ opacity: 0 }}
-                        onClick={(e) => handleGroupMenuOpen(e, group.id)}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                );
-
-                return (
-                  <Box key={group.id}>
-                    {sidebarMode === "initials" ? (
-                      <Tooltip title={group.name} placement="right" arrow>
-                        {header}
-                      </Tooltip>
-                    ) : (
-                      header
-                    )}
-                    <Collapse in={!isCollapsed}>
-                      {group.resources.map((res, index) => {
-                        const resRow = (
-                          <Box
-                            key={index}
-                            sx={{
-                              height: ROW_HEIGHT,
-                              display: "flex",
-                              alignItems: "center",
-                              px: sidebarMode === "initials" ? 0 : 2,
-                              justifyContent:
-                                sidebarMode === "initials"
-                                  ? "center"
-                                  : "flex-start",
-                              borderBottom: "1px solid rgba(0,0,0,0.03)",
-                              pl: sidebarMode === "full" ? 5 : 0,
-                              boxSizing: "border-box",
-                              // LÄGG TILL DESSA RADER:
-                              "&:hover": {
-                                bgcolor: "rgba(0,0,0,0.04)",
-                                "& .res-menu-btn": { opacity: 1 },
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              noWrap
-                              sx={{
-                                fontWeight: 500,
-                                textAlign:
-                                  sidebarMode === "initials"
-                                    ? "center"
-                                    : "left",
-                              }}
-                            >
-                              {sidebarMode === "initials"
-                                ? getInitials(res.name)
-                                : res.name}
-                            </Typography>
-                            {sidebarMode === "full" && (
-                              <IconButton
-                                className="res-menu-btn"
-                                size="small"
-                                sx={{ opacity: 0, ml: "auto", mr: 1 }}
-                                onClick={(e) =>
-                                  handleResourceMenuOpen(e, group.id, res.id)
-                                }
-                              >
-                                <MoreVertIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </Box>
-                        );
-                        return sidebarMode === "initials" ? (
-                          <Tooltip
-                            key={res.id}
-                            title={res.name}
-                            placement="right"
-                            arrow
-                          >
-                            {resRow}
-                          </Tooltip>
-                        ) : (
-                          resRow
-                        );
-                      })}
-                    </Collapse>
-                  </Box>
-                );
-              })}
-            </Box>
-
-            {/* Bottom Menu Button */}
-            {sidebarMode !== "hidden" && (
-              <Box
-                sx={{
-                  p: 1,
-                  borderTop: "1px solid rgba(0,0,0,0.1)",
-                  bgcolor: "white",
-                }}
-              >
-                <Button
-                  fullWidth
-                  startIcon={<MenuIcon />}
-                  onClick={(e) => setMainMenuAnchor(e.currentTarget)}
-                  sx={{
-                    justifyContent: "center",
-                    textTransform: "none",
-                    fontWeight: 700,
-                  }}
-                >
-                  {sidebarMode === "full" && "Meny"}
-                </Button>
-              </Box>
-            )}
-          </Box>
-
-          <IconButton
-            onClick={handleToggleSidebar}
-            size="small"
-            sx={{
-              position: "absolute",
-              bottom: 104,
-              right: sidebarMode === "hidden" ? -24 : -14,
-              zIndex: 1200,
-              width: 38,
-              height: 38,
-              bgcolor: "white",
-              border: "1px solid #ddd",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-              "&:hover": { bgcolor: "#f8f9fa", transform: "scale(1.1)" },
-              transition: "all 0.2s ease-in-out",
-            }}
-          >
-            {sidebarMode === "hidden" ? (
-              <KeyboardArrowRight fontSize="large" color="primary" />
-            ) : (
-              <KeyboardArrowLeft fontSize="medium" color="primary" />
-            )}
-          </IconButton>
-        </Box>
-
-        {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-        <Box
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          sx={{
-            flex: 1,
-            overflowX: "auto",
-            overflowY: "hidden",
-            position: "relative",
-            bgcolor: "#fff",
-            zIndex: 1,
-          }}
-        >
-          {/* 2. Render the overlay */}
-          {blockPastDays && disabledOverlayWidth > 0 && (
-            <Box
+            <IconButton
+              onClick={handleToggleSidebar}
+              size="small"
               sx={{
                 position: "absolute",
-                left: 0,
-                top: 0,
-                height: "100%",
-                width: `${disabledOverlayWidth}px`,
-                background: "rgba(255, 255, 255, 0.7)",
-                backdropFilter: "blur(10px) saturate(180%)",
-                WebkitBackdropFilter: "blur(10px) saturate(180%)",
-                boxShadow:
-                  "inset -4px 0 12px -6px rgba(0, 0, 0, 0.1), 4px 0 8px -4px rgba(0, 0, 0, 0.05)",
-                borderRight: "1px solid rgba(255, 255, 255, 0.8)",
-                zIndex: 1,
-                pointerEvents: "none",
-                backgroundImage: `repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      rgba(0, 0, 0, 0.03) 10px,
-      rgba(0, 0, 0, 0.03) 20px
-    )`,
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: `repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 60px,
-        rgba(0, 0, 0, 0.02) 60px,
-        rgba(0, 0, 0, 0.02) 120px
-      )`,
-                  maskImage: `linear-gradient(rgba(0,0,0,0.8), transparent), 
-                  repeating-linear-gradient(0deg, 
-                    transparent 0px, 
-                    transparent 30px, 
-                    rgba(0,0,0,1) 30px, 
-                    rgba(0,0,0,1) 60px
-                  )`,
-                  maskComposite: "source-in",
-                  maskSize: "auto, auto 120px",
-                  maskRepeat: "no-repeat, repeat",
-                  pointerEvents: "none",
-                },
-              }}
-            />
-          )}
-          <Box
-            sx={{
-              position: "sticky",
-              top: 0,
-              zIndex: 20,
-              bgcolor: "white",
-              width: daysCount * CELL_WIDTH,
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                height: 40,
-                borderBottom: "1px solid #eee",
-                boxSizing: "border-box",
-                position: "relative",
+                bottom: 104,
+                right: sidebarMode === "hidden" ? -24 : -14,
+                zIndex: 1200,
+                width: 38,
+                height: 38,
+                bgcolor: "white",
+                border: "1px solid #ddd",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                "&:hover": { bgcolor: "#f8f9fa", transform: "scale(1.1)" },
+                transition: "all 0.2s ease-in-out",
               }}
             >
-              {days
-                .filter((d, i) => i === 0 || d.date() === 1)
-                .map((day) => (
-                  <Typography
-                    key={day.toISOString() + "m"}
-                    variant="subtitle2"
-                    sx={{
-                      position: "absolute",
-                      left:
-                        getDateOffset(day.format("YYYY-MM-DD"), startDate) + 10,
-                      pt: 1,
-                      fontWeight: 700,
-                      color: "primary.main",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {day.format("MMMM YYYY")}
-                  </Typography>
-                ))}
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                height: 25,
-                bgcolor: "#fafafa",
-                borderBottom: "1px solid #eee",
-                boxSizing: "border-box",
-                position: "relative",
-              }}
-            >
-              {days
-                .filter((d) => d.day() === 1)
-                .map((day) => (
-                  <Typography
-                    key={day.toISOString() + "w"}
-                    variant="caption"
-                    sx={{
-                      position: "absolute",
-                      left:
-                        getDateOffset(day.format("YYYY-MM-DD"), startDate) + 5,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Vecka.{day.isoWeek()}
-                  </Typography>
-                ))}
-            </Box>
-            <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
-              {days.map((day) => (
-                <Box
-                  key={day.toISOString()}
-                  sx={{
-                    width: CELL_WIDTH,
-                    minWidth: CELL_WIDTH,
-                    textAlign: "center",
-                    pt: 0.5,
-                    borderRight: "1px solid #eee",
-                    borderBottom: "1px solid #ddd",
-                    bgcolor: day.isSame(dayjs(), "day")
-                      ? "#fff9c4"
-                      : day.day() === 0 || day.day() === 6
-                      ? "#bd0a0a3d"
-                      : "white",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <Typography sx={{ fontSize: "0.6rem", fontWeight: 600 }}>
-                    {day.format("ddd").toUpperCase()}
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {day.format("D")}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+              {sidebarMode === "hidden" ? (
+                <KeyboardArrowRight fontSize="large" color="primary" />
+              ) : (
+                <KeyboardArrowLeft fontSize="medium" color="primary" />
+              )}
+            </IconButton>
           </Box>
 
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            modifiers={[restrictToHorizontalAxis]}
+          {/* TIMELINE AREA */}
+          <Box
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            sx={{
+              flex: 1,
+              overflowX: "auto",
+              overflowY: "hidden",
+              position: "relative",
+              bgcolor: "#fff",
+              zIndex: 1,
+            }}
           >
+            {blockPastDays && disabledOverlayWidth > 0 && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  height: "100%",
+                  width: `${disabledOverlayWidth}px`,
+                  background: "rgba(255, 255, 255, 0.7)",
+                  backdropFilter: "blur(10px) saturate(180%)",
+                  zIndex: 1,
+                  pointerEvents: "none",
+                  backgroundImage: `repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    rgba(0, 0, 0, 0.03) 10px,
+                    rgba(0, 0, 0, 0.03) 20px
+                  )`,
+                }}
+              />
+            )}
+
+            <Box
+              sx={{
+                position: "sticky",
+                top: 0,
+                zIndex: 20,
+                bgcolor: "white",
+                width: daysCount * CELL_WIDTH,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  height: 40,
+                  borderBottom: "1px solid #eee",
+                  boxSizing: "border-box",
+                  position: "relative",
+                }}
+              >
+                {days
+                  .filter((d, i) => i === 0 || d.date() === 1)
+                  .map((day) => (
+                    <Typography
+                      key={day.toISOString() + "m"}
+                      variant="subtitle2"
+                      sx={{
+                        position: "absolute",
+                        left:
+                          getDateOffset(day.format("YYYY-MM-DD"), startDate) +
+                          10,
+                        pt: 1,
+                        fontWeight: 700,
+                        color: "primary.main",
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {day.format("MMMM YYYY")}
+                    </Typography>
+                  ))}
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  height: 25,
+                  bgcolor: "#fafafa",
+                  borderBottom: "1px solid #eee",
+                  boxSizing: "border-box",
+                  position: "relative",
+                }}
+              >
+                {days
+                  .filter((d) => d.day() === 1)
+                  .map((day) => (
+                    <Typography
+                      key={day.toISOString() + "w"}
+                      variant="caption"
+                      sx={{
+                        position: "absolute",
+                        left:
+                          getDateOffset(day.format("YYYY-MM-DD"), startDate) +
+                          5,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Vecka.{day.isoWeek()}
+                    </Typography>
+                  ))}
+              </Box>
+              <Box
+                sx={{ display: "flex", height: 40, boxSizing: "border-box" }}
+              >
+                {days.map((day) => (
+                  <Box
+                    key={day.toISOString()}
+                    sx={{
+                      width: CELL_WIDTH,
+                      minWidth: CELL_WIDTH,
+                      textAlign: "center",
+                      pt: 0.5,
+                      borderRight: "1px solid #eee",
+                      borderBottom: "1px solid #ddd",
+                      bgcolor: day.isSame(dayjs(), "day")
+                        ? "#fff9c4"
+                        : day.day() === 0 || day.day() === 6
+                        ? "#bd0a0a3d"
+                        : "white",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <Typography sx={{ fontSize: "0.6rem", fontWeight: 600 }}>
+                      {day.format("ddd").toUpperCase()}
+                    </Typography>
+                    <Typography sx={{ fontWeight: 800 }}>
+                      {day.format("D")}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+
             <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
               {groups.map((group) => {
                 const isCollapsed = collapsedGroups.includes(group.id);
                 return (
                   <Box key={group.id}>
-                    {/* Synchronized Group Row */}
-                    <Box
-                      sx={{
-                        height: 40,
-                        bgcolor: "#31313116",
-                        borderBottom: "1px solid #eee",
-                        boxSizing: "border-box",
-                      }}
-                    />
+                    {/* Grupp-rad (Synkroniserad med sidofältets rubrik) */}
+                    <DroppableGroup groupId={group.id}>
+                      <Box
+                        sx={{
+                          height: 40,
+                          bgcolor: "#31313116",
+                          borderBottom: "1px solid #eee",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </DroppableGroup>
+
                     <Collapse in={!isCollapsed}>
                       {group.resources.map((res) => (
+                        /* Varje anställds rad i rutnätet */
                         <Box
                           key={res.id}
+                          // VIKTIGT: Dessa hanterar skapandet av nya block
                           onPointerDown={(e) =>
                             handleGridPointerDown(e, res.id)
                           }
@@ -1415,23 +1537,26 @@ export const Timeline = () => {
                           onPointerUp={handleGridPointerUp}
                           sx={{
                             height: ROW_HEIGHT,
-                            borderBottom: "1px solid #eee", // This creates the horizontal "line" look
+                            borderBottom: "1px solid #eee",
                             position: "relative",
                             display: "flex",
                             alignItems: "center",
-                            // ADD THESE THREE LINES:
                             backgroundImage: weekendGrid,
                             backgroundSize: `${7 * CELL_WIDTH}px 100%`,
                             backgroundPosition: `-${weekendOffset}px 0`,
+                            // Säkerställ att raden kan ta emot klick även om den är tom
+                            touchAction: "none",
+                            userSelect: "none",
                           }}
                         >
+                          {/* Markeringen som visas när du drar ut ett NYTT block */}
                           {selection.isSelecting &&
                             selection.rowId === res.id && (
                               <Box
                                 ref={selectionBoxRef}
                                 style={{
-                                  left: selection.startX, // Initial position från state
-                                  width: CELL_WIDTH, // Starta med en full ruta
+                                  left: selection.startX,
+                                  width: CELL_WIDTH,
                                 }}
                                 sx={{
                                   position: "absolute",
@@ -1445,9 +1570,9 @@ export const Timeline = () => {
                                   animation:
                                     "marchingAnts 0.5s linear infinite",
                                   backgroundImage: `linear-gradient(90deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(90deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(0deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(0deg, #1976d2 50%, transparent 50%)`,
+                                    linear-gradient(90deg, #1976d2 50%, transparent 50%), 
+                                    linear-gradient(0deg, #1976d2 50%, transparent 50%), 
+                                    linear-gradient(0deg, #1976d2 50%, transparent 50%)`,
                                   backgroundRepeat:
                                     "repeat-x, repeat-x, repeat-y, repeat-y",
                                   backgroundSize:
@@ -1457,6 +1582,8 @@ export const Timeline = () => {
                                 }}
                               />
                             )}
+
+                          {/* Befintliga semesterblock på denna rad */}
                           {leaves
                             .filter((l) => l.rowId === res.id)
                             .map((l) => (
@@ -1471,8 +1598,8 @@ export const Timeline = () => {
                                 scrollContainerRef={scrollContainerRef}
                                 onTooltipOpen={() => setIsTooltipOpen(true)}
                                 onTooltipClose={() => setIsTooltipOpen(false)}
-                                isDeletionDisabled={disableDeletion} // <-- ADD THIS
-                                isPastDaysBlocked={blockPastDays} // <-- ADD THIS
+                                isDeletionDisabled={disableDeletion}
+                                isPastDaysBlocked={blockPastDays}
                               />
                             ))}
                         </Box>
@@ -1482,15 +1609,17 @@ export const Timeline = () => {
                 );
               })}
             </Box>
-            <DragOverlay adjustScale={false}>
-              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
-            </DragOverlay>
-          </DndContext>
+          </Box>
         </Box>
-      </Box>
 
-      {/* MENUS & DIALOGS */}
-      {/* Group Actions Menu */}
+        <DragOverlay adjustScale={false}>
+          {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
+        </DragOverlay>
+      </DndContext>
+
+      {/* --- MENUS & DIALOGS --- */}
+
+      {/* Resource Actions Menu */}
       <Menu
         anchorEl={resourceMenuAnchor}
         open={Boolean(resourceMenuAnchor)}
@@ -1499,10 +1628,7 @@ export const Timeline = () => {
         slotProps={{
           transition: { timeout: 450 },
           paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
+            sx: { borderRadius: 2, boxShadow: "0 8px 25px rgba(0,0,0,0.15)" },
           },
         }}
       >
@@ -1518,6 +1644,8 @@ export const Timeline = () => {
           </MenuItem>
         )}
       </Menu>
+
+      {/* Group Actions Menu */}
       <Menu
         anchorEl={groupMenuAnchor}
         open={Boolean(groupMenuAnchor)}
@@ -1526,10 +1654,7 @@ export const Timeline = () => {
         slotProps={{
           transition: { timeout: 450 },
           paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
+            sx: { borderRadius: 2, boxShadow: "0 8px 25px rgba(0,0,0,0.15)" },
           },
         }}
       >
@@ -1554,22 +1679,13 @@ export const Timeline = () => {
         anchorEl={mainMenuAnchor}
         open={Boolean(mainMenuAnchor)}
         onClose={() => setMainMenuAnchor(null)}
-        anchorOrigin={{
-          vertical: "top",
-          horizontal: "center",
-        }}
-        transformOrigin={{
-          vertical: "bottom",
-          horizontal: "center",
-        }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        transformOrigin={{ vertical: "bottom", horizontal: "center" }}
         slots={{ transition: Grow }}
         slotProps={{
           transition: { timeout: 450 },
           paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
+            sx: { borderRadius: 2, boxShadow: "0 8px 25px rgba(0,0,0,0.15)" },
           },
         }}
       >
@@ -1586,7 +1702,7 @@ export const Timeline = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            setTypeDialogMode("create"); // <--- LÄGG TILL DENNA
+            setTypeDialogMode("create");
             setNewTypeLabel("");
             setNewTypeColor("#9c27b0");
             setIsTypeDialogOpen(true);
@@ -1611,8 +1727,6 @@ export const Timeline = () => {
       <Dialog
         open={isGroupDialogOpen}
         onClose={() => setIsGroupDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {selectedGroupId ? "Redigera grupp" : "Skapa ny grupp"}
@@ -1642,35 +1756,27 @@ export const Timeline = () => {
         desktopModeMediaQuery="@media (min-width: 0px)"
         value={pickerDate}
         onChange={(newValue) => {
-          // Only update the date, do NOT close
           if (newValue) jumpToDate(newValue);
         }}
-        onAccept={() => {
-          setIsDatePickerOpen(false);
-        }}
-        onClose={() => {
-          setIsDatePickerOpen(false);
-        }}
+        onAccept={() => setIsDatePickerOpen(false)}
+        onClose={() => setIsDatePickerOpen(false)}
         slotProps={{
           textField: { sx: { display: "none" } },
           popper: {
             anchorEl: datePickerAnchorRef.current,
             placement: "bottom-end",
           },
-          actionBar: {
-            actions: ["today"],
-          },
+          actionBar: { actions: ["today"] },
         }}
       />
 
-      {/* DIN ORIGINAL-DIALOG FÖR LEDIGHET (ORÖRD) */}
+      {/* Main Leave Dialog */}
       <Dialog
         open={dialogState.isOpen}
         onClose={() => setDialogState((p) => ({ ...p, isOpen: false }))}
         fullWidth
         maxWidth="sm"
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
+        disableRestoreFocus
       >
         <DialogTitle>
           {dialogState.mode === "create"
@@ -1749,7 +1855,6 @@ export const Timeline = () => {
                   }}
                   slotProps={{ textField: { fullWidth: true, size: "small" } }}
                 />
-
                 <DatePicker
                   label="Slutdatum"
                   value={dialogState.data.startDate.add(
@@ -1805,11 +1910,11 @@ export const Timeline = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Resource Name Dialog */}
       <Dialog
         open={isResourceDialogOpen}
         onClose={() => setIsResourceDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {resourceDialogMode === "edit"
@@ -1833,18 +1938,17 @@ export const Timeline = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Absence Type Dialog */}
       <Dialog
         open={isTypeDialogOpen}
         onClose={() => setIsTypeDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>
           {typeDialogMode === "edit"
             ? "Redigera ledighetstyp"
             : "Skapa ny ledighetstyp"}
         </DialogTitle>
-
         <DialogContent
           sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 3 }}
         >
@@ -1872,22 +1976,15 @@ export const Timeline = () => {
               {PREDEFINED_COLORS.map((color) => {
                 const isSelected =
                   newTypeColor.toLowerCase() === color.toLowerCase();
-
-                // A color is taken if it's used by ANOTHER absence type
                 const isTaken = absenceTypes.some(
                   (t) =>
                     t.color.toLowerCase() === color.toLowerCase() &&
                     t.id !== selectedTypeId
                 );
-
                 return (
                   <Tooltip title={color} key={color}>
                     <Box
-                      onClick={() => {
-                        if (!isTaken) {
-                          setNewTypeColor(color);
-                        }
-                      }}
+                      onClick={() => !isTaken && setNewTypeColor(color)}
                       sx={{
                         width: 32,
                         height: 32,
@@ -1896,7 +1993,7 @@ export const Timeline = () => {
                         cursor: isTaken ? "not-allowed" : "pointer",
                         opacity: isTaken ? 0.3 : 1,
                         border: isSelected
-                          ? "3px solid #1976d2" // Highlight for selected color
+                          ? "3px solid #1976d2"
                           : "1px solid #ddd",
                         boxSizing: "border-box",
                         transition: "transform 0.1s ease",
@@ -1911,9 +2008,7 @@ export const Timeline = () => {
             </Box>
           </Box>
         </DialogContent>
-
         <DialogActions sx={{ px: 3, pb: 2, justifyContent: "space-between" }}>
-          {/* TA BORT-KNAPP: Visas bara i edit-läge */}
           {typeDialogMode === "edit" ? (
             <Button
               color="error"
@@ -1924,8 +2019,7 @@ export const Timeline = () => {
             </Button>
           ) : (
             <Box />
-          )}{" "}
-          {/* Tom box för att hålla Spara-knappen till höger */}
+          )}
           <Box sx={{ display: "flex", gap: 1 }}>
             <Button onClick={() => setIsTypeDialogOpen(false)}>Avbryt</Button>
             <Button variant="contained" onClick={handleSaveAbsenceType}>
@@ -1934,16 +2028,15 @@ export const Timeline = () => {
           </Box>
         </DialogActions>
       </Dialog>
+
+      {/* Config Dialog */}
       <Dialog
         open={isConfigDialogOpen}
         onClose={() => setIsConfigDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>Konfiguration</DialogTitle>
         <DialogContent>
           <FormGroup sx={{ mt: 1 }}>
-            {/* Parent Checkbox */}
             <FormControlLabel
               control={
                 <Checkbox
@@ -1953,15 +2046,13 @@ export const Timeline = () => {
               }
               label="Spärr för gångna dagar"
             />
-
-            {/* Child Checkbox - Indented and Conditionally Disabled */}
             <Box sx={{ pl: 4 }}>
               <FormControlLabel
                 control={
                   <Checkbox
                     checked={disableDeletion}
                     onChange={(e) => setDisableDeletion(e.target.checked)}
-                    disabled={!blockPastDays} // This is the key change!
+                    disabled={!blockPastDays}
                   />
                 }
                 label="Ta bort möjligheten att radera"
