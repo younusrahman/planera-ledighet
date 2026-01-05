@@ -3,7 +3,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import "dayjs/locale/sv";
 import { Timeline } from "./components/Timeline";
-import { SnackbarProvider } from "./context/SnackbarContext";
+import { SnackbarProvider } from "./provider/SnackbarContext";
+import { DialogProvider } from "./provider/DialogProvider";
 
 const theme = createTheme({
   palette: {
@@ -18,7 +19,9 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="sv">
         <CssBaseline />
         <SnackbarProvider>
-          <Timeline />
+          <DialogProvider>
+            <Timeline />
+          </DialogProvider>
         </SnackbarProvider>
       </LocalizationProvider>
     </ThemeProvider>

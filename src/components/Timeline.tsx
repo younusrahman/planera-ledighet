@@ -61,7 +61,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { useSnackbar } from "../context/SnackbarContext";
+import { useSnackbar } from "../provider/SnackbarContext";
+import { useDialog } from "../provider/DialogProvider";
 const PREDEFINED_COLORS = [
   // Blues & Purples
   "#1976d2", // Material UI Blue 700
@@ -149,7 +150,7 @@ export const Timeline = () => {
     "full" | "initials" | "hidden"
   >("full");
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-
+  const { openDialog } = useDialog();
   // Interaction States
   const [isDragging, setIsDragging] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -886,6 +887,25 @@ export const Timeline = () => {
   const handleDelete = (id: string) =>
     setLeaves((prev) => prev.filter((l) => l.id !== id));
 
+  // -----------Dialog---------------------
+  const openConfig = () => {
+  openDialog({
+    title: "Konfiguration",
+    content: "CONFIG",
+    props: {
+      blockPastDays: blockPastDays,
+      disableDeletion: disableDeletion
+    },
+    funcs: {
+      onUpdate: (key, value) => {
+        // This updates the main state in the background
+        if (key === "blockPastDays") setBlockPastDays(value);
+        if (key === "disableDeletion") setDisableDeletion(value);
+      }
+    }
+  });
+};
+
   return (
     <Box
       sx={{
@@ -1621,7 +1641,7 @@ export const Timeline = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            setIsConfigDialogOpen(true);
+            openConfig();
             setMainMenuAnchor(null);
           }}
           sx={{ gap: 1.5 }}
@@ -1970,45 +1990,6 @@ export const Timeline = () => {
               Spara
             </Button>
           </Box>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={isConfigDialogOpen}
-        onClose={() => setIsConfigDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>Konfiguration</DialogTitle>
-        <DialogContent>
-          <FormGroup sx={{ mt: 1 }}>
-            {/* Parent Checkbox */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={blockPastDays}
-                  onChange={(e) => setBlockPastDays(e.target.checked)}
-                />
-              }
-              label="Spärr för gångna dagar"
-            />
-
-            {/* Child Checkbox - Indented and Conditionally Disabled */}
-            <Box sx={{ pl: 4 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={disableDeletion}
-                    onChange={(e) => setDisableDeletion(e.target.checked)}
-                    disabled={!blockPastDays} // This is the key change!
-                  />
-                }
-                label="Ta bort möjligheten att radera"
-              />
-            </Box>
-          </FormGroup>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setIsConfigDialogOpen(false)}>Stäng</Button>
         </DialogActions>
       </Dialog>
     </Box>
