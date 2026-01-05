@@ -184,7 +184,7 @@ export const LeaveBlock = ({
         } else {
           const mS = startDuration - 1;
           // Clamp the final shift value to prevent the block from inverting
-          fS = Math.max(Math.min(deltaDays, mS), -mS);
+          fS = Math.min(deltaDays, mS);
           fDur = startDuration - fS;
         }
 
