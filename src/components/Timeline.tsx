@@ -41,9 +41,6 @@ import {
   DndContext,
   type DragEndEvent,
   type DragStartEvent,
-  PointerSensor,
-  useSensor,
-  useSensors,
   DragOverlay,
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
@@ -65,8 +62,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useSnackbar } from "../context/SnackbarContext";
-import { useDialog } from "../context/DialogContext";
-import { ConfigDialogContent } from "./dalogContent/ConfigDialogContent";
 const PREDEFINED_COLORS = [
   // Blues & Purples
   "#1976d2", // Material UI Blue 700
@@ -154,7 +149,7 @@ export const Timeline = () => {
     "full" | "initials" | "hidden"
   >("full");
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-  const { showDialog } = useDialog();
+
   // Interaction States
   const [isDragging, setIsDragging] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -1626,19 +1621,7 @@ export const Timeline = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            showDialog({
-              title: "Inställningar",
-              content: (
-                <ConfigDialogContent
-                  blockPastDays={blockPastDays}
-                  setBlockPastDays={setBlockPastDays}
-                  disableDeletion={disableDeletion}
-                  setDisableDeletion={setDisableDeletion}
-                />
-              ),
-              onSave: () => {}, // or remove onSave to hide save button
-            });
-
+            setIsConfigDialogOpen(true);
             setMainMenuAnchor(null);
           }}
           sx={{ gap: 1.5 }}
