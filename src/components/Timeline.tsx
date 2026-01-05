@@ -478,20 +478,42 @@ export const Timeline = () => {
   };
 
   const handleSaveResource = () => {
-    if (!newResourceName.trim() || !selectedGroupId) return;
+    if (!newResourceName.trim() || !selectedResourceId) return;
 
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== selectedGroupId) return g;
+    setGroups((prev) => {
+      // 1. First, create a clean copy of all groups and REMOVE the employee
+      // from wherever they currently are (since IDs are unique).
+      let employeeObj: any = null;
 
-        if (resourceDialogMode === "edit") {
-          return {
-            ...g,
-            resources: g.resources.map((r) =>
-              r.id === selectedResourceId ? { ...r, name: newResourceName } : r
-            ),
-          };
-        } else {
+      const groupsWithoutEmployee = prev.map((g) => {
+        const found = g.resources.find((r) => r.id === selectedResourceId);
+        if (found) {
+          employeeObj = { ...found, name: newResourceName }; // Update the name
+        }
+        return {
+          ...g,
+          resources: g.resources.filter((r) => r.id !== selectedResourceId),
+        };
+      });
+
+      // 2. If we are in "edit" mode and found the employee,
+      // add them to the NEWLY selected group.
+      if (resourceDialogMode === "edit" && employeeObj) {
+        return groupsWithoutEmployee.map((g) => {
+          if (g.id === selectedGroupId) {
+            return {
+              ...g,
+              resources: [...g.resources, employeeObj],
+            };
+          }
+          return g;
+        });
+      }
+
+      // 3. Fallback for "create" mode (original logic for adding new resource)
+      if (resourceDialogMode === "create") {
+        return prev.map((g) => {
+          if (g.id !== selectedGroupId) return g;
           return {
             ...g,
             resources: [
@@ -499,9 +521,11 @@ export const Timeline = () => {
               { id: "r-" + Date.now(), name: newResourceName },
             ],
           };
-        }
-      })
-    );
+        });
+      }
+
+      return prev;
+    });
 
     setIsResourceDialogOpen(false);
     setNewResourceName("");
@@ -1478,7 +1502,9 @@ export const Timeline = () => {
               })}
             </Box>
             <DragOverlay adjustScale={false}>
-              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay resourceName={""} />}
+              {activeLeave && (
+                <LeaveBlock leave={activeLeave} isOverlay resourceName={""} />
+              )}
             </DragOverlay>
           </DndContext>
         </Box>
@@ -1820,6 +1846,21 @@ export const Timeline = () => {
             onChange={(e) => setNewResourceName(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSaveResource()}
           />
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="select-group-label">Grupp</InputLabel>
+            <Select
+              labelId="select-group-label"
+              value={selectedGroupId || ""}
+              label="Grupp"
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+            >
+              {groups.map((g) => (
+                <MenuItem key={g.id} value={g.id}>
+                  {g.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setIsResourceDialogOpen(false)}>Avbryt</Button>
