@@ -64,6 +64,9 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
+import { useSnackbar } from "../context/SnackbarContext";
+import { useDialog } from "../context/DialogContext";
+import { ConfigDialogContent } from "./dalogContent/ConfigDialogContent";
 const PREDEFINED_COLORS = [
   // Blues & Purples
   "#1976d2", // Material UI Blue 700
@@ -151,7 +154,7 @@ export const Timeline = () => {
     "full" | "initials" | "hidden"
   >("full");
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-
+  const { showDialog } = useDialog();
   // Interaction States
   const [isDragging, setIsDragging] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -257,7 +260,7 @@ export const Timeline = () => {
   const scrollRequestRef = useRef<number | null>(null);
   const lastPointerXRef = useRef<number>(0);
   const startXRef = useRef<number>(0);
-
+  const { showSnackbar } = useSnackbar();
   const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState({
     isSelecting: false,
@@ -427,7 +430,7 @@ export const Timeline = () => {
     );
 
     if (isColorTaken) {
-      alert("Färgen används redan!");
+      showSnackbar("Färgen är redan vald för en annan frånvarotyp.", "error");
       return;
     }
 
@@ -716,8 +719,9 @@ export const Timeline = () => {
       startIndex: 0,
     });
     if (blockPastDays && finalStartDate.isBefore(today)) {
-      alert(
-        "Du kan inte registrera frånvaro på ett datum som redan har passerat."
+      showSnackbar(
+        "Ogiltigt datum. Du kan inte registrera frånvaro på ett datum som redan har passerat.",
+        "error"
       );
       return; // Stop the function here
     }
@@ -760,8 +764,9 @@ export const Timeline = () => {
 
         // --- START OF VALIDATION ---
         if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-          alert(
-            "Du kan inte flytta en ledighet till ett datum som redan har passerat."
+          showSnackbar(
+            "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
+            "error"
           );
           return; // This aborts the move, snapping the block back.
         }
@@ -783,8 +788,9 @@ export const Timeline = () => {
     if (!type) return;
     // Final validation check before creating the entry
     if (blockPastDays && data.startDate.isBefore(today)) {
-      alert(
-        "Ogiltigt datum. Du kan inte registrera frånvaro på ett datum som redan har passerat."
+      showSnackbar(
+        "Ogiltigt startdatum. Du kan inte registrera frånvaro på ett datum som redan har passerat.",
+        "error"
       );
       setDialogState((p) => ({ ...p, isOpen: false })); // Close dialog on error
       return;
@@ -802,7 +808,7 @@ export const Timeline = () => {
         setLeaves((prev) => [...prev, entry]);
         setDialogState((p) => ({ ...p, isOpen: false }));
       } else {
-        alert("Krockar med annan frånvaro!");
+        showSnackbar("Krockar med annan frånvaro!", "error");
       }
     } else {
       setLeaves((prev) => prev.map((l) => (l.id === data.id ? entry : l)));
@@ -841,8 +847,9 @@ export const Timeline = () => {
 
           // --- START OF VALIDATION ---
           if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-            alert(
-              "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat."
+            showSnackbar(
+              "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
+              "error"
             );
             return l; // This aborts the resize, returning the original block.
           }
@@ -855,7 +862,7 @@ export const Timeline = () => {
           };
 
           if (checkCollision(prev, updatedItem)) {
-            alert("Krockar med annan frånvaro!");
+            showSnackbar("Krockar med annan frånvaro!", "error");
             return l; // Return original if collision
           }
 
@@ -1619,7 +1626,19 @@ export const Timeline = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            setIsConfigDialogOpen(true);
+            showDialog({
+              title: "Inställningar",
+              content: (
+                <ConfigDialogContent
+                  blockPastDays={blockPastDays}
+                  setBlockPastDays={setBlockPastDays}
+                  disableDeletion={disableDeletion}
+                  setDisableDeletion={setDisableDeletion}
+                />
+              ),
+              onSave: () => {}, // or remove onSave to hide save button
+            });
+
             setMainMenuAnchor(null);
           }}
           sx={{ gap: 1.5 }}
