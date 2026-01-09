@@ -47,10 +47,25 @@ namespace planera_ledighet.api.Controllers
         }
 
         [HttpDelete("backup")]
-        [HttpDelete("backup/{*fileName}")]
-        public async Task<ActionResult<DbOperationStatus>> DeleteBackup(string? fileName = null)
+        public async Task<ActionResult<DbOperationStatus>> DeleteBackup([FromQuery] string? fileName = null)
         {
+            // [FromQuery] ensures that if ?fileName=xyz is present, it is captured.
+            // If the query string is missing, fileName remains null (Delete All).
             return Ok(await _db.DeleteBackupAsync(fileName));
+        }
+
+        [HttpPost("upload")]
+        public async Task<ActionResult<DbOperationStatus>> Upload(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return Ok(new DbOperationStatus { Success = false, Message = "Ingen fil vald." });
+
+            using (var stream = file.OpenReadStream())
+            {
+                // This takes the file data and saves it into your project's backup folder
+                var result = await _db.UploadBackupAsync(stream, file.FileName);
+                return Ok(result);
+            }
         }
     }
 }

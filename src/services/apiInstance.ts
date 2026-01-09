@@ -1,6 +1,5 @@
 // Define your .NET API URL here
-// Usually https://localhost:7xxx (check your .NET project launchSettings.json)
-const BASE_URL = "https://localhost:7040/api";
+export const BASE_URL = "https://localhost:7040/api";
 
 export async function apiRequest<T>(
   url: string,
@@ -11,16 +10,27 @@ export async function apiRequest<T>(
     ? url
     : `${BASE_URL}${url.startsWith("/") ? "" : "/"}${url}`;
 
+  // --- START OF FIX ---
+  const headers: Record<string, string> = {};
+
+  // If the body is NOT FormData, we want to use JSON.
+  // If the body IS FormData (file upload), we leave Content-Type empty
+  // so the browser can automatically set it with the correct "boundary".
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+  // --- END OF FIX ---
+
   const res = await fetch(fullUrl, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
+      ...headers,
+      ...((options.headers as Record<string, string>) || {}),
     },
   });
 
   if (!res.ok) {
-    // Attempt to get error message from your .NET Controller (like the Collision check)
+    // Attempt to get error message from your .NET Controller
     const errorBody = await res.json().catch(() => ({}));
     throw new Error(errorBody.message || `API error: ${res.status}`);
   }

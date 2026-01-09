@@ -14,8 +14,9 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
-import { CELL_WIDTH, ROW_HEIGHT, type LeaveItem } from "../utils";
+import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
+import type { LeaveItem } from "../types";
 
 interface Props {
   leave: LeaveItem;

@@ -19,7 +19,11 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import SettingsIcon from "@mui/icons-material/Settings";
-import { KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
+import {
+  KeyboardArrowLeft,
+  KeyboardArrowRight,
+  Storage as DatabaseIcon,
+} from "@mui/icons-material";
 import type { Group } from "../types";
 import { ROW_HEIGHT } from "../utils";
 
@@ -35,6 +39,7 @@ interface TimelineSidebarProps {
   handleDeleteGroup: (groupId: string) => void;
   handleDialogGroupTrigger: (group?: Group) => void;
   handleDialogAbsenceTypeTrigger: () => void;
+  handleDialogDatabaseSystemTrigger: () => void;
   handleDialogResourceTrigger: (
     resourceToEdit?: { id: string; name: string },
     currentGroupId?: string
@@ -54,6 +59,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   handleDialogGroupTrigger,
   handleDialogAbsenceTypeTrigger,
   handleDialogResourceTrigger,
+  handleDialogDatabaseSystemTrigger,
 }) => {
   const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
     null
@@ -358,6 +364,15 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           }}
         >
           <SettingsIcon fontSize="small" sx={{ mr: 1.5 }} /> Konfigurera
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            closeMenus();
+            handleDialogDatabaseSystemTrigger();
+          }}
+        >
+          <DatabaseIcon fontSize="small" sx={{ mr: 1.5 }} />
+          Databassystem
         </MenuItem>
       </Menu>
 

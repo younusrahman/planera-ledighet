@@ -6,11 +6,12 @@ import type { AbsenceTypeFormProps } from "../../components/forms/AbsenceTypeFor
 import AbsenceTypeForm from "../../components/forms/AbsenceTypeForm";
 import type { ConfigFormProps } from "../../components/forms/ConfigForm";
 import ConfigForm from "../../components/forms/ConfigForm";
+import { DatabaseMaintenanceForm, type DatabaseMaintenanceProps } from "../../components/forms/DatabaseMaintenanceForm";
 import type { GroupFormProps } from "../../components/forms/GroupForm";
 import GroupForm from "../../components/forms/GroupForm";
 import type { ResourceFormProps } from "../../components/forms/ResourceForm";
 import ResourceForm from "../../components/forms/ResourceForm";
-// 1. All dialog content 
+// 1. All dialog content
 export const dialogRegistry = {
   absenceType: {
     component: AbsenceTypeForm,
@@ -25,6 +26,9 @@ export const dialogRegistry = {
     component: ResourceForm,
   },
   absence: { component: AbsenceForm },
+  databaseSystem: {
+    component: DatabaseMaintenanceForm,
+  },
 } satisfies {
   [K in DialogId]: {
     component: React.ComponentType<DialogPropsMap[K]>;
@@ -32,7 +36,13 @@ export const dialogRegistry = {
 };
 
 // 2. All dialog IDs in your app
-export type DialogId = "absenceType" | "config" | "group" | "resource" | "absence";
+export type DialogId =
+  | "absenceType"
+  | "config"
+  | "group"
+  | "resource"
+  | "absence"
+  | "databaseSystem";
 
 // 3. Map each dialog ID → its props
 export interface DialogPropsMap {
@@ -41,4 +51,5 @@ export interface DialogPropsMap {
   group: GroupFormProps;
   resource: ResourceFormProps;
   absence: AbsenceFormProps;
+  databaseSystem: DatabaseMaintenanceProps;
 }

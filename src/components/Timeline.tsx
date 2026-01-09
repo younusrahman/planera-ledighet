@@ -32,12 +32,10 @@ export const Timeline = () => {
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const groups = appServicesStatic.groups.useItems();
   const leaves = appServicesStatic.leaves.useItems();
+
   // 2. Trigga laddning
   useEffect(() => {
-    appServicesStatic.absenceTypes.loadAll();
-    appServicesStatic.groups.loadAll();
-    appServicesStatic.resources.loadAll();
-    appServicesStatic.leaves.loadAll(); // Add this line
+    appServicesStatic.refreshAllData();
   }, []);
 
   // --- STATE ---
@@ -759,6 +757,17 @@ export const Timeline = () => {
       },
     });
   };
+  const handleDialogDatabaseSystemTrigger = () => {
+    dialog.open("databaseSystem", {
+      title: "Databassystem",
+      onClose: () => {
+        // Cleanup: Clear any selected IDs just like in your resource example
+        setSelectedResourceId(null);
+        setSelectedGroupId(null);
+        dialog.close();
+      },
+    });
+  };
   return (
     <Box
       sx={{
@@ -807,6 +816,7 @@ export const Timeline = () => {
           handleDialogGroupTrigger={handleDialogGroupTrigger}
           handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
           handleDialogResourceTrigger={handleDialogResourceTrigger}
+          handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
         />
         {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
         <TimelineDndContext

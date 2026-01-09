@@ -7,6 +7,15 @@ import { leaves } from "./entities/leaves";
 const _initializers = [absenceTypes, groups, resources, leaves];
 
 export const appServicesStatic = {
+  // NEW: Global refresh helper
+  async refreshAllData() {
+    await Promise.all([
+      this.absenceTypes.loadAll(),
+      this.groups.loadAll(),
+      this.resources.loadAll(),
+      this.leaves.loadAll(),
+    ]);
+  },
   get absenceTypes() {
     return getEntity<typeof absenceTypes>("absenceTypes");
   },

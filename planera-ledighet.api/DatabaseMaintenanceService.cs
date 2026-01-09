@@ -11,6 +11,8 @@ namespace planera_ledighet.api.Services
         FileStream? GetBackupFile(string fileName);
         Task<DbOperationStatus> RestoreBackupAsync(string fileName);
         Task<DbOperationStatus> DeleteBackupAsync(string? fileName);
+        Task<DbOperationStatus> UploadBackupAsync(Stream fileStream, string fileName);
+
     }
 
     public class DatabaseMaintenanceService : IDatabaseMaintenanceService
@@ -176,6 +178,27 @@ namespace planera_ledighet.api.Services
             catch (Exception ex)
             {
                 return new DbOperationStatus { Success = false, Message = "Error restoring database: " + ex.Message };
+            }
+        }
+        public async Task<DbOperationStatus> UploadBackupAsync(Stream fileStream, string fileName)
+        {
+            try
+            {
+                Directory.CreateDirectory(BackupDir);
+                // We use Path.GetFileName to ensure the user isn't trying to save outside the backup folder
+                string safeName = Path.GetFileName(fileName);
+                string fullPath = Path.Combine(BackupDir, safeName);
+
+                using (var targetStream = File.Create(fullPath))
+                {
+                    await fileStream.CopyToAsync(targetStream);
+                }
+
+                return new DbOperationStatus { Success = true, Message = "Filen laddades upp till backup-mappen." };
+            }
+            catch (Exception ex)
+            {
+                return new DbOperationStatus { Success = false, Message = "Uppladdning misslyckades: " + ex.Message };
             }
         }
     }

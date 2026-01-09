@@ -7,6 +7,7 @@ import {
   Button,
   DialogActions,
   DialogTitle,
+  Paper,
 } from "@mui/material";
 
 export interface ConfigFormProps {
@@ -47,32 +48,32 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
       {title && (
         <DialogTitle sx={{ fontWeight: 800, px: 0 }}>{title}</DialogTitle>
       )}
-
-      <FormGroup sx={{ mt: 2 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={block}
-              onChange={(e) => handleBlockChange(e.target.checked)}
-            />
-          }
-          label="Spärr för gångna dagar"
-        />
-
-        <Box sx={{ pl: 4 }}>
+      <Paper sx={{ p: 2 }}>
+        <FormGroup sx={{ mt: 2 }}>
           <FormControlLabel
             control={
               <Checkbox
-                checked={disable}
-                onChange={(e) => handleDisableChange(e.target.checked)}
-                disabled={!block}
+                checked={block}
+                onChange={(e) => handleBlockChange(e.target.checked)}
               />
             }
-            label="Ta bort möjligheten att radera"
+            label="Spärr för gångna dagar"
           />
-        </Box>
-      </FormGroup>
 
+          <Box sx={{ pl: 4 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={disable}
+                  onChange={(e) => handleDisableChange(e.target.checked)}
+                  disabled={!block}
+                />
+              }
+              label="Ta bort möjligheten att radera"
+            />
+          </Box>
+        </FormGroup>
+      </Paper>
       <DialogActions sx={{ px: 0, pb: 0, pt: 3 }}>
         <Button variant="contained" onClick={onClose}>
           Stäng

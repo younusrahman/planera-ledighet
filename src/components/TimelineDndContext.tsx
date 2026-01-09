@@ -1,5 +1,5 @@
-import React, { forwardRef } from "react";
-import { Box, Typography, Collapse, alpha } from "@mui/material";
+import React, { forwardRef, useMemo } from "react";
+import { Box, Typography, Collapse, alpha, Tooltip } from "@mui/material";
 import {
   DndContext,
   DragOverlay,
@@ -13,6 +13,7 @@ import { getDateOffset } from "../utils/Helper";
 import { LeaveBlock } from "./LeaveBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Group, LeaveItem } from "../types";
+import { getSwedishHolidays } from "../utils/holidayHelper";
 
 interface TimelineDndContextProps {
   // Data
@@ -92,17 +93,23 @@ export const TimelineDndContext = forwardRef<
     onGroupMouseMove,
     onGroupMouseUp,
   } = props;
+  // 1. Hämta helgdagar för de år som visas
+  const holidays = useMemo(() => {
+    const years = Array.from(new Set(days.map((d) => d.year())));
+    let allHolidays: Record<string, any> = {};
+    years.forEach((y) => {
+      allHolidays = { ...allHolidays, ...getSwedishHolidays(y) };
+    });
+    return allHolidays;
+  }, [days]);
+
+  const isRedDay = (day: Dayjs) => {
+    const dateStr = day.format("YYYY-MM-DD");
+    // 0 = Sunday, 6 = Saturday
+    return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
+  };
 
   // --- Grid Visual Constants ---
-  const weekendOffset = ((startDate.day() - 1 + 7) % 7) * CELL_WIDTH;
-  const weekendGrid = `repeating-linear-gradient(
-    90deg, 
-    transparent 0px, 
-    transparent ${5 * CELL_WIDTH}px, 
-    rgba(255, 0, 0, 0.05) ${5 * CELL_WIDTH}px, 
-    rgba(255, 0, 0, 0.05) ${7 * CELL_WIDTH}px
-  )`;
-
   return (
     <Box
       ref={ref}
@@ -128,34 +135,58 @@ export const TimelineDndContext = forwardRef<
           onMouseUp={onGroupMouseUp}
           onMouseLeave={onGroupMouseUp}
           sx={{
-            display: "flex",
+            display: "flex", // Ändrat till flex för att kunna lägga månader efter varandra
             height: 40,
             borderBottom: "1px solid #eee",
             position: "relative",
             cursor: "grab",
             userSelect: "none",
+            width: daysCount * CELL_WIDTH,
             "&:active": { cursor: "grabbing" },
             "&:hover": { bgcolor: alpha("#000", 0.02) },
           }}
         >
-          {days
-            .filter((d, i) => i === 0 || d.date() === 1)
-            .map((day) => (
-              <Typography
-                key={day.toISOString() + "m"}
-                variant="subtitle2"
-                sx={{
-                  position: "absolute",
-                  left: getDateOffset(day.format("YYYY-MM-DD"), startDate) + 10,
-                  pt: 1,
-                  fontWeight: 700,
-                  color: "primary.main",
-                  pointerEvents: "none",
-                }}
-              >
-                {day.format("MMMM YYYY")}
-              </Typography>
-            ))}
+          {/* Vi grupperar dagarna per månad för att skapa en "behållare" per månad */}
+          {Array.from(new Set(days.map((d) => d.format("YYYY-MM")))).map(
+            (monthKey) => {
+              const monthDays = days.filter(
+                (d) => d.format("YYYY-MM") === monthKey
+              );
+              const monthStart = monthDays[0];
+
+              return (
+                <Box
+                  key={monthKey}
+                  sx={{
+                    position: "relative", // Viktigt för att hålla texten inuti
+                    width: monthDays.length * CELL_WIDTH, // Månadens totala bredd
+                    height: "100%",
+                    flexShrink: 0,
+                    borderRight: "1px solid rgba(0, 0, 0, 0.1)", // Divider mellan månader
+                  }}
+                >
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      position: "sticky", // MAGIN HÄNDER HÄR
+                      left: 0, // Fastnar vid vänsterkanten (sidebaren)
+                      width: "fit-content",
+                      paddingLeft: "10px",
+                      paddingTop: "8px",
+                      fontWeight: 700,
+                      color: "primary.main",
+                      whiteSpace: "nowrap",
+                      zIndex: 5,
+                      pointerEvents: "none",
+                      display: "inline-block",
+                    }}
+                  >
+                    {monthStart.format("MMMM YYYY")}
+                  </Typography>
+                </Box>
+              );
+            }
+          )}
         </Box>
 
         {/* --- 2. Weeks Row --- */}
@@ -165,33 +196,59 @@ export const TimelineDndContext = forwardRef<
           onMouseUp={onGroupMouseUp}
           onMouseLeave={onGroupMouseUp}
           sx={{
-            display: "flex",
+            display: "flex", // Ändrat till flex för att gruppera veckor
             height: 25,
             bgcolor: "#fafafa",
             borderBottom: "1px solid #eee",
             position: "relative",
             cursor: "grab",
             userSelect: "none",
+            width: daysCount * CELL_WIDTH,
             "&:active": { cursor: "grabbing" },
             "&:hover": { bgcolor: alpha("#000", 0.02) },
           }}
         >
-          {days
-            .filter((d) => d.day() === 1)
-            .map((day) => (
-              <Typography
-                key={day.toISOString() + "w"}
-                variant="caption"
+          {/* Vi grupperar dagarna per vecka (ISO-vecka) */}
+          {Array.from(
+            new Set(days.map((d) => `${d.isoWeekYear()}-${d.isoWeek()}`))
+          ).map((weekKey) => {
+            const weekDays = days.filter(
+              (d) => `${d.isoWeekYear()}-${d.isoWeek()}` === weekKey
+            );
+            const firstDayOfWeek = weekDays[0];
+
+            return (
+              <Box
+                key={weekKey}
                 sx={{
-                  position: "absolute",
-                  left: getDateOffset(day.format("YYYY-MM-DD"), startDate) + 5,
-                  fontWeight: 700,
-                  pointerEvents: "none",
+                  position: "relative",
+                  width: weekDays.length * CELL_WIDTH, // Veckans bredd (oftast 7 * CELL_WIDTH)
+                  height: "100%",
+                  flexShrink: 0,
+                  borderRight: "1px solid rgba(0, 0, 0, 0.05)", // Diskret linje efter varje vecka
                 }}
               >
-                v.{day.isoWeek()}
-              </Typography>
-            ))}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    position: "sticky",
+                    left: 0, // Veckonumret fastnar vid kanten
+                    width: "fit-content",
+                    paddingLeft: "8px",
+                    lineHeight: "25px", // Centrerar texten vertikalt i raden
+                    fontWeight: 700,
+                    color: "text.secondary",
+                    whiteSpace: "nowrap",
+                    zIndex: 4,
+                    pointerEvents: "none",
+                    display: "inline-block",
+                  }}
+                >
+                  Vecka.{firstDayOfWeek.isoWeek()}
+                </Typography>
+              </Box>
+            );
+          })}
         </Box>
 
         {/* --- 3. Individual Days Row --- */}
@@ -209,39 +266,43 @@ export const TimelineDndContext = forwardRef<
           }}
         >
           {days.map((day) => {
+            const dateStr = day.format("YYYY-MM-DD");
             const isToday = day.isSame(new Date(), "day");
             const isWeekend = day.day() === 0 || day.day() === 6;
+            const holiday = holidays[dateStr]; // Kolla om det är en helgdag
+
             return (
-              <Box
-                key={day.toISOString()}
-                sx={{
-                  width: CELL_WIDTH,
-                  minWidth: CELL_WIDTH,
-                  textAlign: "center",
-                  pt: 0.5,
-                  borderRight: "1px solid #eee",
-                  borderBottom: "1px solid #ddd",
-                  bgcolor: isToday
-                    ? "#fff9c4"
-                    : isWeekend
-                    ? alpha("#f44336", 0.05)
-                    : "white",
-                  pointerEvents: "none",
-                }}
-              >
-                <Typography
+              <Tooltip key={dateStr} title={holiday ? holiday.name : ""}>
+                <Box
                   sx={{
-                    fontSize: "0.6rem",
-                    fontWeight: 600,
-                    color: isWeekend ? "error.main" : "text.secondary",
+                    width: CELL_WIDTH,
+                    minWidth: CELL_WIDTH,
+                    textAlign: "center",
+                    pt: 0.5,
+                    borderRight: "1px solid #eee",
+                    borderBottom: "1px solid #ddd",
+                    // NY FÄRGLOGIK:
+                    bgcolor: isToday
+                      ? "#fff9c4" // Idag (gul)
+                      : isRedDay(day)
+                      ? "rgba(244, 67, 54, 0.15)"
+                      : "white",
+                    color: isRedDay(day) ? "error.main" : "text.primary",
                   }}
                 >
-                  {day.format("ddd").toUpperCase()}
-                </Typography>
-                <Typography sx={{ fontWeight: 800 }}>
-                  {day.format("D")}
-                </Typography>
-              </Box>
+                  <Typography
+                    sx={{
+                      fontSize: "0.6rem",
+                      fontWeight: isRedDay(day) ? 700 : 500,
+                    }}
+                  >
+                    {day.format("ddd").toUpperCase()}
+                  </Typography>
+                  <Typography sx={{ fontWeight: 800 }}>
+                    {day.format("D")}
+                  </Typography>
+                </Box>
+              </Tooltip>
             );
           })}
         </Box>
@@ -254,6 +315,34 @@ export const TimelineDndContext = forwardRef<
         modifiers={[restrictToHorizontalAxis]}
       >
         <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: "100%",
+              pointerEvents: "none",
+              zIndex: 0,
+            }}
+          >
+            {days.map(
+              (day, i) =>
+                isRedDay(day) && (
+                  <Box
+                    key={`bg-${i}`}
+                    sx={{
+                      position: "absolute",
+                      left: i * CELL_WIDTH,
+                      width: CELL_WIDTH,
+                      height: "100%",
+                      bgcolor: "rgba(244, 67, 54, 0.04)",
+                      borderRight: "1px solid rgba(0, 0, 0, 0.02)",
+                    }}
+                  />
+                )
+            )}
+          </Box>
+
           {/* No Groups Watermark */}
           {groups.length === 0 && (
             <Box
@@ -325,9 +414,6 @@ export const TimelineDndContext = forwardRef<
                         height: ROW_HEIGHT,
                         borderBottom: "1px solid #eee",
                         position: "relative",
-                        backgroundImage: weekendGrid,
-                        backgroundSize: `${7 * CELL_WIDTH}px 100%`,
-                        backgroundPosition: `-${weekendOffset}px 0`,
                         display: "flex",
                         alignItems: "center",
                       }}
