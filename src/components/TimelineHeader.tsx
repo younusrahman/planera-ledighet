@@ -1,4 +1,4 @@
-import React from "react";
+import React, { createContext, useContext } from "react";
 import {
   AppBar,
   Toolbar,
@@ -9,13 +9,24 @@ import {
   Button,
   alpha,
   useTheme,
+  List,
+  ListItemButton,
+  ListItemText,
+  Divider,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { DatePicker } from "@mui/x-date-pickers";
-
+import {
+  PickersLayout,
+  type PickersLayoutProps,
+} from "@mui/x-date-pickers/PickersLayout";
+// ---------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------
 interface TimelineHeaderProps {
   absenceTypes: any[];
   pickerDate: Dayjs;
@@ -28,7 +39,126 @@ interface TimelineHeaderProps {
   onCloseDatePicker: () => void;
   onDateChange: (date: Dayjs) => void;
 }
+// ---------------------------------------------------------
+// Holiday Context
+// ---------------------------------------------------------
+const HolidayContext = createContext({
+  holidays: [] as { name: string; date: Dayjs }[],
+  onSelectHoliday: (d: Dayjs) => {},
+});
 
+const useHolidayContext = () => useContext(HolidayContext);
+
+// ---------------------------------------------------------
+// Swedish Holidays Logic
+// ---------------------------------------------------------
+const FIXED_HOLIDAYS = [
+  { name: "Nyårsdagen", date: (y: number) => dayjs(`${y}-01-01`) },
+  { name: "Trettondedag jul", date: (y: number) => dayjs(`${y}-01-06`) },
+  { name: "Första maj", date: (y: number) => dayjs(`${y}-05-01`) },
+  { name: "Nationaldagen", date: (y: number) => dayjs(`${y}-06-06`) },
+  { name: "Juldagen", date: (y: number) => dayjs(`${y}-12-25`) },
+  { name: "Annandag jul", date: (y: number) => dayjs(`${y}-12-26`) },
+];
+
+function easterSunday(year: number): Dayjs {
+  const f = Math.floor;
+  const G = year % 19;
+  const C = f(year / 100);
+  const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+  const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+  const day = I - ((year + f(year / 4) + I + 2 - C + f(C / 4)) % 7) + 28;
+  const month = day > 31 ? 4 : 3;
+  const date = day > 31 ? day - 31 : day;
+  return dayjs(`${year}-${month}-${date}`);
+}
+
+function getSwedishHolidays(year: number) {
+  const easter = easterSunday(year);
+  return [
+    ...FIXED_HOLIDAYS.map((h) => ({ name: h.name, date: h.date(year) })),
+    { name: "Långfredagen", date: easter.subtract(2, "day") },
+    { name: "Påskdagen", date: easter },
+    { name: "Annandag påsk", date: easter.add(1, "day") },
+    { name: "Kristi himmelsfärdsdag", date: easter.add(39, "day") },
+    { name: "Pingstdagen", date: easter.add(49, "day") },
+  ].sort((a, b) => a.date.diff(b.date));
+}
+
+// ---------------------------------------------------------
+// Custom Layout: Calendar on Left, Holidays on Right
+// ---------------------------------------------------------
+function HolidayLayout(props: PickersLayoutProps<any>) {
+  const { holidays, onSelectHoliday } = useHolidayContext();
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" } }}>
+      {/* Vänster: Standardkalender */}
+      <Box>
+        <PickersLayout {...props} />
+      </Box>
+
+      {/* Höger: Panel med Helgdagar och den nya "I dag"-knappen */}
+      <Box
+        sx={{
+          width: { xs: "100%", sm: 220 },
+          borderLeft: { xs: "none", sm: "1px solid #eee" },
+          borderTop: { xs: "1px solid #eee", sm: "none" },
+          bgcolor: alpha("#000", 0.02),
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Rubrikrad med "Helgdagar" och "I dag"-knapp */}
+        <Box
+          sx={{
+            p: 1,
+            px: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid #eee",
+          }}
+        >
+          <Typography
+            variant="overline"
+            sx={{ fontWeight: 700, color: "text.secondary", lineHeight: 2.5 }}
+          >
+            Helgdagar
+          </Typography>
+
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => onSelectHoliday(dayjs())} // Hoppar till dagens datum
+            sx={{ fontSize: "0.65rem", fontWeight: 700 }}
+          >
+            I dag
+          </Button>
+        </Box>
+
+        <List dense sx={{ maxHeight: 350, overflowY: "auto" }}>
+          {holidays.map((h) => (
+            <ListItemButton
+              key={h.name + h.date.toString()}
+              onClick={() => onSelectHoliday(h.date)}
+            >
+              <ListItemText
+                primary={h.name}
+                secondary={h.date.format("D MMM")}
+                primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------
 export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   absenceTypes,
   pickerDate,
@@ -48,42 +178,22 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
       position="static"
       color="inherit"
       elevation={0}
-      sx={{
-        borderBottom: 1,
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        backdropFilter: "blur(8px)",
-        backgroundImage:
-          "linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9))",
-      }}
+      sx={{ borderBottom: 1, borderColor: "divider" }}
     >
-      <Toolbar
-        sx={{
-          px: { xs: 2, sm: 3 },
-          py: 1,
-          minHeight: { xs: 64, sm: 72 },
-        }}
-      >
+      <Toolbar sx={{ px: { xs: 2, sm: 3 }, py: 1 }}>
+        {/* Title & Filters */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Typography
             variant="h6"
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: "1.1rem", sm: "1.25rem" },
-              color: "text.primary",
-              letterSpacing: "-0.01em",
-              whiteSpace: "nowrap",
-            }}
+            sx={{ fontWeight: 700, color: "text.primary" }}
           >
             Planera ledighet
           </Typography>
-
           <Box
             sx={{
               display: { xs: "none", md: "flex" },
               alignItems: "center",
               gap: 1.5,
-              ml: 1,
             }}
           >
             {absenceTypes.map((type) => (
@@ -100,21 +210,13 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                         height: 10,
                         borderRadius: "50%",
                         bgcolor: type.color,
-                        border: `1px solid ${alpha("#000", 0.1)}`,
                       }}
                     />
-                    <Typography
-                      variant="caption"
-                      sx={{ fontWeight: 500, color: "text.secondary" }}
-                    >
-                      {type.label}
-                    </Typography>
+                    <Typography variant="caption">{type.label}</Typography>
                   </Box>
                 }
                 size="small"
                 sx={{
-                  height: 28,
-                  borderRadius: 1.5,
                   cursor: "pointer",
                   bgcolor: "transparent",
                   "&:hover": {
@@ -129,13 +231,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Date Navigation */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: { xs: 0.5, sm: 1 },
-          }}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <IconButton size="small" onClick={onPrevMonth}>
             <ArrowBackIosNewIcon sx={{ fontSize: "1rem" }} />
           </IconButton>
@@ -145,7 +241,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             onClick={onOpenDatePicker}
             startIcon={<CalendarMonthIcon sx={{ color: "primary.main" }} />}
             sx={{
-              minWidth: { xs: 140, sm: 160 },
+              minWidth: 160,
               borderRadius: 1,
               fontWeight: 600,
               textTransform: "none",
@@ -177,28 +273,37 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             <ArrowForwardIosIcon sx={{ fontSize: "1rem" }} />
           </IconButton>
         </Box>
-        {/* --- THE DATEPICKER IS NOW MOVED HERE --- */}
-        <DatePicker
-          displayWeekNumber
-          open={isDatePickerOpen}
-          desktopModeMediaQuery="@media (min-width: 0px)"
-          value={pickerDate}
-          onChange={(newValue) => {
-            if (newValue) onDateChange(newValue);
-          }}
-          onAccept={onCloseDatePicker}
-          onClose={onCloseDatePicker}
-          slotProps={{
-            textField: { sx: { display: "none" } },
-            popper: {
-              anchorEl: datePickerAnchorRef.current,
-              placement: "bottom-end",
-            },
-            actionBar: {
-              actions: ["today"],
+
+        {/* DatePicker Configuration */}
+        <HolidayContext.Provider
+          value={{
+            holidays: getSwedishHolidays(pickerDate.year()),
+            onSelectHoliday: (d: Dayjs) => {
+              onDateChange(d);
+              onCloseDatePicker();
             },
           }}
-        />
+        >
+          <DatePicker
+            displayWeekNumber
+            open={isDatePickerOpen}
+            value={pickerDate}
+            onChange={(newValue) => {
+              if (newValue) onDateChange(newValue);
+            }}
+            onAccept={onCloseDatePicker}
+            onClose={onCloseDatePicker}
+            slots={{ layout: HolidayLayout }}
+            slotProps={{
+              textField: { sx: { display: "none" } },
+              popper: {
+                // HÄR ÄR FIXEN FÖR ATT ÖPPNA TILL HÖGER
+                anchorEl: datePickerAnchorRef.current,
+                placement: "bottom-end",
+              },
+            }}
+          />
+        </HolidayContext.Provider>
       </Toolbar>
     </AppBar>
   );
