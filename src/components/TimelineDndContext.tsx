@@ -166,9 +166,10 @@ export const TimelineDndContext = forwardRef<
             <Box
               key={m.key}
               sx={{
-                position: "relative",
+                position: "relative", // Denna box är "gränsen" för texten
                 width: m.days.length * CELL_WIDTH,
                 height: "100%",
+                flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.1)",
               }}
             >
@@ -176,11 +177,14 @@ export const TimelineDndContext = forwardRef<
                 variant="subtitle2"
                 sx={{
                   position: "sticky",
-                  left: 0,
-                  pl: "10px",
-                  pt: "8px",
+                  left: 0, // Fastnar vid sidebaren
+                  paddingLeft: "10px",
+                  paddingTop: "8px",
                   fontWeight: 700,
                   color: "primary.main",
+                  whiteSpace: "nowrap",
+                  width: "fit-content", // Gör att den kan knuffas
+                  display: "block",
                 }}
               >
                 {m.label}

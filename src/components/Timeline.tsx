@@ -15,11 +15,9 @@ import type { Group, LeaveItem } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
-import { predefinedColors } from "./forms/AbsenceTypeForm";
 import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
-import { INITIAL_LEAVE_ITEMS } from "../DemoData";
 import { appServicesStatic } from "../services/appServices";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
@@ -52,16 +50,6 @@ export const Timeline = () => {
   const [pickerDate, setPickerDate] = useState(dayjs());
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
-  const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
-    null
-  );
-  const [resourceMenuAnchor, setResourceMenuAnchor] =
-    useState<null | HTMLElement>(null);
-  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
-    null
-  );
-
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   // const [absenceTypes, setAbsenceTypes] = useState(ABSENCE_TYPES);
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
@@ -193,22 +181,14 @@ export const Timeline = () => {
 
       // Uppdatera sidebaren genom att hämta de nya grupp-strukturerna
       await appServicesStatic.groups.loadAll();
-
-      setResourceMenuAnchor(null);
-      setSelectedResourceId(null);
     }
   };
   // --- GROUP ACTIONS ---
-  const handleGroupMenuClose = () => {
-    setGroupMenuAnchor(null);
-    setSelectedGroupId(null);
-  };
 
   const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
       // API DELETE
       await appServicesStatic.groups.removeOne(selectedGroupId);
-      handleGroupMenuClose();
     }
   };
 
@@ -624,7 +604,6 @@ export const Timeline = () => {
 
   const handleDialogGroupTrigger = (groupToEdit?: Group) => {
     const isEditing = !!groupToEdit;
-    setGroupMenuAnchor(null);
 
     dialog.open("group", {
       title: isEditing ? "Redigera grupp" : "Skapa ny grupp",
@@ -644,7 +623,6 @@ export const Timeline = () => {
           }
         : undefined,
       onClose: () => {
-        setSelectedGroupId(null);
         dialog.close();
       },
     });
@@ -751,8 +729,6 @@ export const Timeline = () => {
         dialog.close();
       },
       onClose: () => {
-        setSelectedResourceId(null);
-        setSelectedGroupId(null);
         dialog.close();
       },
     });
@@ -762,8 +738,7 @@ export const Timeline = () => {
       title: "Databassystem",
       onClose: () => {
         // Cleanup: Clear any selected IDs just like in your resource example
-        setSelectedResourceId(null);
-        setSelectedGroupId(null);
+
         dialog.close();
       },
     });
