@@ -45,6 +45,7 @@ interface TimelineHeaderProps {
 const HolidayContext = createContext({
   holidays: [] as { name: string; date: Dayjs }[],
   onSelectHoliday: (d: Dayjs) => {},
+  onClose: () => {}, // <--- LÄGG TILL DENNA RAD
 });
 
 const useHolidayContext = () => useContext(HolidayContext);
@@ -89,27 +90,15 @@ function getSwedishHolidays(year: number) {
 // Custom Layout: Calendar on Left, Holidays on Right
 // ---------------------------------------------------------
 function HolidayLayout(props: PickersLayoutProps<any>) {
-  const { holidays, onSelectHoliday } = useHolidayContext();
+  const { holidays, onSelectHoliday, onClose } = useHolidayContext();
 
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" } }}>
-      {/* Vänster: Standardkalender */}
       <Box>
         <PickersLayout {...props} />
       </Box>
 
-      {/* Höger: Panel med Helgdagar och den nya "I dag"-knappen */}
-      <Box
-        sx={{
-          width: { xs: "100%", sm: 220 },
-          borderLeft: { xs: "none", sm: "1px solid #eee" },
-          borderTop: { xs: "1px solid #eee", sm: "none" },
-          bgcolor: alpha("#000", 0.02),
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Rubrikrad med "Helgdagar" och "I dag"-knapp */}
+      <Box sx={{ width: { xs: "100%", sm: 220 } /* ... din styling ... */ }}>
         <Box
           sx={{
             p: 1,
@@ -117,21 +106,15 @@ function HolidayLayout(props: PickersLayoutProps<any>) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            borderBottom: "1px solid #eee",
           }}
         >
-          <Typography
-            variant="overline"
-            sx={{ fontWeight: 700, color: "text.secondary", lineHeight: 2.5 }}
-          >
-            Helgdagar
-          </Typography>
-
+          <Typography variant="overline">Helgdagar</Typography>
           <Button
             size="small"
-            variant="text"
-            onClick={() => onSelectHoliday(dayjs())} // Hoppar till dagens datum
-            sx={{ fontSize: "0.65rem", fontWeight: 700 }}
+            onClick={() => {
+              onClose(); // <--- STÄNGER MENYN
+              setTimeout(() => onSelectHoliday(dayjs()), 10);
+            }}
           >
             I dag
           </Button>
@@ -140,13 +123,15 @@ function HolidayLayout(props: PickersLayoutProps<any>) {
         <List dense sx={{ maxHeight: 350, overflowY: "auto" }}>
           {holidays.map((h) => (
             <ListItemButton
-              key={h.name + h.date.toString()}
-              onClick={() => onSelectHoliday(h.date)}
+              key={h.name}
+              onClick={() => {
+                onClose(); // <--- STÄNGER MENYN OMEDELBART
+                setTimeout(() => onSelectHoliday(h.date), 10); // HOPPAR TILL DATUM
+              }}
             >
               <ListItemText
                 primary={h.name}
                 secondary={h.date.format("D MMM")}
-                primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
               />
             </ListItemButton>
           ))}
@@ -282,6 +267,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
               onDateChange(d);
               onCloseDatePicker();
             },
+            onClose: onCloseDatePicker,
           }}
         >
           <DatePicker

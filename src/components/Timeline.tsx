@@ -337,23 +337,23 @@ export const Timeline = () => {
   const jumpToDate = (date: Dayjs | null) => {
     if (!date) return;
 
-    // This is the key: set the pickerDate to the new date
-    // so the calendar opens at the right spot next time.
+    // Sätt pickerDate först
     setPickerDate(date);
 
-    isJumpingRef.current = true;
-    isLoadingRef.current = true;
-    const target = date.startOf("day");
-    const newStart = target.subtract(30, "days");
-    setStartDate(newStart); // This will update the button text correctly
-    setDaysCount(300);
-    setTimeout(() => {
-      if (scrollContainerRef.current) {
-        const offset = getDateOffset(target.format("YYYY-MM-DD"), newStart);
-        scrollContainerRef.current.scrollLeft = offset - 100;
-        isLoadingRef.current = false;
-      }
-    }, 10);
+    // Använd requestAnimationFrame för att scrolla mjukt utan att blockera tråden
+    requestAnimationFrame(() => {
+      isJumpingRef.current = true;
+      const target = date.startOf("day");
+      const newStart = target.subtract(30, "days");
+      setStartDate(newStart);
+
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          const offset = getDateOffset(target.format("YYYY-MM-DD"), newStart);
+          scrollContainerRef.current.scrollLeft = offset - 100;
+        }
+      }, 0);
+    });
   };
 
   // --- BLOCK CREATION LOGIC (UNCHANGED FROM YOUR ORIGINAL) ---
