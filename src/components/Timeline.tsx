@@ -6,161 +6,54 @@ import React, {
   useEffect,
   useLayoutEffect,
 } from "react";
-import {
-  Box,
-  Typography,
-  AppBar,
-  Toolbar,
-  Button,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  Stack,
-  FormControl,
-  InputLabel,
-  Select,
-  Tooltip,
-  Menu,
-  Collapse,
-  Grow,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-} from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { Box } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragStartEvent,
-  DragOverlay,
-} from "@dnd-kit/core";
-import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
-import {
-  CELL_WIDTH,
-  ROW_HEIGHT,
-  getDaysArray,
-  getDateOffset,
-  checkCollision,
-  type LeaveItem,
-  type Group,
-} from "../utils";
-import { LeaveBlock } from "./LeaveBlock";
-import { KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
-import AddIcon from "@mui/icons-material/Add";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import MenuIcon from "@mui/icons-material/Menu";
-import SettingsIcon from "@mui/icons-material/Settings";
-import { useSnackbar } from "../provider/SnackbarContext";
-import { useDialog } from "../provider/DialogProvider";
-const PREDEFINED_COLORS = [
-  // Blues & Purples
-  "#1976d2", // Material UI Blue 700
-  "#0288d1", // Material UI Light Blue 700
-  "#7b1fa2", // Material UI Purple 700
-  "#512da8", // Material UI Deep Purple 700
+import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { CELL_WIDTH } from "../utils";
+import { useSidebarMode, useUIActions } from "../services/uiStore";
+import type { Group, LeaveItem } from "../types";
+import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
+import { toast } from "../services/globalSnackbar";
+import { dialog } from "../services/dialog/dialogStore";
+import { predefinedColors } from "./forms/AbsenceTypeForm";
+import { TimelineHeader } from "./TimelineHeader";
+import { TimelineSidebar } from "./TimelineSidebar";
+import { TimelineDndContext } from "./TimelineDndContext";
+import { INITIAL_LEAVE_ITEMS } from "../DemoData";
+import { appServicesStatic } from "../services/appServices";
 
-  // Greens & Teals
-  "#2e7d32", // Material UI Green 700
-  "#00796b", // Material UI Teal 700
-  "#689f38", // Material UI Light Green 700
-
-  // Reds & Pinks
-  "#d32f2f", // Material UI Red 700
-  "#c2185b", // Material UI Pink 700
-  "#ad1457", // Material UI Pink 800
-
-  // Oranges & Yellows
-  "#ed6c02", // Material UI Orange 700
-  "#f57c00", // Material UI Orange 600
-  "#ffa000", // Material UI Amber 700
-  "#afb42b", // Material UI Lime 700
-
-  // Greys & Browns
-  "#616161", // Material UI Grey 700
-  "#455a64", // Material UI Blue Grey 700
-  "#5d4037", // Material UI Brown 700
-
-  // Unique Colors
-  "#00acc1", // Material UI Cyan 600
-  "#e64a19", // Material UI Deep Orange 700
-  "#303f9f", // Material UI Indigo 600
-];
-
-// --- CONFIGURATION ---
-const ABSENCE_TYPES = [
-  { id: "conf", color: PREDEFINED_COLORS[0], label: "Konferens" },
-  { id: "vac", color: PREDEFINED_COLORS[4], label: "Semester" },
-  { id: "sick", color: PREDEFINED_COLORS[8], label: "Sjuk" },
-  { id: "vab", color: PREDEFINED_COLORS[11], label: "VAB" },
-];
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
-const INITIAL_GROUPS: Group[] = [
-  {
-    id: "g1",
-    name: "Utvecklare",
-    resources: [
-      { id: "1", name: "Anders Svensson" },
-      { id: "2", name: "Anna Karlsson" },
-    ],
-  },
-  {
-    id: "g2",
-    name: "Designers",
-    resources: [
-      { id: "3", name: "Erik Nilsson" },
-      { id: "4", name: "Malin Berg" },
-    ],
-  },
-  {
-    id: "g3",
-    name: "Projektledare",
-    resources: [{ id: "5", name: "Gustav Vasa" }],
-  },
-];
-
 export const Timeline = () => {
+  const sidebarMode = useSidebarMode();
+  const { toggleSidebar } = useUIActions();
+
+  // 1. Hämta ENDAST från Store/API
+  const absenceTypes = appServicesStatic.absenceTypes.useItems();
+  const groups = appServicesStatic.groups.useItems();
+  const leaves = appServicesStatic.leaves.useItems();
+  // 2. Trigga laddning
+  useEffect(() => {
+    appServicesStatic.absenceTypes.loadAll();
+    appServicesStatic.groups.loadAll();
+    appServicesStatic.resources.loadAll();
+    appServicesStatic.leaves.loadAll(); // Add this line
+  }, []);
+
   // --- STATE ---
   const [startDate, setStartDate] = useState(
     dayjs().startOf("day").subtract(30, "days")
   );
-  const weekendOffset = ((startDate.day() - 1 + 7) % 7) * CELL_WIDTH;
 
-  const weekendGrid = `repeating-linear-gradient(
-  90deg, 
-  transparent 0px, 
-  transparent ${5 * CELL_WIDTH}px, 
-  rgba(255, 0, 0, 0.05) ${5 * CELL_WIDTH}px, 
-  rgba(255, 0, 0, 0.05) ${7 * CELL_WIDTH}px
-)`;
   const [daysCount, setDaysCount] = useState(200);
-  const [groups, setGroups] = useState<Group[]>(INITIAL_GROUPS);
-  const [sidebarMode, setSidebarMode] = useState<
-    "full" | "initials" | "hidden"
-  >("full");
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-  const { openDialog } = useDialog();
+  // const { openDialog } = useDialog();
   // Interaction States
   const [isDragging, setIsDragging] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pickerDate, setPickerDate] = useState(dayjs());
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 
-  // Menu & Dialog States
-  const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
-    null
-  );
   const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
     null
   );
@@ -169,80 +62,11 @@ export const Timeline = () => {
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
     null
   );
-  const [resourceDialogMode, setResourceDialogMode] = useState<
-    "create" | "edit"
-  >("create");
+
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [absenceTypes, setAbsenceTypes] = useState(ABSENCE_TYPES);
-  const [isTypeDialogOpen, setIsTypeDialogOpen] = useState(false);
-  const [newTypeLabel, setNewTypeLabel] = useState("");
-  const [newTypeColor, setNewTypeColor] = useState("#9c27b0"); // Startfärg lila
+  // const [absenceTypes, setAbsenceTypes] = useState(ABSENCE_TYPES);
 
-  const [isResourceDialogOpen, setIsResourceDialogOpen] = useState(false);
-  const [newResourceName, setNewResourceName] = useState("");
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [typeDialogMode, setTypeDialogMode] = useState<"create" | "edit">(
-    "create"
-  );
-  const [dialogState, setDialogState] = useState<{
-    isOpen: boolean;
-    mode: "create" | "edit";
-    data: {
-      id?: string;
-      rowId: string;
-      startDate: Dayjs;
-      duration: number;
-      typeId: string;
-      name: string;
-    };
-  }>({
-    isOpen: false,
-    mode: "create",
-    data: {
-      rowId: "",
-      startDate: dayjs(),
-      duration: 1,
-      typeId: "vac",
-      name: "",
-    },
-  });
-
-  const [leaves, setLeaves] = useState<LeaveItem[]>([
-    {
-      id: "l1",
-      name: "Nyårskonferens",
-      startDate: "2026-01-01",
-      durationDays: 4,
-      color: "#1976d2",
-      rowId: "1",
-    },
-    {
-      id: "l3",
-      name: "Möte (Test)",
-      startDate: "2026-01-08",
-      durationDays: 3,
-      color: "#d32f2f",
-      rowId: "1",
-    },
-    {
-      id: "l2",
-      name: "Vinterledigt",
-      startDate: "2026-01-10",
-      durationDays: 14,
-      color: "#2e7d32",
-      rowId: "2",
-    },
-    {
-      id: "l4",
-      name: "Vinterledigt",
-      startDate: "2025-12-12",
-      durationDays: 14,
-      color: "#2e7d32",
-      rowId: "2",
-    },
-  ]);
 
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -252,11 +76,9 @@ export const Timeline = () => {
   const dragStartTimeRef = useRef(startDate);
   const isJumpingRef = useRef(false);
   const isSelectingRef = useRef(false);
-  const pointerXRef = useRef(0);
   const scrollRequestRef = useRef<number | null>(null);
   const lastPointerXRef = useRef<number>(0);
   const startXRef = useRef<number>(0);
-  const { showSnackbar } = useSnackbar();
   const selectionBoxRef = useRef<HTMLDivElement | null>(null);
   const [selection, setSelection] = useState({
     isSelecting: false,
@@ -266,12 +88,44 @@ export const Timeline = () => {
     startIndex: 0,
   });
 
-  // State for the new Configuration Dialog
-  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   // State for the checkbox "Spärr för gångna dagar"
   const [blockPastDays, setBlockPastDays] = useState(true); // Default to ON
   // State for the checkbox "Ta bort möjligheten att radera"
   const [disableDeletion, setDisableDeletion] = useState(false); // Default to OFF
+
+  // Inside your Timeline component
+  const isDown = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const handleGroupRowMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+
+    isDown.current = true;
+    // Get the initial click position and current scroll position
+    startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
+    scrollLeft.current = scrollContainerRef.current.scrollLeft;
+
+    // Change cursor to grabbing globally while dragging
+    document.body.style.cursor = "grabbing";
+  };
+
+  const handleGroupRowMouseLeaveOrUp = () => {
+    isDown.current = false;
+    document.body.style.cursor = "default";
+  };
+
+  const handleGroupRowMouseMove = (e: React.MouseEvent) => {
+    if (!isDown.current || !scrollContainerRef.current) return;
+    e.preventDefault();
+
+    // Calculate how far we have moved
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; // Multiply by 1.5 for faster scrolling
+
+    // Update the scroll container
+    scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
+  };
   // --- END OF NEW CODE ---
   useEffect(() => {
     // If the parent "block past days" is unchecked,
@@ -286,25 +140,12 @@ export const Timeline = () => {
     [startDate, daysCount]
   );
 
-  const getInitials = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2)
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
-
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((prev) =>
       prev.includes(groupId)
         ? prev.filter((id) => id !== groupId)
         : [...prev, groupId]
     );
-  };
-
-  const handleToggleSidebar = () => {
-    if (sidebarMode === "full") setSidebarMode("initials");
-    else if (sidebarMode === "initials") setSidebarMode("hidden");
-    else setSidebarMode("full");
   };
 
   const startAutoScroll = () => {
@@ -347,188 +188,97 @@ export const Timeline = () => {
       scrollRequestRef.current = null;
     }
   };
+  const handleDeleteResource = async (groupId: string, resId: string) => {
+    if (resId && groupId) {
+      // API DELETE
+      await appServicesStatic.resources.removeOne(resId);
 
-  const handleResourceMenuOpen = (
-    e: React.MouseEvent<HTMLElement>,
-    groupId: string,
-    resId: string
-  ) => {
-    e.stopPropagation();
-    setResourceMenuAnchor(e.currentTarget);
-    setSelectedGroupId(groupId); // We need to know which group they belong to
-    setSelectedResourceId(resId);
-  };
+      // Uppdatera sidebaren genom att hämta de nya grupp-strukturerna
+      await appServicesStatic.groups.loadAll();
 
-  const handleEditResourceTrigger = () => {
-    // Find the resource name to pre-fill the dialog
-    const group = groups.find((g) => g.id === selectedGroupId);
-    const resource = group?.resources.find((r) => r.id === selectedResourceId);
-    if (resource) {
-      setNewResourceName(resource.name);
-      setResourceDialogMode("edit");
-      setIsResourceDialogOpen(true);
+      setResourceMenuAnchor(null);
+      setSelectedResourceId(null);
     }
-    setResourceMenuAnchor(null);
-  };
-
-  const handleDeleteResource = () => {
-    setGroups((prev) =>
-      prev.map((g) => {
-        if (g.id === selectedGroupId) {
-          return {
-            ...g,
-            resources: g.resources.filter((r) => r.id !== selectedResourceId),
-          };
-        }
-        return g;
-      })
-    );
-    setResourceMenuAnchor(null);
   };
   // --- GROUP ACTIONS ---
-  const handleGroupMenuOpen = (
-    e: React.MouseEvent<HTMLElement>,
-    groupId: string
-  ) => {
-    e.stopPropagation();
-    setGroupMenuAnchor(e.currentTarget);
-    setSelectedGroupId(groupId);
-  };
   const handleGroupMenuClose = () => {
     setGroupMenuAnchor(null);
     setSelectedGroupId(null);
   };
 
-  const handleEditGroupTrigger = () => {
-    const group = groups.find((g) => g.id === selectedGroupId);
-    if (group) {
-      setNewGroupName(group.name);
-      setIsGroupDialogOpen(true);
-    }
-    setGroupMenuAnchor(null);
-  };
-
-  const handleDeleteGroup = () => {
+  const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
-      setGroups((prev) => prev.filter((g) => g.id !== selectedGroupId));
+      // API DELETE
+      await appServicesStatic.groups.removeOne(selectedGroupId);
       handleGroupMenuClose();
     }
   };
-  // --- OLD CODE (Referens) ---
-  const handleSaveAbsenceType = () => {
-    if (!newTypeLabel.trim()) return;
 
-    // Kontrollera färg (hoppa över kontrollen om vi sparar samma färg på samma objekt)
-    const isColorTaken = absenceTypes.some(
-      (t) =>
-        t.color.toLowerCase() === newTypeColor.toLowerCase() &&
-        t.id !== selectedTypeId
-    );
+  const handleSaveAbsenceType = async (
+    label: string,
+    color: string,
+    idToUpdate?: string | null
+  ) => {
+    if (!label.trim()) return;
 
-    if (isColorTaken) {
-      showSnackbar("Färgen är redan vald för en annan frånvarotyp.", "error");
-      return;
-    }
-
-    if (typeDialogMode === "edit") {
-      setAbsenceTypes((prev) =>
-        prev.map((t) =>
-          t.id === selectedTypeId
-            ? { ...t, label: newTypeLabel, color: newTypeColor }
-            : t
-        )
-      );
-    } else {
-      const newType = {
-        id: "custom-" + Date.now(),
-        color: newTypeColor,
-        label: newTypeLabel,
-      };
-      setAbsenceTypes((prev) => [...prev, newType]);
-    }
-
-    setIsTypeDialogOpen(false);
-    setNewTypeLabel("");
-    setSelectedTypeId(null);
-  };
-  const handleSaveGroup = () => {
-    if (!newGroupName.trim()) return;
-    if (selectedGroupId) {
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.id === selectedGroupId ? { ...g, name: newGroupName } : g
-        )
-      );
-    } else {
-      setGroups([
-        ...groups,
-        { id: "g-" + Date.now(), name: newGroupName, resources: [] },
-      ]);
-    }
-    setNewGroupName("");
-    setSelectedGroupId(null);
-    setIsGroupDialogOpen(false);
-  };
-  const handleOpenAddResource = () => {
-    setResourceDialogMode("create");
-    setNewResourceName("");
-    setIsResourceDialogOpen(true);
-    setGroupMenuAnchor(null);
-  };
-
-  const handleSaveResource = () => {
-    if (!newResourceName.trim() || !selectedResourceId) return;
-
-    setGroups((prev) => {
-      // 1. First, create a clean copy of all groups and REMOVE the employee
-      // from wherever they currently are (since IDs are unique).
-      let employeeObj: any = null;
-
-      const groupsWithoutEmployee = prev.map((g) => {
-        const found = g.resources.find((r) => r.id === selectedResourceId);
-        if (found) {
-          employeeObj = { ...found, name: newResourceName }; // Update the name
-        }
-        return {
-          ...g,
-          resources: g.resources.filter((r) => r.id !== selectedResourceId),
-        };
+    if (idToUpdate) {
+      // UPDATE: Nu tillåter TypeScript att du skickar med 'id'
+      await appServicesStatic.absenceTypes.updateOne(idToUpdate, {
+        id: idToUpdate, // Viktigt för din C# Controller check
+        label,
+        color,
       });
-
-      // 2. If we are in "edit" mode and found the employee,
-      // add them to the NEWLY selected group.
-      if (resourceDialogMode === "edit" && employeeObj) {
-        return groupsWithoutEmployee.map((g) => {
-          if (g.id === selectedGroupId) {
-            return {
-              ...g,
-              resources: [...g.resources, employeeObj],
-            };
-          }
-          return g;
-        });
-      }
-
-      // 3. Fallback for "create" mode (original logic for adding new resource)
-      if (resourceDialogMode === "create") {
-        return prev.map((g) => {
-          if (g.id !== selectedGroupId) return g;
-          return {
-            ...g,
-            resources: [
-              ...g.resources,
-              { id: "r-" + Date.now(), name: newResourceName },
-            ],
-          };
-        });
-      }
-
-      return prev;
-    });
-
-    setIsResourceDialogOpen(false);
-    setNewResourceName("");
+    } else {
+      // CREATE: Här behövs inget ID, backend genererar ett nytt GUID
+      await appServicesStatic.absenceTypes.createOne({
+        label,
+        color,
+      });
+    }
   };
+  const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
+    if (!name.trim()) return;
+
+    if (idToUpdate) {
+      await appServicesStatic.groups.updateOne(idToUpdate, {
+        id: idToUpdate,
+        name,
+      });
+    } else {
+      // Här skapas gruppen. Vi väntar tills den är sparad.
+      await appServicesStatic.groups.createOne({ name });
+    }
+
+    // Eftersom vi inte längre använder optimistiska uppdateringar,
+    // kör vi en extra reload för att säkerställa att allt är synkat.
+    await appServicesStatic.groups.loadAll();
+  };
+  const handleSaveResource = async (
+    name: string,
+    targetGroupId: string,
+    resourceIdToUpdate: string | null
+  ) => {
+    if (!name.trim() || !targetGroupId) return;
+
+    // Skapa objektet som ska skickas
+    const resourceData = {
+      name: name,
+      groupId: targetGroupId, // Detta måste vara GUID:et från databasen
+    };
+
+    if (resourceIdToUpdate) {
+      await appServicesStatic.resources.updateOne(resourceIdToUpdate, {
+        id: resourceIdToUpdate,
+        ...resourceData,
+      });
+    } else {
+      await appServicesStatic.resources.createOne(resourceData);
+    }
+
+    // Ladda om grupperna för att visa den nya anställda direkt
+    await appServicesStatic.groups.loadAll();
+  };
+
   // --- TIMELINE LOGIC ---
   useLayoutEffect(() => {
     if (
@@ -671,42 +421,64 @@ export const Timeline = () => {
       selectionBoxRef.current.style.width = `${width}px`;
     }
   };
+  // 1. Define the Save Handler
+  const handleSaveLeave = async (
+    formData: { typeId: string; startDate: Dayjs; duration: number },
+    leaveIdToUpdate: string | null,
+    targetRowId: string | null
+  ) => {
+    const type = absenceTypes.find((t) => t.id === formData.typeId);
+    if (!type || !targetRowId) return;
 
+    const entry: LeaveItem = {
+      id: leaveIdToUpdate || "l-" + Date.now(),
+      rowId: targetRowId,
+      name: type.label,
+      startDate: formData.startDate.format("YYYY-MM-DD"),
+      durationDays: formData.duration,
+      color: type.color,
+      absenceTypeId: type.id, // <--- MAKE SURE THIS IS SENT
+    };
+
+    // Validation: Collision
+    const otherLeaves = leaves.filter((l) => l.id !== leaveIdToUpdate);
+    if (checkCollision(otherLeaves, entry)) {
+      toast("Krockar med annan frånvaro!", "error");
+      return;
+    }
+
+    if (leaveIdToUpdate) {
+      // UPDATE Logic
+      await appServicesStatic.leaves.updateOne(leaveIdToUpdate, entry);
+    } else {
+      // CREATE Logic
+      await appServicesStatic.leaves.createOne(entry);
+    }
+  };
   const handleGridPointerUp = (e: React.PointerEvent) => {
     if (!isSelectingRef.current) return;
     isSelectingRef.current = false;
     stopAutoScroll();
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 
-    const rowId = selection.rowId;
+    const rowId = selection.rowId; // Capture the row ID immediately
     const container = scrollContainerRef.current;
-
-    if (!container || !rowId) {
-      setSelection({
-        isSelecting: false,
-        rowId: null,
-        startX: 0,
-        currentX: 0,
-        startIndex: 0,
-      });
-      return;
-    }
+    if (!container || !rowId) return;
 
     const rect = container.getBoundingClientRect();
     const finalAbsoluteX = e.clientX - rect.left + container.scrollLeft;
     const snappedFinalX = Math.floor(finalAbsoluteX / CELL_WIDTH) * CELL_WIDTH;
 
-    // Använd startXRef för att garantera synk med klicket
     const minX = Math.min(startXRef.current, snappedFinalX);
     const maxX = Math.max(startXRef.current, snappedFinalX);
-
     const startIdx = Math.round(minX / CELL_WIDTH);
     const endIdx = Math.round(maxX / CELL_WIDTH);
 
     const duration = endIdx - startIdx + 1;
     const finalStartDate = startDate.add(startIdx, "day");
-
-    // Stäng markeringen i React
+    if (duration > 0 && rowId) {
+      // Call the new trigger
+      handleDialogAbsenceTrigger(undefined, rowId, finalStartDate, duration);
+    }
     setSelection({
       isSelecting: false,
       rowId: null,
@@ -714,28 +486,31 @@ export const Timeline = () => {
       currentX: 0,
       startIndex: 0,
     });
-    if (blockPastDays && finalStartDate.isBefore(today)) {
-      showSnackbar(
-        "Ogiltigt datum. Du kan inte registrera frånvaro på ett datum som redan har passerat.",
-        "error"
-      );
-      return; // Stop the function here
-    }
+
     if (duration > 0) {
-      setDialogState({
-        isOpen: true,
+      // Open the global dialog
+      dialog.open("absence", {
+        title: "Registrera frånvaro",
         mode: "create",
         data: {
-          id: "",
-          rowId,
           startDate: finalStartDate,
-          duration,
+          duration: duration,
           typeId: absenceTypes[0]?.id || "vac",
-          name: absenceTypes[0]?.label || "Semester",
         },
+        absenceTypes,
+        blockPastDays,
+        onSave: (formData) => {
+          handleSaveLeave(formData, null, rowId);
+          dialog.close();
+        },
+        onClose: () => {
+          dialog.close();
+        },
+        today,
       });
     }
   };
+
   const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
     dragStartTimeRef.current = startDate;
@@ -743,10 +518,11 @@ export const Timeline = () => {
     if (item) setActiveLeave(item);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     setIsDragging(false);
     setActiveLeave(null);
     const { active, delta } = event;
+
     const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
     const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
     const finalDaysDiff = visualMovedDays + daysGridMoved;
@@ -758,154 +534,231 @@ export const Timeline = () => {
           .add(finalDaysDiff, "day")
           .format("YYYY-MM-DD");
 
-        // --- START OF VALIDATION ---
+        // --- VALIDATION ---
         if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-          showSnackbar(
+          toast(
             "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
             "error"
           );
-          return; // This aborts the move, snapping the block back.
+          return;
         }
-        // --- END OF VALIDATION ---
 
-        if (!checkCollision(leaves, { ...item, startDate: newStartDate })) {
-          setLeaves((prev) =>
-            prev.map((l) =>
-              l.id === active.id ? { ...l, startDate: newStartDate } : l
-            )
-          );
+        const updatedItem = { ...item, startDate: newStartDate };
+
+        // --- COLLISION CHECK & API CALL ---
+        if (!checkCollision(leaves, updatedItem)) {
+          // REPLACE setLeaves with API Call
+          await appServicesStatic.leaves.updateOne(item.id, updatedItem);
         }
       }
     }
   };
-  const handleSaveDialog = () => {
-    const { mode, data } = dialogState;
-    const type = absenceTypes.find((t) => t.id === data.typeId);
-    if (!type) return;
-    // Final validation check before creating the entry
-    if (blockPastDays && data.startDate.isBefore(today)) {
-      showSnackbar(
-        "Ogiltigt startdatum. Du kan inte registrera frånvaro på ett datum som redan har passerat.",
-        "error"
-      );
-      setDialogState((p) => ({ ...p, isOpen: false })); // Close dialog on error
-      return;
-    }
-    const entry = {
-      id: data.id || "new-" + Date.now(),
-      rowId: data.rowId,
-      name: data.name,
-      startDate: data.startDate.format("YYYY-MM-DD"),
-      durationDays: Number(data.duration),
-      color: type.color,
-    };
-    if (mode === "create") {
-      if (!checkCollision(leaves, entry)) {
-        setLeaves((prev) => [...prev, entry]);
-        setDialogState((p) => ({ ...p, isOpen: false }));
-      } else {
-        showSnackbar("Krockar med annan frånvaro!", "error");
-      }
-    } else {
-      setLeaves((prev) => prev.map((l) => (l.id === data.id ? entry : l)));
-      setDialogState((p) => ({ ...p, isOpen: false }));
-    }
-  };
-  // 1. Öppna dialogen i edit-läge
-  const handleEditTypeOpen = (type: any) => {
-    setSelectedTypeId(type.id);
-    setNewTypeLabel(type.label);
-    setNewTypeColor(type.color);
-    setTypeDialogMode("edit");
-    setIsTypeDialogOpen(true);
-  };
-
   // 2. Ta bort en ledighetstyp
-  const handleDeleteAbsenceType = () => {
-    if (!selectedTypeId) return;
+  const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
+    const id = idToDelete || selectedTypeId;
+    if (!id) return;
 
-    // Kontrollera om du vill tillåta borttagning av standardtyper (valfritt)
-    setAbsenceTypes((prev) => prev.filter((t) => t.id !== selectedTypeId));
-    setIsTypeDialogOpen(false);
+    await appServicesStatic.absenceTypes.removeOne(id);
     setSelectedTypeId(null);
   };
-  const handleResizeEnd = (
+  const handleLeaveResizeEnd = async (
     id: string,
     newDuration: number,
     daysShifted: number
   ) => {
-    setLeaves((prev) =>
-      prev.map((l) => {
-        if (l.id === id) {
-          const newStartDate = dayjs(l.startDate)
-            .add(daysShifted, "day")
-            .format("YYYY-MM-DD");
+    const item = leaves.find((l) => l.id === id);
+    if (!item) return;
 
-          // --- START OF VALIDATION ---
-          if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-            showSnackbar(
-              "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
-              "error"
-            );
-            return l; // This aborts the resize, returning the original block.
-          }
-          // --- END OF VALIDATION ---
+    const newStartDate = dayjs(item.startDate)
+      .add(daysShifted, "day")
+      .format("YYYY-MM-DD");
 
-          const updatedItem = {
-            ...l,
-            durationDays: newDuration,
-            startDate: newStartDate,
-          };
+    // --- VALIDATION ---
+    if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
+      toast(
+        "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
+        "error"
+      );
+      return;
+    }
 
-          if (checkCollision(prev, updatedItem)) {
-            showSnackbar("Krockar med annan frånvaro!", "error");
-            return l; // Return original if collision
-          }
+    const updatedItem = {
+      ...item,
+      durationDays: newDuration,
+      startDate: newStartDate,
+    };
 
-          return updatedItem;
-        }
-        return l;
-      })
-    );
+    // --- COLLISION CHECK & API CALL ---
+    if (checkCollision(leaves, updatedItem)) {
+      toast("Krockar med annan frånvaro!", "error");
+      return;
+    }
+
+    // REPLACE setLeaves with API Call
+    await appServicesStatic.leaves.updateOne(id, updatedItem);
   };
-
-  const handleEdit = (id: string) => {
+  const handleLeaveEdit = (id: string) => {
     const leave = leaves.find((l) => l.id === id);
-    if (leave)
-      setDialogState({
-        isOpen: true,
-        mode: "edit",
-        data: {
-          ...leave,
-          startDate: dayjs(leave.startDate),
-          duration: leave.durationDays,
-          typeId:
-            absenceTypes.find((t) => t.color === leave.color)?.id || "vac",
-        },
-      });
+    if (leave) {
+      handleDialogAbsenceTrigger(leave); // Passing the leave object = Edit mode
+    }
   };
-  const handleDelete = (id: string) =>
-    setLeaves((prev) => prev.filter((l) => l.id !== id));
+  const handleLeaveDelete = async (id: string) => {
+    if (disableDeletion) {
+      toast("Borttagning är inaktiverad i inställningarna.", "error");
+      return;
+    }
+    await appServicesStatic.leaves.removeOne(id);
+  };
 
   // -----------Dialog---------------------
   const openConfig = () => {
-  openDialog({
-    title: "Konfiguration",
-    content: "CONFIG",
-    props: {
-      blockPastDays: blockPastDays,
-      disableDeletion: disableDeletion
-    },
-    funcs: {
+    dialog.open("config", {
+      title: "Konfiguration",
+      blockPastDays,
+      disableDeletion,
       onUpdate: (key, value) => {
-        // This updates the main state in the background
         if (key === "blockPastDays") setBlockPastDays(value);
         if (key === "disableDeletion") setDisableDeletion(value);
-      }
-    }
-  });
-};
+      },
+    });
+  };
 
+  const handleDialogGroupTrigger = (groupToEdit?: Group) => {
+    const isEditing = !!groupToEdit;
+    setGroupMenuAnchor(null);
+
+    dialog.open("group", {
+      title: isEditing ? "Redigera grupp" : "Skapa ny grupp",
+      isEditMode: isEditing, // Nu klagar inte TS längre!
+      initialName: isEditing ? groupToEdit.name : "",
+      onSave: (name) => {
+        handleSaveGroup(name, isEditing ? groupToEdit.id : null);
+        dialog.close();
+      },
+      // Skicka med onDelete funktionen
+      onDelete: isEditing
+        ? async () => {
+            if (groupToEdit?.id) {
+              await appServicesStatic.groups.removeOne(groupToEdit.id);
+              dialog.close();
+            }
+          }
+        : undefined,
+      onClose: () => {
+        setSelectedGroupId(null);
+        dialog.close();
+      },
+    });
+  };
+  const handleDialogAbsenceTypeTrigger = (typeToEdit?: {
+    id: string;
+    label: string;
+    color: string;
+  }) => {
+    const isEditing = !!typeToEdit;
+
+    dialog.open("absenceType", {
+      title: isEditing ? "Redigera frånvarotyp" : "Skapa ny frånvarotyp",
+      isEditMode: isEditing,
+      typeId: isEditing ? typeToEdit.id : undefined, // <--- DETTA ÄR NYCKELN!
+      initialLabel: isEditing ? typeToEdit.label : "",
+      initialColor: isEditing ? typeToEdit.color : undefined,
+      absenceTypes: absenceTypes, // Skicka med hela listan från API/Store
+
+      onSave: (label, color) => {
+        // Pass the specific ID if editing, or null if creating
+        handleSaveAbsenceType(label, color, isEditing ? typeToEdit.id : null);
+        dialog.close();
+      },
+
+      // If editing, provide the delete functionality
+      onDelete: isEditing
+        ? () => {
+            handleDeleteAbsenceType(typeToEdit.id);
+            dialog.close();
+          }
+        : undefined,
+
+      onClose: () => {
+        setSelectedTypeId(null);
+        dialog.close();
+      },
+    });
+  };
+  const handleDialogAbsenceTrigger = (
+    leaveToEdit?: LeaveItem,
+    rowId?: string,
+    startDate?: Dayjs,
+    duration?: number
+  ) => {
+    const isEditing = !!leaveToEdit;
+
+    // If editing, we use the leave's rowId. If creating, we use the rowId passed from the grid.
+    const targetRowId = isEditing ? leaveToEdit.rowId : rowId;
+
+    dialog.open("absence", {
+      title: isEditing ? "Redigera frånvaro" : "Registrera frånvaro",
+      mode: isEditing ? "edit" : "create",
+      data: isEditing
+        ? {
+            // EDIT MODE INITIAL DATA
+            startDate: dayjs(leaveToEdit.startDate),
+            duration: leaveToEdit.durationDays,
+            typeId:
+              absenceTypes.find((t) => t.color === leaveToEdit.color)?.id ||
+              "vac",
+          }
+        : {
+            // CREATE MODE INITIAL DATA (from grid selection)
+            startDate: startDate || dayjs(),
+            duration: duration || 1,
+            typeId: absenceTypes[0]?.id || "vac",
+          },
+      absenceTypes,
+      blockPastDays,
+      today,
+
+      onSave: (formData) => {
+        // formData comes from the AbsenceForm (typeId, startDate, duration)
+        handleSaveLeave(
+          formData,
+          isEditing ? leaveToEdit.id : null,
+          targetRowId ? targetRowId : null
+        );
+        dialog.close();
+      },
+      onClose: () => dialog.close(),
+    });
+  };
+  const handleDialogResourceTrigger = (
+    resourceToEdit?: { id: string; name: string },
+    currentGroupId?: string
+  ) => {
+    const isEditing = !!resourceToEdit;
+
+    dialog.open("resource", {
+      title: isEditing ? "Redigera anställd" : "Lägg till anställd",
+      initialName: isEditing ? resourceToEdit.name : "",
+      initialGroupId: currentGroupId, // The group they currently belong to
+      groups, // Pass the list of groups so the user can change it
+
+      onSave: (name, targetGroupId) => {
+        // Pass the specific resource ID if editing, or null if creating
+        handleSaveResource(
+          name,
+          targetGroupId,
+          isEditing ? resourceToEdit.id : null
+        );
+        dialog.close();
+      },
+      onClose: () => {
+        setSelectedResourceId(null);
+        setSelectedGroupId(null);
+        dialog.close();
+      },
+    });
+  };
   return (
     <Box
       sx={{
@@ -916,78 +769,20 @@ export const Timeline = () => {
       }}
     >
       {/* 1. APP BAR */}
-      <AppBar
-        position="static"
-        color="inherit"
-        elevation={0}
-        sx={{ borderBottom: "1px solid #ddd", bgcolor: "white" }}
-      >
-        <Toolbar>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            Planera ledighet
-          </Typography>
-          <Box sx={{ display: "flex", gap: 2, ml: 4, alignItems: "center" }}>
-            {absenceTypes.map((type) => (
-              <Box
-                key={type.id}
-                onClick={() => handleEditTypeOpen(type)} // <--- LÄGG TILL DENNA
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.5,
-                  cursor: "pointer", // <--- GÖR DEN KLICKBAR
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  "&:hover": { bgcolor: "rgba(0,0,0,0.05)" },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    bgcolor: type.color,
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: "#666" }}
-                >
-                  {type.label}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-          <Box sx={{ flexGrow: 1 }} />
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <IconButton
-              size="small"
-              onClick={() => jumpToDate(pickerDate.subtract(1, "month"))}
-            >
-              <ArrowBackIosNewIcon fontSize="small" />
-            </IconButton>
-            <Button
-              ref={datePickerAnchorRef}
-              onClick={() => setIsDatePickerOpen(true)}
-              startIcon={<CalendarMonthIcon fontSize="small" />}
-              sx={{
-                fontWeight: 600,
-                textTransform: "capitalize",
-                color: "text.primary",
-                minWidth: 160,
-              }}
-            >
-              {pickerDate.format("D MMM YYYY")}, v.{pickerDate.isoWeek()}
-            </Button>
-            <IconButton
-              size="small"
-              onClick={() => jumpToDate(pickerDate.add(1, "month"))}
-            >
-              <ArrowForwardIosIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </Toolbar>
-      </AppBar>
+      <TimelineHeader
+        absenceTypes={absenceTypes}
+        pickerDate={pickerDate}
+        isDatePickerOpen={isDatePickerOpen}
+        datePickerAnchorRef={
+          datePickerAnchorRef as React.RefObject<HTMLButtonElement>
+        }
+        onAbsenceTypeClick={handleDialogAbsenceTypeTrigger}
+        onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
+        onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
+        onOpenDatePicker={() => setIsDatePickerOpen(true)}
+        onCloseDatePicker={() => setIsDatePickerOpen(false)}
+        onDateChange={(newDate) => jumpToDate(newDate)}
+      />
 
       {/* 2. MAIN CONTENT AREA */}
       <Box
@@ -999,999 +794,57 @@ export const Timeline = () => {
         }}
       >
         {/* SIDEBAR (GLASSMORPHISM) */}
-        <Box
-          sx={{
-            width:
-              sidebarMode === "full"
-                ? 200
-                : sidebarMode === "initials"
-                ? 70
-                : 0,
-            transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            position: "relative",
-            zIndex: 1100,
-            overflow: "visible",
-          }}
-        >
-          <Box
-            sx={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              background: "rgba(255, 255, 255, 0.7)",
-              backdropFilter: "blur(20px)",
-              borderRight:
-                sidebarMode === "hidden"
-                  ? "none"
-                  : "1px solid rgba(0, 0, 0, 0.1)",
-              boxShadow:
-                sidebarMode === "hidden"
-                  ? "none"
-                  : "4px 0 15px rgba(0,0,0,0.05)",
-            }}
-          >
-            <Box
-              sx={{
-                height: 105,
-                borderBottom: "1px solid rgba(0,0,0,0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              {sidebarMode !== "hidden" && (
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    bgcolor: "primary.main",
-                    borderRadius: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "white",
-                    fontWeight: "bold",
-                    fontSize: "1.2rem",
-                  }}
-                >
-                  P
-                </Box>
-              )}
-            </Box>
-
-            {/* List with Collapsible Animation */}
-            <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden" }}>
-              {groups.map((group) => {
-                const isCollapsed = collapsedGroups.includes(group.id);
-                const header = (
-                  <Box
-                    onClick={() => toggleGroup(group.id)}
-                    sx={{
-                      height: 40,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent:
-                        sidebarMode === "initials" ? "center" : "space-between",
-                      px: sidebarMode === "initials" ? 0 : 2,
-                      bgcolor: "rgba(0,0,0,0.04)",
-                      borderBottom: "1px solid rgba(0,0,0,0.03)",
-                      cursor: "pointer",
-                      boxSizing: "border-box",
-                      "&:hover": {
-                        bgcolor: "rgba(0,0,0,0.08)",
-                        "& .group-menu-btn": { opacity: 1 },
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {sidebarMode === "full" && (
-                        <Box
-                          sx={{
-                            mr: 1,
-                            display: "flex",
-                            transition: "transform 0.3s",
-                            transform: isCollapsed
-                              ? "rotate(-90deg)"
-                              : "rotate(0deg)",
-                          }}
-                        >
-                          <KeyboardArrowDownIcon fontSize="small" />
-                        </Box>
-                      )}
-                      <Typography
-                        variant="subtitle1"
-                        noWrap
-                        sx={{
-                          fontWeight: 700,
-                          textAlign:
-                            sidebarMode === "initials" ? "center" : "left",
-                        }}
-                      >
-                        {sidebarMode === "initials"
-                          ? getInitials(group.name)
-                          : group.name}
-                      </Typography>
-                    </Box>
-                    {sidebarMode === "full" && (
-                      <IconButton
-                        className="group-menu-btn"
-                        size="small"
-                        sx={{ opacity: 0 }}
-                        onClick={(e) => handleGroupMenuOpen(e, group.id)}
-                      >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                );
-
-                return (
-                  <Box key={group.id}>
-                    {sidebarMode === "initials" ? (
-                      <Tooltip title={group.name} placement="right" arrow>
-                        {header}
-                      </Tooltip>
-                    ) : (
-                      header
-                    )}
-                    <Collapse in={!isCollapsed}>
-                      {group.resources.map((res, index) => {
-                        const resRow = (
-                          <Box
-                            key={index}
-                            sx={{
-                              height: ROW_HEIGHT,
-                              display: "flex",
-                              alignItems: "center",
-                              px: sidebarMode === "initials" ? 0 : 2,
-                              justifyContent:
-                                sidebarMode === "initials"
-                                  ? "center"
-                                  : "flex-start",
-                              borderBottom: "1px solid rgba(0,0,0,0.03)",
-                              pl: sidebarMode === "full" ? 5 : 0,
-                              boxSizing: "border-box",
-                              // LÄGG TILL DESSA RADER:
-                              "&:hover": {
-                                bgcolor: "rgba(0,0,0,0.04)",
-                                "& .res-menu-btn": { opacity: 1 },
-                              },
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              noWrap
-                              sx={{
-                                fontWeight: 500,
-                                textAlign:
-                                  sidebarMode === "initials"
-                                    ? "center"
-                                    : "left",
-                              }}
-                            >
-                              {sidebarMode === "initials"
-                                ? getInitials(res.name)
-                                : res.name}
-                            </Typography>
-                            {sidebarMode === "full" && (
-                              <IconButton
-                                className="res-menu-btn"
-                                size="small"
-                                sx={{ opacity: 0, ml: "auto", mr: 1 }}
-                                onClick={(e) =>
-                                  handleResourceMenuOpen(e, group.id, res.id)
-                                }
-                              >
-                                <MoreVertIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </Box>
-                        );
-                        return sidebarMode === "initials" ? (
-                          <Tooltip
-                            key={res.id}
-                            title={res.name}
-                            placement="right"
-                            arrow
-                          >
-                            {resRow}
-                          </Tooltip>
-                        ) : (
-                          resRow
-                        );
-                      })}
-                    </Collapse>
-                  </Box>
-                );
-              })}
-            </Box>
-
-            {/* Bottom Menu Button */}
-            {sidebarMode !== "hidden" && (
-              <Box
-                sx={{
-                  p: 1,
-                  borderTop: "1px solid rgba(0,0,0,0.1)",
-                  bgcolor: "white",
-                }}
-              >
-                <Button
-                  fullWidth
-                  startIcon={<MenuIcon />}
-                  onClick={(e) => setMainMenuAnchor(e.currentTarget)}
-                  sx={{
-                    justifyContent: "center",
-                    textTransform: "none",
-                    fontWeight: 700,
-                  }}
-                >
-                  {sidebarMode === "full" && "Meny"}
-                </Button>
-              </Box>
-            )}
-          </Box>
-
-          <IconButton
-            onClick={handleToggleSidebar}
-            size="small"
-            sx={{
-              position: "absolute",
-              bottom: 104,
-              right: sidebarMode === "hidden" ? -24 : -14,
-              zIndex: 1200,
-              width: 38,
-              height: 38,
-              bgcolor: "white",
-              border: "1px solid #ddd",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-              "&:hover": { bgcolor: "#f8f9fa", transform: "scale(1.1)" },
-              transition: "all 0.2s ease-in-out",
-            }}
-          >
-            {sidebarMode === "hidden" ? (
-              <KeyboardArrowRight fontSize="large" color="primary" />
-            ) : (
-              <KeyboardArrowLeft fontSize="medium" color="primary" />
-            )}
-          </IconButton>
-        </Box>
-
+        <TimelineSidebar
+          groups={groups}
+          sidebarMode={sidebarMode}
+          collapsedGroups={collapsedGroups}
+          disableDeletion={disableDeletion}
+          toggleGroup={toggleGroup}
+          toggleSidebar={toggleSidebar}
+          openConfig={openConfig}
+          handleDeleteResource={handleDeleteResource}
+          handleDeleteGroup={handleDeleteGroup}
+          handleDialogGroupTrigger={handleDialogGroupTrigger}
+          handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
+          handleDialogResourceTrigger={handleDialogResourceTrigger}
+        />
         {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-        <Box
+        <TimelineDndContext
+          // 1. THE REF (Must be exactly like this for forwardRef to work)
           ref={scrollContainerRef}
+          onGroupMouseDown={handleGroupRowMouseDown}
+          onGroupMouseMove={handleGroupRowMouseMove}
+          onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+          // 2. DATA PROPS (Values from your state/memo)
+          days={days} // from useMemo(() => getDaysArray...)
+          daysCount={daysCount} // from useState
+          startDate={startDate} // from useState
+          groups={groups} // from useState
+          leaves={leaves} // from useState
+          collapsedGroups={collapsedGroups} // from useState
+          absenceTypes={absenceTypes} // from useState
+          activeLeave={activeLeave} // from useState (dnd-kit)
+          // 3. SETTINGS PROPS
+          blockPastDays={blockPastDays} // from useState
+          disabledOverlayWidth={disabledOverlayWidth} // from useMemo
+          disableDeletion={disableDeletion} // from useState
+          // 4. INTERACTION STATE & REFS
+          selection={selection} // from useState (isSelecting, rowId, startX)
+          selectionBoxRef={selectionBoxRef as React.RefObject<HTMLDivElement>} // from useRef
+          // 5. EVENT HANDLERS (The functions in your Timeline component)
           onScroll={handleScroll}
-          sx={{
-            flex: 1,
-            overflowX: "auto",
-            overflowY: "hidden",
-            position: "relative",
-            bgcolor: "#fff",
-            zIndex: 1,
-          }}
-        >
-          {/* 2. Render the overlay */}
-          {blockPastDays && disabledOverlayWidth > 0 && (
-            <Box
-              sx={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                height: "100%",
-                width: `${disabledOverlayWidth}px`,
-                background: "rgba(255, 255, 255, 0.7)",
-                backdropFilter: "blur(10px) saturate(180%)",
-                WebkitBackdropFilter: "blur(10px) saturate(180%)",
-                boxShadow:
-                  "inset -4px 0 12px -6px rgba(0, 0, 0, 0.1), 4px 0 8px -4px rgba(0, 0, 0, 0.05)",
-                borderRight: "1px solid rgba(255, 255, 255, 0.8)",
-                zIndex: 1,
-                pointerEvents: "none",
-                backgroundImage: `repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      rgba(0, 0, 0, 0.03) 10px,
-      rgba(0, 0, 0, 0.03) 20px
-    )`,
-                "&::before": {
-                  content: '""',
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: `repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 60px,
-        rgba(0, 0, 0, 0.02) 60px,
-        rgba(0, 0, 0, 0.02) 120px
-      )`,
-                  maskImage: `linear-gradient(rgba(0,0,0,0.8), transparent), 
-                  repeating-linear-gradient(0deg, 
-                    transparent 0px, 
-                    transparent 30px, 
-                    rgba(0,0,0,1) 30px, 
-                    rgba(0,0,0,1) 60px
-                  )`,
-                  maskComposite: "source-in",
-                  maskSize: "auto, auto 120px",
-                  maskRepeat: "no-repeat, repeat",
-                  pointerEvents: "none",
-                },
-              }}
-            />
-          )}
-          <Box
-            sx={{
-              position: "sticky",
-              top: 0,
-              zIndex: 20,
-              bgcolor: "white",
-              width: daysCount * CELL_WIDTH,
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                height: 40,
-                borderBottom: "1px solid #eee",
-                boxSizing: "border-box",
-                position: "relative",
-              }}
-            >
-              {days
-                .filter((d, i) => i === 0 || d.date() === 1)
-                .map((day) => (
-                  <Typography
-                    key={day.toISOString() + "m"}
-                    variant="subtitle2"
-                    sx={{
-                      position: "absolute",
-                      left:
-                        getDateOffset(day.format("YYYY-MM-DD"), startDate) + 10,
-                      pt: 1,
-                      fontWeight: 700,
-                      color: "primary.main",
-                      textTransform: "capitalize",
-                    }}
-                  >
-                    {day.format("MMMM YYYY")}
-                  </Typography>
-                ))}
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                height: 25,
-                bgcolor: "#fafafa",
-                borderBottom: "1px solid #eee",
-                boxSizing: "border-box",
-                position: "relative",
-              }}
-            >
-              {days
-                .filter((d) => d.day() === 1)
-                .map((day) => (
-                  <Typography
-                    key={day.toISOString() + "w"}
-                    variant="caption"
-                    sx={{
-                      position: "absolute",
-                      left:
-                        getDateOffset(day.format("YYYY-MM-DD"), startDate) + 5,
-                      fontWeight: 700,
-                    }}
-                  >
-                    Vecka.{day.isoWeek()}
-                  </Typography>
-                ))}
-            </Box>
-            <Box sx={{ display: "flex", height: 40, boxSizing: "border-box" }}>
-              {days.map((day) => (
-                <Box
-                  key={day.toISOString()}
-                  sx={{
-                    width: CELL_WIDTH,
-                    minWidth: CELL_WIDTH,
-                    textAlign: "center",
-                    pt: 0.5,
-                    borderRight: "1px solid #eee",
-                    borderBottom: "1px solid #ddd",
-                    bgcolor: day.isSame(dayjs(), "day")
-                      ? "#fff9c4"
-                      : day.day() === 0 || day.day() === 6
-                      ? "#bd0a0a3d"
-                      : "white",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <Typography sx={{ fontSize: "0.6rem", fontWeight: 600 }}>
-                    {day.format("ddd").toUpperCase()}
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {day.format("D")}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-
-          <DndContext
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            modifiers={[restrictToHorizontalAxis]}
-          >
-            <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
-              {groups.map((group) => {
-                const isCollapsed = collapsedGroups.includes(group.id);
-                return (
-                  <Box key={group.id}>
-                    {/* Synchronized Group Row */}
-                    <Box
-                      sx={{
-                        height: 40,
-                        bgcolor: "#31313116",
-                        borderBottom: "1px solid #eee",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                    <Collapse in={!isCollapsed}>
-                      {group.resources.map((res) => (
-                        <Box
-                          key={res.id}
-                          onPointerDown={(e) =>
-                            handleGridPointerDown(e, res.id)
-                          }
-                          onPointerMove={handleGridPointerMove}
-                          onPointerUp={handleGridPointerUp}
-                          sx={{
-                            height: ROW_HEIGHT,
-                            borderBottom: "1px solid #eee", // This creates the horizontal "line" look
-                            position: "relative",
-                            display: "flex",
-                            alignItems: "center",
-                            // ADD THESE THREE LINES:
-                            backgroundImage: weekendGrid,
-                            backgroundSize: `${7 * CELL_WIDTH}px 100%`,
-                            backgroundPosition: `-${weekendOffset}px 0`,
-                          }}
-                        >
-                          {selection.isSelecting &&
-                            selection.rowId === res.id && (
-                              <Box
-                                ref={selectionBoxRef}
-                                style={{
-                                  left: selection.startX, // Initial position från state
-                                  width: CELL_WIDTH, // Starta med en full ruta
-                                }}
-                                sx={{
-                                  position: "absolute",
-                                  top: 5,
-                                  height: ROW_HEIGHT - 10,
-                                  bgcolor: "rgba(25, 118, 210, 0.15)",
-                                  border: "2px dashed #1976d2",
-                                  borderRadius: 1,
-                                  zIndex: 10,
-                                  pointerEvents: "none",
-                                  animation:
-                                    "marchingAnts 0.5s linear infinite",
-                                  backgroundImage: `linear-gradient(90deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(90deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(0deg, #1976d2 50%, transparent 50%), 
-                        linear-gradient(0deg, #1976d2 50%, transparent 50%)`,
-                                  backgroundRepeat:
-                                    "repeat-x, repeat-x, repeat-y, repeat-y",
-                                  backgroundSize:
-                                    "15px 2px, 15px 2px, 2px 15px, 2px 15px",
-                                  backgroundPosition:
-                                    "0 0, 0 100%, 0 0, 100% 0",
-                                }}
-                              />
-                            )}
-                          {leaves
-                            .filter((l) => l.rowId === res.id)
-                            .map((l) => (
-                              <LeaveBlock
-                                resourceName={res.name}
-                                key={l.id}
-                                leave={l}
-                                left={getDateOffset(l.startDate, startDate)}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
-                                onResizeEnd={handleResizeEnd}
-                                scrollContainerRef={scrollContainerRef}
-                                onTooltipOpen={() => setIsTooltipOpen(true)}
-                                onTooltipClose={() => setIsTooltipOpen(false)}
-                                isDeletionDisabled={disableDeletion} // <-- ADD THIS
-                                isPastDaysBlocked={blockPastDays} // <-- ADD THIS
-                              />
-                            ))}
-                        </Box>
-                      ))}
-                    </Collapse>
-                  </Box>
-                );
-              })}
-            </Box>
-            <DragOverlay adjustScale={false}>
-              {activeLeave && (
-                <LeaveBlock leave={activeLeave} isOverlay resourceName={""} />
-              )}
-            </DragOverlay>
-          </DndContext>
-        </Box>
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onGridPointerDown={handleGridPointerDown}
+          onGridPointerMove={handleGridPointerMove}
+          onGridPointerUp={handleGridPointerUp}
+          onLeaveEdit={handleLeaveEdit}
+          onLeaveDelete={handleLeaveDelete}
+          onLeaveResizeEnd={handleLeaveResizeEnd}
+          onTooltipOpen={() => setIsTooltipOpen(true)}
+          onTooltipClose={() => setIsTooltipOpen(false)}
+        />
       </Box>
-
-      {/* MENUS & DIALOGS */}
-      {/* Group Actions Menu */}
-      <Menu
-        anchorEl={resourceMenuAnchor}
-        open={Boolean(resourceMenuAnchor)}
-        onClose={() => setResourceMenuAnchor(null)}
-        slots={{ transition: Grow }}
-        slotProps={{
-          transition: { timeout: 450 },
-          paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
-          },
-        }}
-      >
-        <MenuItem onClick={handleEditResourceTrigger} sx={{ gap: 1.5 }}>
-          <EditIcon fontSize="small" /> Redigera
-        </MenuItem>
-        {!disableDeletion && (
-          <MenuItem
-            onClick={handleDeleteResource}
-            sx={{ gap: 1.5, color: "error.main" }}
-          >
-            <DeleteIcon fontSize="small" /> Ta bort
-          </MenuItem>
-        )}
-      </Menu>
-      <Menu
-        anchorEl={groupMenuAnchor}
-        open={Boolean(groupMenuAnchor)}
-        onClose={handleGroupMenuClose}
-        slots={{ transition: Grow }}
-        slotProps={{
-          transition: { timeout: 450 },
-          paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
-          },
-        }}
-      >
-        <MenuItem onClick={handleOpenAddResource} sx={{ gap: 1.5 }}>
-          <AddIcon fontSize="small" /> Lägg till anställd
-        </MenuItem>
-        <MenuItem onClick={handleEditGroupTrigger} sx={{ gap: 1.5 }}>
-          <EditIcon fontSize="small" /> Redigera
-        </MenuItem>
-        {!disableDeletion && (
-          <MenuItem
-            onClick={handleDeleteGroup}
-            sx={{ gap: 1.5, color: "error.main" }}
-          >
-            <DeleteIcon fontSize="small" /> Ta bort
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Sidebar Bottom Menu */}
-      <Menu
-        anchorEl={mainMenuAnchor}
-        open={Boolean(mainMenuAnchor)}
-        onClose={() => setMainMenuAnchor(null)}
-        anchorOrigin={{
-          vertical: "top",
-          horizontal: "center",
-        }}
-        transformOrigin={{
-          vertical: "bottom",
-          horizontal: "center",
-        }}
-        slots={{ transition: Grow }}
-        slotProps={{
-          transition: { timeout: 450 },
-          paper: {
-            sx: {
-              borderRadius: 2,
-              boxShadow: "0 8px 25px rgba(0,0,0,0.15)",
-            },
-          },
-        }}
-      >
-        <MenuItem
-          onClick={() => {
-            setSelectedGroupId(null);
-            setNewGroupName("");
-            setMainMenuAnchor(null);
-            setIsGroupDialogOpen(true);
-          }}
-          sx={{ gap: 1.5 }}
-        >
-          <AddIcon fontSize="small" /> Lägg till grupp
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            setTypeDialogMode("create"); // <--- LÄGG TILL DENNA
-            setNewTypeLabel("");
-            setNewTypeColor("#9c27b0");
-            setIsTypeDialogOpen(true);
-            setMainMenuAnchor(null);
-          }}
-          sx={{ gap: 1.5 }}
-        >
-          <CalendarMonthIcon fontSize="small" /> Lägg till ledighetstyp
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            openConfig();
-            setMainMenuAnchor(null);
-          }}
-          sx={{ gap: 1.5 }}
-        >
-          <SettingsIcon fontSize="small" /> Konfigurera
-        </MenuItem>
-      </Menu>
-
-      {/* Group Dialog */}
-      <Dialog
-        open={isGroupDialogOpen}
-        onClose={() => setIsGroupDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          {selectedGroupId ? "Redigera grupp" : "Skapa ny grupp"}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <TextField
-            autoFocus
-            label="Gruppnamn"
-            fullWidth
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSaveGroup()}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setIsGroupDialogOpen(false)}>Avbryt</Button>
-          <Button variant="contained" onClick={handleSaveGroup}>
-            Spara
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Date Jump Picker */}
-      <DatePicker
-        displayWeekNumber
-        open={isDatePickerOpen}
-        desktopModeMediaQuery="@media (min-width: 0px)"
-        value={pickerDate}
-        onChange={(newValue) => {
-          // Only update the date, do NOT close
-          if (newValue) jumpToDate(newValue);
-        }}
-        onAccept={() => {
-          setIsDatePickerOpen(false);
-        }}
-        onClose={() => {
-          setIsDatePickerOpen(false);
-        }}
-        slotProps={{
-          textField: { sx: { display: "none" } },
-          popper: {
-            anchorEl: datePickerAnchorRef.current,
-            placement: "bottom-end",
-          },
-          actionBar: {
-            actions: ["today"],
-          },
-        }}
-      />
-
-      {/* DIN ORIGINAL-DIALOG FÖR LEDIGHET (ORÖRD) */}
-      <Dialog
-        open={dialogState.isOpen}
-        onClose={() => setDialogState((p) => ({ ...p, isOpen: false }))}
-        fullWidth
-        maxWidth="sm"
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
-      >
-        <DialogTitle>
-          {dialogState.mode === "create"
-            ? "Registrera frånvaro"
-            : "Redigera frånvaro"}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={3} sx={{ mt: 1, pt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Typ av frånvaro</InputLabel>
-              <Select
-                value={dialogState.data.typeId}
-                label="Typ av frånvaro"
-                onChange={(e) => {
-                  const sel = ABSENCE_TYPES.find(
-                    (t) => t.id === e.target.value
-                  );
-                  setDialogState((prev) => ({
-                    ...prev,
-                    data: {
-                      ...prev.data,
-                      typeId: e.target.value as string,
-                      name: sel?.label || "",
-                    },
-                  }));
-                }}
-              >
-                {absenceTypes.map((opt) => (
-                  <MenuItem key={opt.id} value={opt.id}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Box
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: "50%",
-                          backgroundColor: opt.color,
-                        }}
-                      />
-                      <Typography variant="body2">{opt.label}</Typography>
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Box>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Datumperiod
-              </Typography>
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <DatePicker
-                  label="Startdatum"
-                  value={dialogState.data.startDate}
-                  minDate={blockPastDays ? today : undefined}
-                  onChange={(date) => {
-                    if (date) {
-                      const newStart = date.startOf("day");
-                      const currentEnd = dialogState.data.startDate.add(
-                        dialogState.data.duration - 1,
-                        "day"
-                      );
-                      const diff = currentEnd.diff(newStart, "day") + 1;
-                      setDialogState((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          startDate: newStart,
-                          duration: diff >= 1 ? diff : 1,
-                        },
-                      }));
-                    }
-                  }}
-                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
-                />
-
-                <DatePicker
-                  label="Slutdatum"
-                  value={dialogState.data.startDate.add(
-                    dialogState.data.duration - 1,
-                    "day"
-                  )}
-                  onChange={(date) => {
-                    if (date) {
-                      const newEnd = date.startOf("day");
-                      const diff =
-                        newEnd.diff(dialogState.data.startDate, "day") + 1;
-                      setDialogState((prev) => ({
-                        ...prev,
-                        data: {
-                          ...prev.data,
-                          duration: diff >= 1 ? diff : 1,
-                          ...(diff < 1 && { startDate: newEnd }),
-                        },
-                      }));
-                    }
-                  }}
-                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
-                />
-              </Box>
-            </Box>
-
-            <TextField
-              label="Antal dagar"
-              type="number"
-              value={dialogState.data.duration}
-              onChange={(e) => {
-                const d = parseInt(e.target.value) || 1;
-                setDialogState((prev) => ({
-                  ...prev,
-                  data: { ...prev.data, duration: Math.max(1, d) },
-                }));
-              }}
-              fullWidth
-              size="small"
-              slotProps={{ htmlInput: { min: 1, step: 1 } }}
-              helperText="Minimiantal: 1 dag"
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
-            onClick={() => setDialogState((p) => ({ ...p, isOpen: false }))}
-          >
-            Avbryt
-          </Button>
-          <Button variant="contained" onClick={handleSaveDialog}>
-            {dialogState.mode === "create" ? "Registrera" : "Spara ändringar"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={isResourceDialogOpen}
-        onClose={() => setIsResourceDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          {resourceDialogMode === "edit"
-            ? "Redigera anställd"
-            : "Lägg till anställd"}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <TextField
-            autoFocus
-            label="Namn på anställd"
-            fullWidth
-            value={newResourceName}
-            onChange={(e) => setNewResourceName(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSaveResource()}
-          />
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="select-group-label">Grupp</InputLabel>
-            <Select
-              labelId="select-group-label"
-              value={selectedGroupId || ""}
-              label="Grupp"
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-            >
-              {groups.map((g) => (
-                <MenuItem key={g.id} value={g.id}>
-                  {g.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setIsResourceDialogOpen(false)}>Avbryt</Button>
-          <Button variant="contained" onClick={handleSaveResource}>
-            Spara
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={isTypeDialogOpen}
-        onClose={() => setIsTypeDialogOpen(false)}
-        slots={{ transition: Grow }}
-        slotProps={{ transition: { timeout: 450 } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          {typeDialogMode === "edit"
-            ? "Redigera ledighetstyp"
-            : "Skapa ny ledighetstyp"}
-        </DialogTitle>
-
-        <DialogContent
-          sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 3 }}
-        >
-          <TextField
-            autoFocus
-            label="Namn"
-            fullWidth
-            value={newTypeLabel}
-            onChange={(e) => setNewTypeLabel(e.target.value)}
-          />
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 700, mb: 1, display: "block" }}
-            >
-              Välj färg:
-            </Typography>
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(32px, 1fr))",
-                gap: 1,
-              }}
-            >
-              {PREDEFINED_COLORS.map((color) => {
-                const isSelected =
-                  newTypeColor.toLowerCase() === color.toLowerCase();
-
-                // A color is taken if it's used by ANOTHER absence type
-                const isTaken = absenceTypes.some(
-                  (t) =>
-                    t.color.toLowerCase() === color.toLowerCase() &&
-                    t.id !== selectedTypeId
-                );
-
-                return (
-                  <Tooltip title={color} key={color}>
-                    <Box
-                      onClick={() => {
-                        if (!isTaken) {
-                          setNewTypeColor(color);
-                        }
-                      }}
-                      sx={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        bgcolor: color,
-                        cursor: isTaken ? "not-allowed" : "pointer",
-                        opacity: isTaken ? 0.3 : 1,
-                        border: isSelected
-                          ? "3px solid #1976d2" // Highlight for selected color
-                          : "1px solid #ddd",
-                        boxSizing: "border-box",
-                        transition: "transform 0.1s ease",
-                        "&:hover": {
-                          transform: isTaken ? "none" : "scale(1.15)",
-                        },
-                      }}
-                    />
-                  </Tooltip>
-                );
-              })}
-            </Box>
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: "space-between" }}>
-          {/* TA BORT-KNAPP: Visas bara i edit-läge */}
-          {typeDialogMode === "edit" ? (
-            <Button
-              color="error"
-              onClick={handleDeleteAbsenceType}
-              startIcon={<DeleteIcon />}
-            >
-              Ta bort
-            </Button>
-          ) : (
-            <Box />
-          )}{" "}
-          {/* Tom box för att hålla Spara-knappen till höger */}
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button onClick={() => setIsTypeDialogOpen(false)}>Avbryt</Button>
-            <Button variant="contained" onClick={handleSaveAbsenceType}>
-              Spara
-            </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

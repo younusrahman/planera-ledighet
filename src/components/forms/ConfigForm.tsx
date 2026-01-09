@@ -6,31 +6,31 @@ import {
   Box,
   Button,
   DialogActions,
+  DialogTitle,
 } from "@mui/material";
 
-interface ConfigFormProps {
+export interface ConfigFormProps {
+  title?: string;
   blockPastDays: boolean;
   disableDeletion: boolean;
   onUpdate: (key: string, value: boolean) => void;
-  onClose: () => void;
+  onClose?: () => void; // must be optional for global dialog
 }
 
 const ConfigForm: React.FC<ConfigFormProps> = ({
+  title,
   blockPastDays: initialBlock,
   disableDeletion: initialDisable,
   onUpdate,
   onClose,
 }) => {
-  // 1. Create local state from the initial props
   const [block, setBlock] = useState(initialBlock);
   const [disable, setDisable] = useState(initialDisable);
 
-  // 2. Handle changes locally so the checkbox UI updates immediately
   const handleBlockChange = (val: boolean) => {
     setBlock(val);
     onUpdate("blockPastDays", val);
 
-    // Logic: If block is turned off, disable must also be turned off
     if (!val) {
       setDisable(false);
       onUpdate("disableDeletion", false);
@@ -44,7 +44,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
 
   return (
     <Box>
-      <FormGroup>
+      {title && (
+        <DialogTitle sx={{ fontWeight: 800, px: 0 }}>{title}</DialogTitle>
+      )}
+
+      <FormGroup sx={{ mt: 2 }}>
         <FormControlLabel
           control={
             <Checkbox
@@ -61,7 +65,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
               <Checkbox
                 checked={disable}
                 onChange={(e) => handleDisableChange(e.target.checked)}
-                disabled={!block} // This now works with local state!
+                disabled={!block}
               />
             }
             label="Ta bort möjligheten att radera"

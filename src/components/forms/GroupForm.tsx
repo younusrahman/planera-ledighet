@@ -1,28 +1,185 @@
-import React, { useState } from "react";
-import { TextField, Button, Box, DialogActions } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import {
+  TextField,
+  Button,
+  Box,
+  DialogActions,
+  DialogTitle,
+  Typography,
+  Fade,
+  useTheme,
+  alpha,
+  InputAdornment,
+} from "@mui/material";
+import GroupsIcon from "@mui/icons-material/Groups";
+import DeleteIcon from "@mui/icons-material/Delete";
 
-interface GroupFormProps {
+export interface GroupFormProps {
+  title: string;
   initialName?: string;
+  isEditMode?: boolean;
   onSave: (name: string) => void;
+  onDelete?: () => void;
   onClose: () => void;
 }
 
-const GroupForm: React.FC<GroupFormProps> = ({ initialName = "", onSave, onClose }) => {
+const GroupForm: React.FC<GroupFormProps> = ({
+  title,
+  initialName = "",
+  isEditMode = false,
+  onSave,
+  onDelete,
+  onClose,
+}) => {
+  const theme = useTheme();
   const [name, setName] = useState(initialName);
+  const [isFocused, setIsFocused] = useState(false);
+  const [saveAttempted, setSaveAttempted] = useState(false);
+
+  const maxLength = 50;
+  const minAlphabetChars = 3;
+
+  // Återställ formuläret när det öppnas/props ändras
+  useEffect(() => {
+    setName(initialName);
+    setSaveAttempted(false);
+  }, [initialName]);
+
+  // Räkna endast faktiska bokstäver (inte siffror/mellanslag) enligt din original-regex
+  const countAlphabetChars = (text: string) => {
+    const alphabetRegex = /[a-zA-ZåäöÅÄÖ]/g;
+    const matches = text.match(alphabetRegex);
+    return matches ? matches.length : 0;
+  };
+
+  const alphabetCount = countAlphabetChars(name);
+  const isNameValid =
+    name.trim().length > 0 && alphabetCount >= minAlphabetChars;
+  const showError = saveAttempted && !isNameValid;
+
+  const handleSave = () => {
+    if (isNameValid) {
+      onSave(name.trim());
+    } else {
+      setSaveAttempted(true);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    }
+  };
+
+  const getHelperText = () => {
+    if (!saveAttempted) return " ";
+    if (name.trim().length === 0) return "Gruppnamn krävs";
+    if (alphabetCount < minAlphabetChars) {
+      return `Minst ${minAlphabetChars} bokstäver krävs (har ${alphabetCount})`;
+    }
+    return " ";
+  };
 
   return (
-    <Box sx={{ pt: 1 }}>
+    <Box>
+      <DialogTitle
+        component="div"
+        sx={{
+          p: 0,
+          mb: 3,
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+        }}
+      >
+        <GroupsIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
+        <Typography
+          variant="h6"
+          sx={{ fontWeight: 600, color: "text.primary" }}
+        >
+          {title}
+        </Typography>
+      </DialogTitle>
+
       <TextField
+        fullWidth
         autoFocus
         label="Gruppnamn"
-        fullWidth
         value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyPress={(e) => e.key === "Enter" && onSave(name)}
+        onChange={(e) => {
+          if (e.target.value.length <= maxLength) setName(e.target.value);
+        }}
+        onKeyPress={handleKeyPress}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        error={showError}
+        helperText={getHelperText()}
+        placeholder="Ange gruppnamn..."
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <GroupsIcon color={isFocused ? "primary" : "action"} />
+            </InputAdornment>
+          ),
+        }}
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: 1,
+          },
+        }}
       />
-      <DialogActions sx={{ px: 0, pb: 0, pt: 3 }}>
-        <Button onClick={onClose}>Avbryt</Button>
-        <Button variant="contained" onClick={() => onSave(name)}>Spara</Button>
+
+      <DialogActions
+        sx={{
+          px: 0,
+          pb: 0,
+          pt: 2,
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Ta bort-knapp visas endast vid redigering */}
+        <Box>
+          {isEditMode && onDelete && (
+            <Button
+              color="error"
+              variant="outlined"
+              onClick={onDelete}
+              startIcon={<DeleteIcon />}
+              sx={{ borderRadius: 1 }}
+            >
+              Ta bort
+            </Button>
+          )}
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 1 }}>
+            Avbryt
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saveAttempted && !isNameValid}
+            sx={{
+              borderRadius: 1,
+              px: 4,
+              fontWeight: 600,
+              boxShadow: "none",
+              // Samma snygga gradient som AbsenceTypeForm
+              "&:not(.Mui-disabled)": {
+                background: isEditMode
+                  ? `linear-gradient(135deg, ${
+                      theme.palette.warning.main
+                    } 0%, ${alpha(theme.palette.warning.dark, 0.9)} 100%)`
+                  : `linear-gradient(135deg, ${
+                      theme.palette.primary.main
+                    } 0%, ${alpha(theme.palette.primary.dark, 0.9)} 100%)`,
+              },
+            }}
+          >
+            {isEditMode ? "Spara" : "Skapa"}
+          </Button>
+        </Box>
       </DialogActions>
     </Box>
   );
