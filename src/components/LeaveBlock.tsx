@@ -30,7 +30,7 @@ interface Props {
   onTooltipClose?: () => void;
   isDeletionDisabled?: boolean; // <-- ADD THIS
   isPastDaysBlocked?: boolean; // <-- ADD THIS
-  resourceName: string; // ADD THIS
+  resourceName?: string; // ADD THIS
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -39,7 +39,7 @@ export const LeaveBlock = ({
   left = 0,
   isOverlay = false,
   onResizeEnd,
-  resourceName,
+  resourceName = "Namnet saknas ",
   scrollContainerRef,
   onEdit,
   onDelete,
@@ -151,7 +151,7 @@ export const LeaveBlock = ({
       startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
 
     const onPointerMove = (moveEvent: PointerEvent) => {
-      mouseXRef.current = moveEvent.clientX;
+      mouseXRef.current = moveEvent.clientX; // The animate loop will handle the rest
     };
     const onPointerUp = (upEvent: PointerEvent) => {
       // 1. Clean up event listeners and refs to stop tracking mouse movement.
@@ -306,14 +306,13 @@ export const LeaveBlock = ({
   // --- TOOLTIP CONTENT ---
   const tooltipContent = (
     <Box
-      sx={{ border: `2px solid ${leave.color}` }}
       onMouseEnter={() => {
         if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
       }}
       onMouseLeave={handleMouseLeave}
     >
-      <Box sx={{ bgcolor: leave.color, height: 6, width: "100%" }} />
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ bgcolor: leave.color, height: 6, width: "100%", mb: 1 }} />
+      <Box>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
@@ -488,9 +487,6 @@ export const LeaveBlock = ({
             popperRef: popperRef,
             anchorEl: {
               getBoundingClientRect: () => {
-                // VIRTUAL ELEMENT LOGIC
-                // X = Mouse Position (from positionRef)
-                // Y = Top of the Block (from blockRef)
                 const blockRect = blockRef.current?.getBoundingClientRect();
                 return new DOMRect(
                   positionRef.current.x,
@@ -500,29 +496,101 @@ export const LeaveBlock = ({
                 );
               },
             },
+            modifiers: [
+              {
+                name: "offset",
+                options: {
+                  offset: [0, 18], // Adds 8px spacing between element and tooltip
+                },
+              },
+            ],
           },
-
-          // ✅ DYNAMIC ARROW COLOR
           arrow: {
-            sx: { color: leave.color },
+            sx: {
+              color: leave.color, // Matches tooltip background for seamless look
+              fontSize: 12, // Makes arrow slightly smaller and more elegant
+              "&:before": {
+                border: "1px solid",
+                borderColor: "rgba(0,0,0,0.05)", // Adds subtle border to arrow
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              },
+            },
           },
         }}
         componentsProps={{
           tooltip: {
             sx: {
-              bgcolor: "white",
-              color: "text.primary",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-              p: 0,
-              minWidth: 260,
-              borderRadius: 2,
-              border: "1px solid #eee",
-              pointerEvents: "auto",
+              // Modern gradient background instead of plain white
+              background: "linear-gradient(135deg, #ffffff 0%, #fafafa 100%)",
+              color: "#2d3748",
+
+              // Cleaner shadow with depth
+              boxShadow: `
+          0px 10px 30px rgba(0, 0, 0, 0.08),
+          0px 1px 3px rgba(0, 0, 0, 0.03)
+        `,
+
+              // Better spacing
+              p: "16px 20px",
+              minWidth: 180,
+              maxWidth: 320,
+
+              // Crisp borders
+              borderRadius: "10px",
+              border: "1px solid",
+              borderColor: `${leave.color}70`, // 20% opacity border using leave color
+
+              pointerEvents: "none",
+
+              // Elegant typography
+              fontSize: "0.875rem",
+              lineHeight: 1.6,
+              fontWeight: 400,
+              letterSpacing: "0.01em",
+
+              // Smooth animation
+              animation: "tooltipAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+              "@keyframes tooltipAppear": {
+                "0%": {
+                  opacity: 0,
+                  transform: "translateY(-4px) scale(0.98)",
+                },
+                "100%": {
+                  opacity: 1,
+                  transform: "translateY(0) scale(1)",
+                },
+              },
+
+              // Subtle hover effect on tooltip
+              "&:hover": {
+                boxShadow: `
+            0px 12px 35px rgba(0, 0, 0, 0.1),
+            0px 2px 5px rgba(0, 0, 0, 0.04)
+          `,
+              },
+
+              // For content inside
+              "& .MuiTooltip-tooltip": {
+                margin: 0,
+              },
+
+              // Subtle top highlight for depth
+              "&::before": {
+                content: '""',
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "1px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)",
+                borderRadius: "10px 10px 0 0",
+              },
             },
           },
         }}
       >
-        {/* Dummy child to satisfy Tooltip requirements */}
+        {/* Dummy child */}
         <div
           style={{
             position: "absolute",

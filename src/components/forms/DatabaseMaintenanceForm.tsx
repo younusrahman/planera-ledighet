@@ -10,7 +10,6 @@ import {
   Divider,
   Stack,
   CircularProgress,
-  Tooltip,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -35,6 +34,7 @@ import { databaseService } from "../../services/entities/database"; // Path to y
 import { toast } from "../../services/globalSnackbar";
 import { BASE_URL } from "../../services/apiInstance";
 import { appServicesStatic } from "../../services/appServices";
+import { ProTooltip } from "../ProTooltip";
 export interface DatabaseMaintenanceProps {
   title: string;
   onClose: () => void; // This matches what GlobalDialogProvider passes
@@ -168,6 +168,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
           <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
             <Button
               variant="contained"
+              fullWidth
               disableElevation
               startIcon={<BackupIcon />}
               onClick={() =>
@@ -179,8 +180,9 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
             </Button>
 
             <Button
+              fullWidth
               variant="outlined"
-              color="error"
+              color="warning"
               startIcon={<ResetIcon />}
               onClick={() =>
                 openConfirm(
@@ -232,7 +234,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <Tooltip title="Bläddra efter lokal fil (.db)">
+                    <ProTooltip title="Bläddra efter lokal fil (.db)">
                       <IconButton
                         size="small"
                         onClick={() => fileInputRef.current?.click()}
@@ -240,7 +242,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                       >
                         <BrowseIcon fontSize="small" />
                       </IconButton>
-                    </Tooltip>
+                    </ProTooltip>
                   </InputAdornment>
                 ),
               }}
@@ -317,15 +319,15 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                   divider
                   secondaryAction={
                     <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Ladda ner till din dator">
+                      <ProTooltip title="Ladda ner till din dator">
                         <IconButton
                           size="small"
                           onClick={() => handleDownload(file)}
                         >
                           <DownloadIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Återställ systemet från denna fil">
+                      </ProTooltip>
+                      <ProTooltip title="Återställ systemet från denna fil">
                         <IconButton
                           size="small"
                           color="primary"
@@ -343,8 +345,8 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                         >
                           <RestoreIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Radera filen från servern">
+                      </ProTooltip>
+                      <ProTooltip title="Radera filen från servern">
                         <IconButton
                           size="small"
                           color="error"
@@ -363,7 +365,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
-                      </Tooltip>
+                      </ProTooltip>
                     </Stack>
                   }
                 >
@@ -386,7 +388,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
         </Box>
       </Stack>
 
-      <DialogActions sx={{ p: 2 }}>
+      <DialogActions sx={{ py: 2, px: 0 }}>
         <Button onClick={onClose} variant="outlined">
           Stäng
         </Button>

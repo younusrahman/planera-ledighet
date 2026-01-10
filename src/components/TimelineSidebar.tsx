@@ -5,7 +5,6 @@ import {
   IconButton,
   Button,
   Collapse,
-  Tooltip,
   Menu,
   MenuItem,
   Grow,
@@ -26,6 +25,7 @@ import {
 } from "@mui/icons-material";
 import type { Group } from "../types";
 import { ROW_HEIGHT } from "../utils";
+import { ProTooltip } from "./ProTooltip";
 
 interface TimelineSidebarProps {
   groups: Group[];
@@ -261,14 +261,14 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                     );
 
                     return isInitials ? (
-                      <Tooltip
+                      <ProTooltip
                         key={res.id}
                         title={res.name}
                         placement="right"
                         arrow
                       >
                         {resRow}
-                      </Tooltip>
+                      </ProTooltip>
                     ) : (
                       resRow
                     );

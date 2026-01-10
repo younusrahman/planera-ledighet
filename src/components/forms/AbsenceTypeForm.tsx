@@ -3,7 +3,6 @@ import {
   TextField,
   Box,
   Typography,
-  Tooltip,
   Button,
   DialogActions,
   DialogTitle,
@@ -18,6 +17,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import PaletteIcon from "@mui/icons-material/Palette";
 import EditIcon from "@mui/icons-material/Edit";
 import LockIcon from "@mui/icons-material/Lock";
+import { ProTooltip } from "../ProTooltip";
 
 const PREDEFINED_COLORS = [
   "#1976d2",
@@ -200,9 +200,10 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
               );
 
               return (
-                <Tooltip
+                <ProTooltip
                   key={c}
                   title={otherUser ? `Används av: ${otherUser.label}` : c}
+                  color={c}
                 >
                   <Box
                     onClick={() => !otherUser && setColor(c)}
@@ -232,7 +233,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
                       />
                     )}
                   </Box>
-                </Tooltip>
+                </ProTooltip>
               );
             })}
           </Box>

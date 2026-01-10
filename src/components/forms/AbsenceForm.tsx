@@ -130,11 +130,10 @@ export default function AbsenceForm({
     <>
       <DialogTitle
         sx={{
+          m: 0,
+          px: 0,
           fontWeight: 600,
           fontSize: "1.25rem",
-          px: 3,
-          pt: 3,
-          pb: 1,
           display: "flex",
           alignItems: "center",
           gap: 1.5,
@@ -360,7 +359,7 @@ export default function AbsenceForm({
         />
       </Stack>
 
-      <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1 }}>
+      <DialogActions sx={{ px: 0, pb: 3, pt: 1, gap: 1 }}>
         <Button
           onClick={onClose}
           variant="outlined"

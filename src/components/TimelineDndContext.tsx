@@ -1,5 +1,5 @@
 import React, { forwardRef, useMemo } from "react";
-import { Box, Typography, Collapse, alpha, Tooltip } from "@mui/material";
+import { Box, Typography, Collapse, alpha } from "@mui/material";
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +14,7 @@ import { LeaveBlock } from "./LeaveBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Group, LeaveItem } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
+import { ProTooltip } from "./ProTooltip";
 
 interface TimelineDndContextProps {
   // Data
@@ -234,7 +235,7 @@ export const TimelineDndContext = forwardRef<
           {days.map((day) => {
             const isRed = isRedDay(day);
             return (
-              <Tooltip
+              <ProTooltip
                 key={day.format("YYYY-MM-DD")}
                 title={holidays[day.format("YYYY-MM-DD")]?.name || ""}
               >
@@ -263,7 +264,7 @@ export const TimelineDndContext = forwardRef<
                     {day.format("D")}
                   </Typography>
                 </Box>
-              </Tooltip>
+              </ProTooltip>
             );
           })}
         </Box>
@@ -446,7 +447,17 @@ export const TimelineDndContext = forwardRef<
                             leave={l}
                             resourceName={res.name}
                             left={getDateOffset(l.startDate, startDate)}
-                            // ... resten av dina props som tidigare
+                            // HÄR ÄR FIXEN - Du måste skicka med dessa:
+                            onResizeEnd={onLeaveResizeEnd}
+                            onEdit={onLeaveEdit}
+                            onDelete={onLeaveDelete}
+                            onTooltipOpen={onTooltipOpen}
+                            onTooltipClose={onTooltipClose}
+                            isDeletionDisabled={disableDeletion}
+                            isPastDaysBlocked={blockPastDays}
+                            scrollContainerRef={
+                              ref as React.RefObject<HTMLDivElement>
+                            }
                           />
                         ))}
                     </Box>
@@ -459,17 +470,7 @@ export const TimelineDndContext = forwardRef<
 
         {/* Drag Visual Ghost */}
         <DragOverlay adjustScale={false}>
-          {activeLeave && (
-            <LeaveBlock
-              leave={activeLeave}
-              isOverlay
-              resourceName=""
-              left={0}
-              onEdit={() => {}}
-              onDelete={() => {}}
-              onResizeEnd={() => {}}
-            />
-          )}
+          {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
         </DragOverlay>
       </DndContext>
     </Box>
