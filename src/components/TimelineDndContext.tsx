@@ -408,6 +408,9 @@ export const TimelineDndContext = forwardRef<
                         height: ROW_HEIGHT,
                         borderBottom: "1px solid #eee",
                         position: "relative",
+                        // TA BORT individuella rutor och använd denna CSS-bakgrund:
+                        backgroundImage: `linear-gradient(to right, #eee 1px, transparent 1px)`,
+                        backgroundSize: `${CELL_WIDTH}px 100%`, // Detta skapar de vertikala strecken automatiskt!
                         display: "flex",
                         alignItems: "center",
                       }}

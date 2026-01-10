@@ -41,7 +41,7 @@ export const Timeline = () => {
     dayjs().startOf("day").subtract(30, "days")
   );
 
-  const [daysCount, setDaysCount] = useState(200);
+  const [daysCount, setDaysCount] = useState(150);
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   // const { openDialog } = useDialog();
   // Interaction States
@@ -295,7 +295,28 @@ export const Timeline = () => {
     const offset = getDateOffset(today.format("YYYY-MM-DD"), startDate);
     return Math.max(0, offset); // Ensure width is not negative
   }, [startDate]);
+  useEffect(() => {
+    const updateDaysCount = () => {
+      if (scrollContainerRef.current) {
+        const containerWidth = scrollContainerRef.current.offsetWidth;
+        // Beräkna hur många dagar som syns på skärmen just nu
+        const visibleDays = Math.ceil(containerWidth / CELL_WIDTH);
 
+        // Vi sätter daysCount till synliga dagar + ca 60 dagar buffert (2 månader extra)
+        // så att det inte blir tomt när man scrollar lite.
+        const optimalDays = visibleDays + 60;
+
+        setDaysCount(optimalDays);
+      }
+    };
+
+    // Kör direkt vid start
+    updateDaysCount();
+
+    // Lyssna på om användaren ändrar storlek på webbläsarfönstret
+    window.addEventListener("resize", updateDaysCount);
+    return () => window.removeEventListener("resize", updateDaysCount);
+  }, []);
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container || isLoadingRef.current) return;
