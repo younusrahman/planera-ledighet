@@ -43,7 +43,7 @@ export function createCrudActions<T extends { id: string }, TBody>(
         });
       } catch (e: any) {
         store.setState({ error: "Failed to load data" });
-        toast(`${entityName}: load failed`, "error");
+       toast(e.message || `${entityName}: load failed`, "error");
         throw e;
       } finally {
         store.setState({ loading: false });
@@ -78,7 +78,7 @@ export function createCrudActions<T extends { id: string }, TBody>(
         toast(`${entityName}: created`, "success");
         return real;
       } catch (e: any) {
-        toast(`${entityName}: create failed`, "error");
+        toast(e.message || `${entityName}: create failed`, "error");
         throw e;
       }
     },
@@ -115,7 +115,7 @@ export function createCrudActions<T extends { id: string }, TBody>(
       } catch (e: any) {
         // Om det skiter sig, rulla tillbaka till det gamla värdet
         if (prev) actions.update(prev);
-        toast(`${entityName}: update failed`, "error");
+        toast(e.message || `${entityName}: update failed`, "error");
         throw e;
       }
     },
@@ -147,7 +147,8 @@ export function createCrudActions<T extends { id: string }, TBody>(
       } catch (e: any) {
         // Om radering misslyckas, lägg tillbaka posten i listan
         if (prev) actions.add(prev);
-        toast(`${entityName}: delete failed`, "error");
+        const errorMessage = e.message || `${entityName}: delete failed`;
+        toast(errorMessage, "error");
         throw e;
       }
     },
