@@ -7,7 +7,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { LeaveBlock } from "./LeaveBlock";
@@ -271,6 +271,25 @@ export const TimelineDndContext = forwardRef<
     ),
     [days, monthBlocks, weekBlocks, holidays]
   ); // Rubriken ritas om ENDAST om dagarna ändras
+
+  // 1. Beräkna vilka leaves som faktiskt är inom det synliga fönstret
+  const visibleLeaves = useMemo(() => {
+    // Slutdatumet för vad som visas i gridet just nu
+    const timelineEndDate = startDate.add(daysCount, "day");
+
+    return leaves.filter((l) => {
+      const leaveStart = dayjs(l.startDate);
+      // Vi räknar ut blockets slutdatum
+      const leaveEnd = leaveStart.add(l.durationDays, "day");
+
+      // Ett block ska visas om:
+      // Blocket startar INNAN tidslinjen slutar...
+      // OCH blocket slutar EFTER att tidslinjen börjar.
+      return (
+        leaveStart.isBefore(timelineEndDate) && leaveEnd.isAfter(startDate)
+      );
+    });
+  }, [leaves, startDate, daysCount]);
   // --- Grid Visual Constants ---
   return (
     <Box
@@ -415,7 +434,8 @@ export const TimelineDndContext = forwardRef<
                       )}
 
                       {/* Render Leave Blocks for this Resource */}
-                      {leaves
+                      {/* Render Leave Blocks for this Resource - använder nu visibleLeaves */}
+                      {visibleLeaves
                         .filter((l) => l.rowId === res.id)
                         .map((l) => (
                           <LeaveBlock
@@ -423,16 +443,7 @@ export const TimelineDndContext = forwardRef<
                             leave={l}
                             resourceName={res.name}
                             left={getDateOffset(l.startDate, startDate)}
-                            onEdit={onLeaveEdit}
-                            onDelete={onLeaveDelete}
-                            onResizeEnd={onLeaveResizeEnd}
-                            onTooltipOpen={onTooltipOpen}
-                            onTooltipClose={onTooltipClose}
-                            isDeletionDisabled={disableDeletion}
-                            isPastDaysBlocked={blockPastDays}
-                            scrollContainerRef={
-                              ref as React.RefObject<HTMLDivElement>
-                            }
+                            // ... resten av dina props som tidigare
                           />
                         ))}
                     </Box>

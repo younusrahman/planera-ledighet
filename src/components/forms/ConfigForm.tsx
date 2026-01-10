@@ -53,7 +53,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
         </DialogTitle>
       )}
 
-      <Paper sx={{ p: 3, borderRadius: 2, border: 1, borderColor: "divider" }}>
+      <Stack >
         <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 3 }}>
           Inställningar
         </Typography>
@@ -112,10 +112,11 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
           </Box>
         </FormGroup>
 
-        <Stack direction="row" spacing={2} sx={{ mt: 4, pt: 2 }}>
+        <Stack direction="row" spacing={2} sx={{ mt: 4, pt: 2, }}>
           <Button
             variant="outlined"
             startIcon={<Close />}
+            color="warning"
             onClick={onClose}
             sx={{
               flex: 1,
@@ -126,7 +127,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({
             Stäng
           </Button>
         </Stack>
-      </Paper>
+      </Stack>
     </Box>
   );
 };
