@@ -9,6 +9,9 @@ import {
   MenuItem,
   Grow,
   alpha,
+  Alert,
+  Paper,
+  useTheme,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -16,7 +19,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
 import SettingsIcon from "@mui/icons-material/Settings";
 import {
   KeyboardArrowLeft,
@@ -26,7 +29,10 @@ import {
 import type { Group } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
-
+import { appServicesStatic } from "../services/appServices";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
+import GroupsIcon from "@mui/icons-material/Groups";
+import PersonIcon from "@mui/icons-material/Person";
 interface TimelineSidebarProps {
   groups: Group[];
   sidebarMode: "full" | "initials" | "hidden";
@@ -61,6 +67,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   handleDialogResourceTrigger,
   handleDialogDatabaseSystemTrigger,
 }) => {
+  const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
     null
   );
@@ -74,7 +81,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
     null
   );
-
+  const theme = useTheme();
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2)
@@ -140,143 +147,181 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           )}
         </Box>
 
-        <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden" }}>
-          {groups.map((group) => {
-            const isCollapsed = collapsedGroups.includes(group.id);
-            const isInitials = sidebarMode === "initials";
-            const isFull = sidebarMode === "full";
-
-            return (
-              <Box key={group.id}>
-                {/* Grupp-rad */}
-                <Box
-                  onClick={() => toggleGroup(group.id)}
-                  sx={{
-                    height: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: isInitials ? "center" : "space-between",
-                    px: isInitials ? 0 : 2,
-                    bgcolor: "rgba(0,0,0,0.04)",
-                    borderBottom: "1px solid rgba(0,0,0,0.03)",
-                    cursor: "pointer",
-                    "&:hover": { "& .group-more": { opacity: 1 } },
-                  }}
-                >
+        <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden", mx: 1 }}>
+          {groups.length === 0 ? (
+            <Paper
+              variant="outlined"
+              sx={{
+                px: 1.5,
+                py: 1,
+                bgcolor: alpha(theme.palette.info.main, 0.04),
+                borderColor: alpha(theme.palette.info.main, 0.2),
+                borderRadius: 1,
+                width: "100%",
+                maxWidth: "100%",
+                marginRight: "1rem",
+                mt: 1, // Add some top margin for spacing
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+                <Box sx={{ flex: 1 }}>
                   <Box
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      overflow: "hidden",
+                      gap: 1,
+                      mr: 0.5,
                     }}
                   >
-                    {isFull && (
-                      <KeyboardArrowDownIcon
-                        fontSize="small"
-                        sx={{
-                          mr: 0.5,
-                          transition: "0.3s",
-                          transform: isCollapsed
-                            ? "rotate(-90deg)"
-                            : "rotate(0deg)",
-                        }}
-                      />
-                    )}
                     <Typography
-                      variant="subtitle1"
-                      noWrap
-                      sx={{ fontWeight: 700 }}
+                      sx={{ fontWeight: 700, fontSize: "13px", my: 0.5 }}
                     >
-                      {isInitials ? getInitials(group.name) : group.name}
+                      Din grupplista är tom
                     </Typography>
                   </Box>
-                  {isFull && (
-                    <IconButton
-                      className="group-more"
-                      size="small"
-                      sx={{ opacity: 0 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedGroupId(group.id);
-                        setGroupMenuAnchor(e.currentTarget);
+                </Box>
+              </Box>
+            </Paper>
+          ) : (
+            groups.map((group) => {
+              const isCollapsed = collapsedGroups.includes(group.id);
+              const isInitials = sidebarMode === "initials";
+              const isFull = sidebarMode === "full";
+
+              return (
+                <Box key={group.id}>
+                  <Box
+                    onClick={() => toggleGroup(group.id)}
+                    sx={{
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: isInitials ? "center" : "space-between",
+                      px: isInitials ? 0 : 2,
+                      bgcolor: "rgba(0,0,0,0.04)",
+                      borderBottom: "1px solid rgba(0,0,0,0.03)",
+                      cursor: "pointer",
+                      "&:hover": { "& .group-more": { opacity: 1 } },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        overflow: "hidden",
                       }}
                     >
-                      <MoreVertIcon fontSize="small" />
-                    </IconButton>
-                  )}
-                </Box>
-
-                {/* Anställda-rader */}
-                <Collapse in={!isCollapsed}>
-                  {(group.resources || []).map((res) => {
-                    const resRow = (
-                      <Box
-                        key={res.id}
-                        sx={{
-                          height: ROW_HEIGHT,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: isFull ? "space-between" : "center",
-                          px: isInitials ? 0 : 2,
-                          pl: isFull ? 5 : 0,
-                          borderBottom: "1px solid rgba(0,0,0,0.03)",
-                          boxSizing: "border-box",
-                          "&:hover": {
-                            bgcolor: "rgba(0,0,0,0.04)",
-                            "& .res-more": { opacity: 1 },
-                          },
+                      {isFull && (
+                        <KeyboardArrowDownIcon
+                          fontSize="small"
+                          sx={{
+                            mr: 0.5,
+                            transition: "0.3s",
+                            transform: isCollapsed
+                              ? "rotate(-90deg)"
+                              : "rotate(0deg)",
+                          }}
+                        />
+                      )}
+                      <Typography
+                        variant="subtitle1"
+                        noWrap
+                        sx={{ fontWeight: 700 }}
+                      >
+                        {isInitials ? getInitials(group.name) : group.name}
+                      </Typography>
+                    </Box>
+                    {isFull && (
+                      <IconButton
+                        className="group-more"
+                        size="small"
+                        sx={{ opacity: 0 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedGroupId(group.id);
+                          setGroupMenuAnchor(e.currentTarget);
                         }}
                       >
-                        <Typography
-                          variant="body2"
-                          noWrap
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  {/* Anställda-rader */}
+                  <Collapse in={!isCollapsed}>
+                    {(group.resources || []).map((res) => {
+                      const resRow = (
+                        <Box
+                          key={res.id}
                           sx={{
-                            fontWeight: 500,
-                            maxWidth: isFull ? "calc(100% - 35px)" : "100%",
+                            height: ROW_HEIGHT,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: isFull ? "space-between" : "center",
+                            px: isInitials ? 0 : 2,
+                            borderBottom: "1px solid rgba(0,0,0,0.03)",
+                            boxSizing: "border-box",
+                            "&:hover": {
+                              bgcolor: "rgba(0,0,0,0.04)",
+                              "& .res-more": { opacity: 1 },
+                            },
                           }}
                         >
-                          {isInitials ? getInitials(res.name) : res.name}
-                        </Typography>
-
-                        {isFull && (
-                          <IconButton
-                            className="res-more"
-                            size="small"
+                          <Typography
+                            variant="body2"
+                            noWrap
                             sx={{
-                              opacity: 0,
-                              transition: "opacity 0.2s",
-                              ml: 1,
+                              fontWeight: 500,
+                              maxWidth: isFull ? "calc(100% - 35px)" : "100%",
                             }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedGroupId(group.id); // Sätt grupp-ID för resursen
-                              setSelectedResourceId(res.id); // Sätt resurs-ID
-                              setResourceMenuAnchor(e.currentTarget);
-                            }}
+                            component="span"
                           >
-                            <MoreVertIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
-                    );
+                           <FiberManualRecordIcon  sx={{ fontSize: 8, mr: 0.5, color: "text.secondary" }} /> 
+                           <ProTooltip title={res.name} placement="right" arrow>
+                            <span>{isInitials ? getInitials(res.name) : res.name}</span>
+                            </ProTooltip>
+                          </Typography>
 
-                    return isInitials ? (
-                      <ProTooltip
-                        key={res.id}
-                        title={res.name}
-                        placement="right"
-                        arrow
-                      >
-                        {resRow}
-                      </ProTooltip>
-                    ) : (
-                      resRow
-                    );
-                  })}
-                </Collapse>
-              </Box>
-            );
-          })}
+                          {isFull && (
+                            <IconButton
+                              className="res-more"
+                              size="small"
+                              sx={{
+                                opacity: 0,
+                                transition: "opacity 0.2s",
+                                ml: 1,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedGroupId(group.id);
+                                setSelectedResourceId(res.id);
+                                setResourceMenuAnchor(e.currentTarget);
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      );
+
+                      return isInitials ? (
+                        <ProTooltip
+                          key={res.id}
+                          title={res.name}
+                          placement="right"
+                          arrow
+                        >
+                          {resRow}
+                        </ProTooltip>
+                      ) : (
+                        resRow
+                      );
+                    })}
+                  </Collapse>
+                </Box>
+              );
+            })
+          )}
         </Box>
 
         {sidebarMode !== "hidden" && (
@@ -343,19 +388,29 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
         <MenuItem
           onClick={() => {
             closeMenus();
-            handleDialogGroupTrigger();
-          }}
-        >
-          <AddIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till grupp
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            closeMenus();
             handleDialogAbsenceTypeTrigger();
           }}
         >
-          <CalendarMonthIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till
-          ledighetstyp
+          <EventBusyIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till
+          frånvarotyper
+        </MenuItem>
+        <MenuItem
+          disabled={absenceTypes.length === 0}
+          onClick={() => {
+            closeMenus();
+            handleDialogGroupTrigger();
+          }}
+        >
+          <GroupsIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till grupp
+        </MenuItem>
+        <MenuItem
+          disabled={groups.length === 0}
+          onClick={() => {
+            handleDialogResourceTrigger(undefined, selectedGroupId!);
+            closeMenus();
+          }}
+        >
+          <PersonIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställda
         </MenuItem>
         <MenuItem
           onClick={() => {

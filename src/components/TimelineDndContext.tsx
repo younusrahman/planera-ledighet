@@ -1,5 +1,5 @@
 import React, { forwardRef, useMemo } from "react";
-import { Box, Typography, Collapse, alpha } from "@mui/material";
+import { Box, Typography, Collapse, alpha, useTheme } from "@mui/material";
 import {
   DndContext,
   DragOverlay,
@@ -15,6 +15,7 @@ import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Group, LeaveItem } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
+import { ArrowRightAlt } from "@mui/icons-material";
 
 interface TimelineDndContextProps {
   // Data
@@ -146,6 +147,7 @@ export const TimelineDndContext = forwardRef<
     });
     return weeks;
   }, [days]);
+  const theme = useTheme();
 
   // 3. Cacha hela Header-blocket (Detta stoppar lagget!)
   const MemoizedHeader = useMemo(
@@ -343,36 +345,246 @@ export const TimelineDndContext = forwardRef<
             <Box
               sx={{
                 position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                textAlign: "center",
+                top: 300,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 zIndex: 1,
                 pointerEvents: "none",
-                opacity: 0.3,
-                width: "100%",
+                background: `linear-gradient(180deg, 
+                transparent 0%, 
+                ${alpha(theme.palette.background.paper, 0.7)} 30%,
+                ${alpha(theme.palette.background.paper, 0.9)} 100%
+            )`,
               }}
             >
-              <Typography
-                variant="h5"
+              <Box
                 sx={{
-                  color: "text.secondary",
-                  fontWeight: 300,
-                  fontSize: "2rem",
-                  mb: 1,
+                  textAlign: "center",
+                  maxWidth: "600px",
+                  padding: { xs: 3, md: 4 },
+                  width: "90%",
                 }}
               >
-                No Groups Exist
-              </Typography>
-              <Typography
-                variant="body1"
-                sx={{ color: "text.secondary", fontWeight: 300 }}
-              >
-                Add a group to start managing leaves
-              </Typography>
-              {/* Optional: Add an icon */}
-              <Box sx={{ mt: 2 }}>
-                <Typography sx={{ fontSize: "4rem" }}>📅</Typography>
+                {/* Icon/Emoji */}
+                <Box sx={{ opacity: 0.3 }}>
+                  <Typography sx={{ fontSize: "4rem" }}>📋</Typography>
+                </Box>
+
+                {/* Main Title */}
+                <Typography
+                  variant="h4"
+                  sx={{
+                    color: alpha(theme.palette.text.primary, 0.3),
+                    fontWeight: 700,
+                    fontSize: { xs: "1.75rem", md: "1.5rem" },
+                    mb: 2,
+                    lineHeight: 1.3,
+                  }}
+                >
+                  Börja med att skapa grupper och anställda.
+                </Typography>
+
+                {/* Instruction Steps */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: { xs: "column", sm: "row" },
+                    justifyContent: "center",
+                    gap: { xs: 2, sm: 3, md: 4 },
+                    mb: 2,
+                  }}
+                >
+                  {/* Step 1 */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1px solid ${alpha(
+                          theme.palette.primary.main,
+                          0.2
+                        )}`,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          color: alpha(theme.palette.primary.main, 0.5),
+                          fontWeight: 500,
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        1
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: alpha(theme.palette.text.secondary, 0.5),
+                        fontWeight: 400,
+                        fontSize: "0.9rem",
+                        textAlign: "center",
+                        maxWidth: "120px",
+                      }}
+                    >
+                      Skapa frånvarotyper
+                    </Typography>
+                  </Box>
+
+                  {/* Arrow */}
+                  <Box
+                    sx={{
+                      display: { xs: "none", sm: "flex" },
+                      alignItems: "center",
+                      color: alpha(theme.palette.text.disabled, 0.3),
+                    }}
+                  >
+                    <ArrowRightAlt />
+                  </Box>
+
+                  {/* Step 2 */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        backgroundColor: alpha(
+                          theme.palette.secondary.main,
+                          0.1
+                        ),
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1px solid ${alpha(
+                          theme.palette.secondary.main,
+                          0.2
+                        )}`,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          color: alpha(theme.palette.secondary.main, 0.5),
+                          fontWeight: 500,
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        2
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: alpha(theme.palette.text.secondary, 0.5),
+                        fontWeight: 400,
+                        fontSize: "0.9rem",
+                        textAlign: "center",
+                        maxWidth: "120px",
+                      }}
+                    >
+                      Skapa Grupp
+                    </Typography>
+                  </Box>
+
+                  {/* Arrow */}
+                  <Box
+                    sx={{
+                      display: { xs: "none", sm: "flex" },
+                      alignItems: "center",
+                      color: alpha(theme.palette.text.disabled, 0.3),
+                    }}
+                  >
+                    <ArrowRightAlt />
+                  </Box>
+
+                  {/* Step 3 */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: "50%",
+                        backgroundColor: alpha(theme.palette.success.main, 0.1),
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: `1px solid ${alpha(
+                          theme.palette.success.main,
+                          0.2
+                        )}`,
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          color: alpha(theme.palette.success.main, 0.5),
+                          fontWeight: 500,
+                          fontSize: "1.1rem",
+                        }}
+                      >
+                        3
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: alpha(theme.palette.text.secondary, 0.5),
+                        fontWeight: 400,
+                        fontSize: "0.9rem",
+                        textAlign: "center",
+                        maxWidth: "120px",
+                      }}
+                    >
+                      Skapa Arbetare
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Final Instruction */}
+                <Typography
+                  variant="body1"
+                  sx={{
+                    color: alpha(theme.palette.text.secondary, 0.4),
+                    fontWeight: 300,
+                    fontSize: { xs: "0.95rem", md: "1.05rem" },
+                    fontStyle: "italic",
+                    lineHeight: 1.6,
+                    maxWidth: "400px",
+                    margin: "0 auto",
+                    textAlign: "center",
+                  }}
+                >
+                  Klicka på <strong>Meny</strong> i sidomenyn för att komma
+                  igång!
+                </Typography>
               </Box>
             </Box>
           )}
