@@ -212,23 +212,19 @@ export const LeaveBlock = ({
 
   // --- MOUSE TRACKING FOR TOOLTIP ---
   const handleMouseMove = (event: React.MouseEvent) => {
-    // --- START OF NEW LOGIC ---
-    // If a timer to open the tooltip is running, cancel it and start a new one.
-    // This ensures the tooltip only opens if the mouse is stationary.
-    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-
-    openTimeoutRef.current = window.setTimeout(() => {
-      setIsTooltipOpen(true);
-      onTooltipOpen?.();
-    }, TOOLTIP_DELAY);
-    // --- END OF NEW LOGIC ---
-
-    // 1. Update Position (Your existing logic)
+    // Update Position
     positionRef.current = { x: event.clientX, y: event.clientY };
-
-    // 2. Force Popper Update (Your existing logic)
     if (popperRef.current != null) {
       popperRef.current.update();
+    }
+
+    // ONLY start the open timer if the tooltip isn't already open
+    if (!isTooltipOpen) {
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = window.setTimeout(() => {
+        setIsTooltipOpen(true);
+        onTooltipOpen?.();
+      }, TOOLTIP_DELAY);
     }
   };
 
@@ -245,14 +241,13 @@ export const LeaveBlock = ({
     }, TOOLTIP_DELAY); // 2000 milliseconds = 2 seconds
   };
   const handleMouseLeave = () => {
-    // Cancel any pending timer to OPEN the tooltip.
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
 
-    // Start a timer to close the tooltip if it's already open.
+    // Give user 300ms to move mouse into the tooltip window
     closeTimeoutRef.current = window.setTimeout(() => {
       setIsTooltipOpen(false);
       onTooltipClose?.();
-    }, 200);
+    }, 300);
   };
 
   // --- STYLES ---
@@ -540,7 +535,7 @@ export const LeaveBlock = ({
               border: "1px solid",
               borderColor: `${leave.color}70`, // 20% opacity border using leave color
 
-              pointerEvents: "none",
+              pointerEvents: "auto",
 
               // Elegant typography
               fontSize: "0.875rem",

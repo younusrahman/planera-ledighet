@@ -19,7 +19,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord';
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import SettingsIcon from "@mui/icons-material/Settings";
 import {
   KeyboardArrowLeft,
@@ -171,12 +171,16 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                       alignItems: "center",
                       gap: 1,
                       mr: 0.5,
+                      justifyContent: "center",
                     }}
                   >
                     <Typography
-                      sx={{ fontWeight: 700, fontSize: "13px", my: 0.5 }}
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: "13px",
+                      }}
                     >
-                      Din grupplista är tom
+                      Grupp lista är tom
                     </Typography>
                   </Box>
                 </Box>
@@ -276,9 +280,21 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                             }}
                             component="span"
                           >
-                           <FiberManualRecordIcon  sx={{ fontSize: 8, mr: 0.5, color: "text.secondary" }} /> 
-                           <ProTooltip title={res.name} placement="right" arrow>
-                            <span>{isInitials ? getInitials(res.name) : res.name}</span>
+                            <FiberManualRecordIcon
+                              sx={{
+                                fontSize: 8,
+                                mr: 0.5,
+                                color: "text.secondary",
+                              }}
+                            />
+                            <ProTooltip
+                              title={res.name}
+                              placement="right"
+                              arrow
+                            >
+                              <span>
+                                {isInitials ? getInitials(res.name) : res.name}
+                              </span>
                             </ProTooltip>
                           </Typography>
 

@@ -13,6 +13,7 @@ import {
   ListItemButton,
   ListItemText,
   Divider,
+  Paper,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -181,35 +182,77 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
               gap: 1.5,
             }}
           >
-            {absenceTypes.map((type) => (
-              <Chip
-                key={type.id}
-                onClick={() => onAbsenceTypeClick(type)}
-                label={
-                  <Box
-                    sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
-                  >
+            {!absenceTypes || absenceTypes.length === 0 ? (
+              <Paper
+                variant="outlined"
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  bgcolor: alpha(theme.palette.info.main, 0.04),
+                  borderColor: alpha(theme.palette.info.main, 0.2),
+                  borderRadius: 1,
+                  width: "100%",
+
+                  marginLeft: "0.5rem",
+                  mt: 1, // Add some top margin for spacing
+                }}
+              >
+                <Box
+                  sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
+                >
+                  <Box sx={{ flex: 1 }}>
                     <Box
                       sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        bgcolor: type.color,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mr: 0.5,
+                        justifyContent: "center",
                       }}
-                    />
-                    <Typography variant="caption">{type.label}</Typography>
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: "13px",
+                        }}
+                      >
+                        Inge frånvarotyper har lagts till ännu.
+                      </Typography>
+                    </Box>
                   </Box>
-                }
-                size="small"
-                sx={{
-                  cursor: "pointer",
-                  bgcolor: "transparent",
-                  "&:hover": {
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                  },
-                }}
-              />
-            ))}
+                </Box>
+              </Paper>
+            ) : (
+              absenceTypes.map((type) => (
+                <Chip
+                  key={type.id}
+                  onClick={() => onAbsenceTypeClick(type)}
+                  label={
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: type.color,
+                        }}
+                      />
+                      <Typography variant="caption">{type.label}</Typography>
+                    </Box>
+                  }
+                  size="small"
+                  sx={{
+                    cursor: "pointer",
+                    bgcolor: "transparent",
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                />
+              ))
+            )}
           </Box>
         </Box>
 
