@@ -258,55 +258,64 @@ export const Timeline = () => {
   };
 
   // --- TIMELINE LOGIC ---
-  useLayoutEffect(() => {
-    if (
-      scrollContainerRef.current &&
-      !startDate.isSame(previousStartDate.current)
-    ) {
-      if (isJumpingRef.current) {
-        previousStartDate.current = startDate;
-        isJumpingRef.current = false;
-        isLoadingRef.current = false;
-        return;
-      }
-      const diffDays = previousStartDate.current.diff(startDate, "day");
-      if (diffDays > 0) {
-        scrollContainerRef.current.scrollLeft += diffDays * CELL_WIDTH;
-      }
-      previousStartDate.current = startDate;
-      isLoadingRef.current = false;
-    }
-  }, [startDate]);
-
-  useLayoutEffect(() => {
-    // If we already did the initial jump, don't run this again
+  useEffect(() => {
     if (hasInitialScrolled.current) return;
 
-    const scrollToToday = () => {
+    const performJump = () => {
       const container = scrollContainerRef.current;
-
       if (container) {
         const todayOffset = getDateOffset(
           dayjs().format("YYYY-MM-DD"),
           startDate
         );
 
-        // Perform the jump
+        // Attempt to scroll
         container.scrollLeft = todayOffset;
 
-        // Mark as done so we don't jump back during infinite scroll
-        hasInitialScrolled.current = true;
+        // Verify if scroll actually worked (if offset is > 0, scrollLeft should no longer be 0)
+        if (container.scrollLeft > 0 || todayOffset === 0) {
+          hasInitialScrolled.current = true;
+          // Small delay before showing UI to ensure the "snap" is finished
+          setTimeout(() => setIsReady(true), 50);
+          clearInterval(jumpInterval);
+        }
       }
-
-      // CRITICAL FIX: Always set ready to true, even if container wasn't found yet
-      // This prevents the "Blank Page" issue.
-      setIsReady(true);
     };
 
-    // A slightly longer timeout (100ms) ensures the grid has width before we scroll
-    const timer = setTimeout(scrollToToday, 100);
+    // Try every 50ms until the scroll successfully moves
+    const jumpInterval = setInterval(performJump, 50);
 
-    return () => clearTimeout(timer);
+    // Safety: If it hasn't worked in 2 seconds, just show the page anyway
+    const safetyTimer = setTimeout(() => {
+      clearInterval(jumpInterval);
+      setIsReady(true);
+    }, 2000);
+
+    return () => {
+      clearInterval(jumpInterval);
+      clearTimeout(safetyTimer);
+    };
+  }, []); // Only runs on Mount
+
+  // Part 2: Infinite Scroll Offset (Anchor the view when loading past dates)
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !hasInitialScrolled.current) return;
+
+    if (!startDate.isSame(previousStartDate.current)) {
+      if (isJumpingRef.current) {
+        previousStartDate.current = startDate;
+        isJumpingRef.current = false;
+        return;
+      }
+
+      const diffDays = previousStartDate.current.diff(startDate, "day");
+      if (diffDays > 0) {
+        container.scrollLeft += diffDays * CELL_WIDTH;
+      }
+      previousStartDate.current = startDate;
+      isLoadingRef.current = false;
+    }
   }, [startDate]);
   // 1. Calculate the width of the disabled area
   const disabledOverlayWidth = useMemo(() => {
@@ -784,13 +793,12 @@ export const Timeline = () => {
   };
   return (
     <Box
-      style={{ opacity: isReady ? 1 : 0 }} // <--- ADD THIS LINE
+      style={{ opacity: isReady ? 1 : 0 }}
       sx={{
         display: "flex",
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
-        transition: "opacity 0.2s ease-in", // Optional: makes it fade in nicely
       }}
     >
       {/* 1. APP BAR */}
