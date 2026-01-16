@@ -78,7 +78,7 @@ export const Timeline = () => {
   const [blockPastDays, setBlockPastDays] = useState(true); // Default to ON
   // State for the checkbox "Ta bort möjligheten att radera"
   const [disableDeletion, setDisableDeletion] = useState(false); // Default to OFF
-
+  const hasInitialScrolled = useRef(false);
   // Inside your Timeline component
   const isDown = useRef(false);
   const startX = useRef(0);
@@ -279,17 +279,33 @@ export const Timeline = () => {
   }, [startDate]);
 
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      const todayOffset = getDateOffset(
-        dayjs().format("YYYY-MM-DD"),
-        startDate
-      );
-      scrollContainerRef.current.scrollLeft = todayOffset - 200;
-    }
-    return () => {
-      stopAutoScroll();
+    // If we already jumped to today, stop here so infinite scroll works
+    if (hasInitialScrolled.current) return;
+
+    const scrollToToday = () => {
+      if (scrollContainerRef.current) {
+        const todayOffset = getDateOffset(
+          dayjs().format("YYYY-MM-DD"),
+          startDate
+        );
+        scrollContainerRef.current.scrollLeft = todayOffset;
+
+        // Mark as done so it never runs again during this session
+        hasInitialScrolled.current = true;
+      }
     };
-  }, []);
+
+    // Try multiple times to ensure the grid is fully rendered
+    scrollToToday();
+    const timer = setTimeout(scrollToToday, 50);
+    const timer2 = setTimeout(scrollToToday, 200);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+      if (typeof stopAutoScroll === "function") stopAutoScroll();
+    };
+  }, [startDate]);
   // 1. Calculate the width of the disabled area
   const disabledOverlayWidth = useMemo(() => {
     const offset = getDateOffset(today.format("YYYY-MM-DD"), startDate);
