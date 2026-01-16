@@ -83,7 +83,7 @@ export const Timeline = () => {
   const isDown = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
-
+  const [isReady, setIsReady] = useState(false); // Prevents the flicker
   const handleGroupRowMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
 
@@ -278,33 +278,35 @@ export const Timeline = () => {
     }
   }, [startDate]);
 
-  useEffect(() => {
-    // If we already jumped to today, stop here so infinite scroll works
+  useLayoutEffect(() => {
+    // If we already did the initial jump, don't run this again
     if (hasInitialScrolled.current) return;
 
     const scrollToToday = () => {
-      if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+
+      if (container) {
         const todayOffset = getDateOffset(
           dayjs().format("YYYY-MM-DD"),
           startDate
         );
-        scrollContainerRef.current.scrollLeft = todayOffset;
 
-        // Mark as done so it never runs again during this session
+        // Perform the jump
+        container.scrollLeft = todayOffset;
+
+        // Mark as done so we don't jump back during infinite scroll
         hasInitialScrolled.current = true;
       }
+
+      // CRITICAL FIX: Always set ready to true, even if container wasn't found yet
+      // This prevents the "Blank Page" issue.
+      setIsReady(true);
     };
 
-    // Try multiple times to ensure the grid is fully rendered
-    scrollToToday();
-    const timer = setTimeout(scrollToToday, 50);
-    const timer2 = setTimeout(scrollToToday, 200);
+    // A slightly longer timeout (100ms) ensures the grid has width before we scroll
+    const timer = setTimeout(scrollToToday, 100);
 
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(timer2);
-      if (typeof stopAutoScroll === "function") stopAutoScroll();
-    };
+    return () => clearTimeout(timer);
   }, [startDate]);
   // 1. Calculate the width of the disabled area
   const disabledOverlayWidth = useMemo(() => {
@@ -782,11 +784,13 @@ export const Timeline = () => {
   };
   return (
     <Box
+      style={{ opacity: isReady ? 1 : 0 }} // <--- ADD THIS LINE
       sx={{
         display: "flex",
         flexDirection: "column",
         height: "100vh",
         overflow: "hidden",
+        transition: "opacity 0.2s ease-in", // Optional: makes it fade in nicely
       }}
     >
       {/* 1. APP BAR */}
