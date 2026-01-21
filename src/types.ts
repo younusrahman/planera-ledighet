@@ -1,17 +1,7 @@
-// src/types.ts
-export interface LeaveItem {
+export interface AbsenceType {
   id: string;
-  name: string;
-  startDate: string; // ISO string
-  durationDays: number;
+  label: string;
   color: string;
-  rowId: string;
-  absenceTypeId: string; // <--- MAKE SURE THIS IS SENT
-}
-
-export interface Resource {
-  id: string;
-  name: string;
 }
 
 export interface Group {
@@ -19,8 +9,18 @@ export interface Group {
   name: string;
   resources?: Resource[];
 }
-export interface AbsenceType {
+
+export interface Resource {
   id: string;
-  color: string;
-  label: string;
+  name: string;
+  groupId: string;
+}
+
+export interface LeaveItem {
+  id: string;
+  resourceId: string;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  absenceTypeId: string;
 }

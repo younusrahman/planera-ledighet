@@ -11,8 +11,13 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/uiStore";
-import type { Group, LeaveItem } from "../types";
-import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
+import type { Group, LeaveItem, Resource } from "../types";
+import {
+  buildGroupsWithResourcesDirect,
+  checkCollision,
+  getDateOffset,
+  getDaysArray,
+} from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
 import { TimelineHeader } from "./TimelineHeader";
@@ -28,7 +33,7 @@ export const Timeline = () => {
 
   // 1. Hämta ENDAST från Store/API
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
-  const groups = appServicesStatic.groups.useItems();
+
   const leaves = appServicesStatic.leaves.useItems();
 
   // 2. Trigga laddning
@@ -38,7 +43,7 @@ export const Timeline = () => {
 
   // --- STATE ---
   const [startDate, setStartDate] = useState(
-    dayjs().startOf("day").subtract(30, "days")
+    dayjs().startOf("day").subtract(30, "days"),
   );
 
   const [daysCount, setDaysCount] = useState(150);
@@ -123,14 +128,14 @@ export const Timeline = () => {
   // --- HELPERS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
-    [startDate, daysCount]
+    [startDate, daysCount],
   );
 
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((prev) =>
       prev.includes(groupId)
         ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
+        : [...prev, groupId],
     );
   };
 
@@ -195,7 +200,7 @@ export const Timeline = () => {
   const handleSaveAbsenceType = async (
     label: string,
     color: string,
-    idToUpdate?: string | null
+    idToUpdate?: string | null,
   ) => {
     if (!label.trim()) return;
 
@@ -234,7 +239,7 @@ export const Timeline = () => {
   const handleSaveResource = async (
     name: string,
     targetGroupId: string,
-    resourceIdToUpdate: string | null
+    resourceIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
@@ -266,7 +271,7 @@ export const Timeline = () => {
       if (container) {
         const todayOffset = getDateOffset(
           dayjs().format("YYYY-MM-DD"),
-          startDate
+          startDate,
         );
 
         // Attempt to scroll
@@ -451,19 +456,20 @@ export const Timeline = () => {
   const handleSaveLeave = async (
     formData: { typeId: string; startDate: Dayjs; duration: number },
     leaveIdToUpdate: string | null,
-    targetRowId: string | null
+    targetRowId: string | null,
   ) => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
     const entry: LeaveItem = {
       id: leaveIdToUpdate || "l-" + Date.now(),
-      rowId: targetRowId,
-      name: type.label,
+      resourceId: targetRowId,
       startDate: formData.startDate.format("YYYY-MM-DD"),
       durationDays: formData.duration,
-      color: type.color,
       absenceTypeId: type.id, // <--- MAKE SURE THIS IS SENT
+      endDate: formData.startDate
+        .add(formData.duration - 1, "day")
+        .format("YYYY-MM-DD"),
     };
 
     // Validation: Collision
@@ -564,7 +570,7 @@ export const Timeline = () => {
         if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
           toast(
             "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
-            "error"
+            "error",
           );
           return;
         }
@@ -590,7 +596,7 @@ export const Timeline = () => {
   const handleLeaveResizeEnd = async (
     id: string,
     newDuration: number,
-    daysShifted: number
+    daysShifted: number,
   ) => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
@@ -603,7 +609,7 @@ export const Timeline = () => {
     if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
       toast(
         "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
-        "error"
+        "error",
       );
       return;
     }
@@ -612,8 +618,10 @@ export const Timeline = () => {
       ...item,
       durationDays: newDuration,
       startDate: newStartDate,
+      endDate: dayjs(newStartDate)
+        .add(newDuration - 1, "day")
+        .format("YYYY-MM-DD"),
     };
-
     // --- COLLISION CHECK & API CALL ---
     if (checkCollision(leaves, updatedItem)) {
       toast("Krockar med annan frånvaro!", "error");
@@ -714,27 +722,25 @@ export const Timeline = () => {
     leaveToEdit?: LeaveItem,
     rowId?: string,
     startDate?: Dayjs,
-    duration?: number
+    duration?: number,
   ) => {
     const isEditing = !!leaveToEdit;
 
     // If editing, we use the leave's rowId. If creating, we use the rowId passed from the grid.
-    const targetRowId = isEditing ? leaveToEdit.rowId : rowId;
+    const targetResourceId = isEditing ? leaveToEdit.resourceId : rowId;
 
     dialog.open("absence", {
       title: isEditing ? "Redigera frånvaro" : "Registrera frånvaro",
       mode: isEditing ? "edit" : "create",
       data: isEditing
         ? {
-            // EDIT MODE INITIAL DATA
             startDate: dayjs(leaveToEdit.startDate),
             duration: leaveToEdit.durationDays,
             typeId:
-              absenceTypes.find((t) => t.color === leaveToEdit.color)?.id ||
-              "vac",
+              absenceTypes.find((t) => t.color === leaveToEdit.absenceTypeId)
+                ?.id || "vac",
           }
         : {
-            // CREATE MODE INITIAL DATA (from grid selection)
             startDate: startDate || dayjs(),
             duration: duration || 1,
             typeId: absenceTypes[0]?.id || "vac",
@@ -744,11 +750,10 @@ export const Timeline = () => {
       today,
 
       onSave: (formData) => {
-        // formData comes from the AbsenceForm (typeId, startDate, duration)
         handleSaveLeave(
           formData,
           isEditing ? leaveToEdit.id : null,
-          targetRowId ? targetRowId : null
+          targetResourceId ? targetResourceId : null,
         );
         dialog.close();
       },
@@ -757,7 +762,7 @@ export const Timeline = () => {
   };
   const handleDialogResourceTrigger = (
     resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string
+    currentGroupId?: string,
   ) => {
     const isEditing = !!resourceToEdit;
 
@@ -765,14 +770,14 @@ export const Timeline = () => {
       title: isEditing ? "Redigera anställd" : "Lägg till anställd",
       initialName: isEditing ? resourceToEdit.name : "",
       initialGroupId: currentGroupId, // The group they currently belong to
-      groups, // Pass the list of groups so the user can change it
+      groups: buildGroupsWithResourcesDirect(), // Pass the list of groups so the user can change it
 
       onSave: (name, targetGroupId) => {
         // Pass the specific resource ID if editing, or null if creating
         handleSaveResource(
           name,
           targetGroupId,
-          isEditing ? resourceToEdit.id : null
+          isEditing ? resourceToEdit.id : null,
         );
         dialog.close();
       },
@@ -828,7 +833,6 @@ export const Timeline = () => {
       >
         {/* SIDEBAR (GLASSMORPHISM) */}
         <TimelineSidebar
-          groups={groups}
           sidebarMode={sidebarMode}
           collapsedGroups={collapsedGroups}
           disableDeletion={disableDeletion}
@@ -853,7 +857,7 @@ export const Timeline = () => {
           days={days} // from useMemo(() => getDaysArray...)
           daysCount={daysCount} // from useState
           startDate={startDate} // from useState
-          groups={groups} // from useState
+          groups={buildGroupsWithResourcesDirect()}
           leaves={leaves} // from useState
           collapsedGroups={collapsedGroups} // from useState
           absenceTypes={absenceTypes} // from useState

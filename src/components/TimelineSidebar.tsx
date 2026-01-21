@@ -9,7 +9,6 @@ import {
   MenuItem,
   Grow,
   alpha,
-  Alert,
   Paper,
   useTheme,
 } from "@mui/material";
@@ -33,8 +32,8 @@ import { appServicesStatic } from "../services/appServices";
 import EventBusyIcon from "@mui/icons-material/EventBusy";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
+import { buildGroupsWithResourcesDirect } from "../utils/Helper";
 interface TimelineSidebarProps {
-  groups: Group[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
@@ -48,12 +47,11 @@ interface TimelineSidebarProps {
   handleDialogDatabaseSystemTrigger: () => void;
   handleDialogResourceTrigger: (
     resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string
+    currentGroupId?: string,
   ) => void;
 }
 
 export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
-  groups,
   sidebarMode,
   collapsedGroups,
   disableDeletion,
@@ -69,18 +67,20 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
 }) => {
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
-    null
+    null,
   );
   const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
-    null
+    null,
   );
   const [resourceMenuAnchor, setResourceMenuAnchor] =
     useState<null | HTMLElement>(null);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
-    null
+    null,
   );
+  const groups = buildGroupsWithResourcesDirect();
+  console.log("TimelineSidebar groups:", groups);
   const theme = useTheme();
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
@@ -458,7 +458,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           onClick={() => {
             const group = groups.find((g) => g.id === selectedGroupId);
             const res = (group?.resources || []).find(
-              (r) => r.id === selectedResourceId
+              (r) => r.id === selectedResourceId,
             );
             if (res) handleDialogResourceTrigger(res, selectedGroupId!);
             closeMenus();

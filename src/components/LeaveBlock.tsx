@@ -16,7 +16,8 @@ import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { LeaveItem } from "../types";
+import type { AbsenceType, LeaveItem } from "../types";
+import { absenceTypes } from "../services/entities/absenceTypes";
 
 interface Props {
   leave: LeaveItem;
@@ -31,10 +32,12 @@ interface Props {
   isDeletionDisabled?: boolean; // <-- ADD THIS
   isPastDaysBlocked?: boolean; // <-- ADD THIS
   resourceName?: string; // ADD THIS
+  absenceTypes?: AbsenceType; // ADD THIS
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
 export const LeaveBlock = ({
+  absenceTypes,
   leave,
   left = 0,
   isOverlay = false,
@@ -262,7 +265,7 @@ export const LeaveBlock = ({
 
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-    backgroundColor: leave.color,
+    backgroundColor: absenceTypes?.color,
     color: "white",
     padding: "4px 8px",
     borderRadius: "30px",
@@ -306,13 +309,15 @@ export const LeaveBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
-      <Box sx={{ bgcolor: leave.color, height: 6, width: "100%", mb: 1 }} />
+      <Box
+        sx={{ bgcolor: absenceTypes?.color, height: 6, width: "100%", mb: 1 }}
+      />
       <Box>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
-          {leave.name}
+          {absenceTypes?.label}
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -451,7 +456,7 @@ export const LeaveBlock = ({
         fontWeight="bold"
         sx={{ flex: 1, textAlign: "center" }}
       >
-        {leave.name}
+        {absenceTypes?.label}
       </Typography>
       {!isDragging && !isPast && (
         <Box
@@ -464,7 +469,7 @@ export const LeaveBlock = ({
     </Paper>
   );
 
-  if (isOverlay || isDragging || isResizing) return blockContent;
+  if (isOverlay || isDragging) return blockContent;
 
   return (
     <>
@@ -487,7 +492,7 @@ export const LeaveBlock = ({
                   positionRef.current.x,
                   blockRect ? blockRect.top : positionRef.current.y,
                   0,
-                  0
+                  0,
                 );
               },
             },
@@ -502,7 +507,7 @@ export const LeaveBlock = ({
           },
           arrow: {
             sx: {
-              color: leave.color, // Matches tooltip background for seamless look
+              color: absenceTypes?.color, // Matches tooltip background for seamless look
               fontSize: 12, // Makes arrow slightly smaller and more elegant
               "&:before": {
                 border: "1px solid",
@@ -533,7 +538,7 @@ export const LeaveBlock = ({
               // Crisp borders
               borderRadius: "10px",
               border: "1px solid",
-              borderColor: `${leave.color}70`, // 20% opacity border using leave color
+              borderColor: `${absenceTypes?.color}70`, // 20% opacity border using leave color
 
               pointerEvents: "auto",
 

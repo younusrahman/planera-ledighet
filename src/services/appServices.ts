@@ -4,8 +4,6 @@ import { absenceTypes } from "./entities/absenceTypes";
 import { getEntity } from "./globalState";
 import { leaves } from "./entities/leaves";
 
-const _initializers = [absenceTypes, groups, resources, leaves];
-
 export const appServicesStatic = {
   // NEW: Global refresh helper
   async refreshAllData() {

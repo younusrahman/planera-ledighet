@@ -1,6 +1,8 @@
 import dayjs from "dayjs";
-import type { LeaveItem } from "../types";
+import type { Group, LeaveItem, Resource } from "../types";
 import { CELL_WIDTH } from "../utils";
+import { groups } from "../services/entities/groups";
+import { resources } from "../services/entities/resources";
 
 // HELPERS
 export const getDaysArray = (start: dayjs.Dayjs, count: number) => {
@@ -15,7 +17,7 @@ export const getDaysArray = (start: dayjs.Dayjs, count: number) => {
 
 export const getDateOffset = (
   startDate: string,
-  timelineStart: dayjs.Dayjs
+  timelineStart: dayjs.Dayjs,
 ) => {
   const start = dayjs(startDate).startOf("day");
   const base = timelineStart.startOf("day");
@@ -26,17 +28,20 @@ export const checkCollision = (
   items: LeaveItem[],
   targetItem: {
     id: string;
-    rowId: string;
+    resourceId: string;
     startDate: string;
     durationDays: number;
-  }
+  },
 ) => {
   const targetStart = dayjs(targetItem.startDate).startOf("day");
   const targetEnd = targetStart.add(targetItem.durationDays, "day");
 
   return items.some((item) => {
     // Skip self and items in other rows
-    if (item.id === targetItem.id || item.rowId !== targetItem.rowId) {
+    if (
+      item.id === targetItem.id ||
+      item.resourceId !== targetItem.resourceId
+    ) {
       return false;
     }
 
@@ -47,3 +52,14 @@ export const checkCollision = (
     return targetStart.isBefore(itemEnd) && targetEnd.isAfter(itemStart);
   });
 };
+
+export function buildGroupsWithResourcesDirect() {
+  const groupState = groups.useStore.getState();
+  const resourceState = resources.useStore.getState();
+  const groupList = groupState.ids.map((id) => groupState.byId[id]);
+  const resourceList = resourceState.ids.map((id) => resourceState.byId[id]);
+  return groupList.map((g) => ({
+    ...g,
+    resources: resourceList.filter((r) => r.groupId === g.id),
+  }));
+}

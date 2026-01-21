@@ -56,7 +56,7 @@ interface TimelineDndContextProps {
   onLeaveResizeEnd: (
     id: string,
     newDuration: number,
-    daysShifted: number
+    daysShifted: number,
   ) => void;
   onTooltipOpen: () => void;
   onTooltipClose: () => void;
@@ -114,7 +114,7 @@ export const TimelineDndContext = forwardRef<
   const monthBlocks = useMemo(() => {
     const months: { key: string; days: Dayjs[]; label: string }[] = [];
     const uniqueMonths = Array.from(
-      new Set(days.map((d) => d.format("YYYY-MM")))
+      new Set(days.map((d) => d.format("YYYY-MM"))),
     );
 
     uniqueMonths.forEach((monthKey) => {
@@ -132,12 +132,12 @@ export const TimelineDndContext = forwardRef<
   const weekBlocks = useMemo(() => {
     const weeks: { key: string; days: Dayjs[]; label: string }[] = [];
     const uniqueWeeks = Array.from(
-      new Set(days.map((d) => `${d.isoWeekYear()}-${d.isoWeek()}`))
+      new Set(days.map((d) => `${d.isoWeekYear()}-${d.isoWeek()}`)),
     );
 
     uniqueWeeks.forEach((weekKey) => {
       const wDays = days.filter(
-        (d) => `${d.isoWeekYear()}-${d.isoWeek()}` === weekKey
+        (d) => `${d.isoWeekYear()}-${d.isoWeek()}` === weekKey,
       );
       weeks.push({
         key: weekKey,
@@ -252,8 +252,8 @@ export const TimelineDndContext = forwardRef<
                     bgcolor: day.isSame(new Date(), "day")
                       ? "#fff9c4"
                       : isRed
-                      ? "rgba(244, 67, 54, 0.15)"
-                      : "white",
+                        ? "rgba(244, 67, 54, 0.15)"
+                        : "white",
                     color: isRed ? "error.main" : "text.primary",
                   }}
                 >
@@ -272,7 +272,7 @@ export const TimelineDndContext = forwardRef<
         </Box>
       </Box>
     ),
-    [days, monthBlocks, weekBlocks, holidays]
+    [days, monthBlocks, weekBlocks, holidays],
   ); // Rubriken ritas om ENDAST om dagarna ändras
 
   // 1. Beräkna vilka leaves som faktiskt är inom det synliga fönstret
@@ -380,7 +380,7 @@ export const TimelineDndContext = forwardRef<
                     justifyContent: "center",
                     border: `1px solid ${alpha(
                       theme.palette.primary.main,
-                      0.2
+                      0.2,
                     )}`,
                   }}
                 >
@@ -439,7 +439,7 @@ export const TimelineDndContext = forwardRef<
                     justifyContent: "center",
                     border: `1px solid ${alpha(
                       theme.palette.secondary.main,
-                      0.2
+                      0.2,
                     )}`,
                   }}
                 >
@@ -498,7 +498,7 @@ export const TimelineDndContext = forwardRef<
                     justifyContent: "center",
                     border: `1px solid ${alpha(
                       theme.palette.success.main,
-                      0.2
+                      0.2,
                     )}`,
                   }}
                 >
@@ -598,7 +598,7 @@ export const TimelineDndContext = forwardRef<
                           borderRight: "1px solid rgba(0, 0, 0, 0.02)",
                         }}
                       />
-                    )
+                    ),
                 )}
               </Box>
               {groups.map((group) => {
@@ -665,15 +665,17 @@ export const TimelineDndContext = forwardRef<
                           {/* Render Leave Blocks for this Resource */}
                           {/* Render Leave Blocks for this Resource - använder nu visibleLeaves */}
                           {visibleLeaves
-                            .filter((l) => l.rowId === res.id)
+                            .filter((l) => l.resourceId === res.id)
                             .map((l) => (
                               <LeaveBlock
+                                absenceTypes={absenceTypes.find(
+                                  (t) => t.id === l.absenceTypeId,
+                                )}
                                 key={l.id}
                                 leave={l}
+                                onResizeEnd={onLeaveResizeEnd}
                                 resourceName={res.name}
                                 left={getDateOffset(l.startDate, startDate)}
-                                // HÄR ÄR FIXEN - Du måste skicka med dessa:
-                                onResizeEnd={onLeaveResizeEnd}
                                 onEdit={onLeaveEdit}
                                 onDelete={onLeaveDelete}
                                 onTooltipOpen={onTooltipOpen}
@@ -692,10 +694,26 @@ export const TimelineDndContext = forwardRef<
                 );
               })}
             </Box>
-
-            {/* Drag Visual Ghost */}
             <DragOverlay adjustScale={false}>
-              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
+              {activeLeave && (
+                <LeaveBlock
+                  leave={activeLeave}
+                  isOverlay
+                  resourceName=""
+                  left={0}
+                  absenceTypes={absenceTypes.find(
+                    (t) => t.id === activeLeave.absenceTypeId,
+                  )}
+                  onResizeEnd={onLeaveResizeEnd}
+                  onEdit={onLeaveEdit}
+                  onDelete={onLeaveDelete}
+                  onTooltipOpen={onTooltipOpen}
+                  onTooltipClose={onTooltipClose}
+                  isDeletionDisabled={disableDeletion}
+                  isPastDaysBlocked={blockPastDays}
+                  scrollContainerRef={ref as React.RefObject<HTMLDivElement>}
+                />
+              )}
             </DragOverlay>
           </DndContext>
         </Box>
