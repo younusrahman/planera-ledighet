@@ -12,7 +12,6 @@ import {
   List,
   ListItemButton,
   ListItemText,
-  Divider,
   Paper,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
@@ -28,7 +27,7 @@ import {
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
-interface TimelineHeaderProps {
+interface HeaderProps {
   absenceTypes: any[];
   pickerDate: Dayjs;
   isDatePickerOpen: boolean;
@@ -45,7 +44,7 @@ interface TimelineHeaderProps {
 // ---------------------------------------------------------
 const HolidayContext = createContext({
   holidays: [] as { name: string; date: Dayjs }[],
-  onSelectHoliday: (d: Dayjs) => {},
+  onSelectHoliday: (_d: Dayjs) => {},
   onClose: () => {}, // <--- LÄGG TILL DENNA RAD
 });
 
@@ -145,7 +144,7 @@ function HolidayLayout(props: PickersLayoutProps<any>) {
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
-export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
+export const Header: React.FC<HeaderProps> = ({
   absenceTypes,
   pickerDate,
   isDatePickerOpen,

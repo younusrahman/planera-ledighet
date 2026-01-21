@@ -16,7 +16,7 @@ export interface Resource {
   groupId: string;
 }
 
-export interface LeaveItem {
+export interface AbsenceItem {
   id: string;
   resourceId: string;
   startDate: string;

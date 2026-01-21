@@ -10,23 +10,24 @@ import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import dayjs, { Dayjs } from "dayjs";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
-import { LeaveBlock } from "./LeaveBlock";
+
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Group, LeaveItem } from "../types";
+import type { Group, AbsenceItem } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
+import { AbsenceBlock } from "./AbsenceBlock";
 
-interface TimelineDndContextProps {
+interface AppDndContextProps {
   // Data
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
   groups: Group[];
-  leaves: LeaveItem[];
+  leaves: AbsenceItem[];
   collapsedGroups: string[];
   absenceTypes: any[];
-  activeLeave: LeaveItem | null;
+  activeLeave: AbsenceItem | null;
 
   // Settings
   blockPastDays: boolean;
@@ -62,9 +63,9 @@ interface TimelineDndContextProps {
   onTooltipClose: () => void;
 }
 
-export const TimelineDndContext = forwardRef<
+export const AppDndContext = forwardRef<
   HTMLDivElement,
-  TimelineDndContextProps
+  AppDndContextProps
 >((props, ref) => {
   const {
     days,
@@ -667,7 +668,7 @@ export const TimelineDndContext = forwardRef<
                           {visibleLeaves
                             .filter((l) => l.resourceId === res.id)
                             .map((l) => (
-                              <LeaveBlock
+                              <AbsenceBlock
                                 absenceTypes={absenceTypes.find(
                                   (t) => t.id === l.absenceTypeId,
                                 )}
@@ -696,7 +697,7 @@ export const TimelineDndContext = forwardRef<
             </Box>
             <DragOverlay adjustScale={false}>
               {activeLeave && (
-                <LeaveBlock
+                <AbsenceBlock
                   leave={activeLeave}
                   isOverlay
                   resourceName=""

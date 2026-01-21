@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/uiStore";
-import type { Group, LeaveItem, Resource } from "../types";
+import type { Group, AbsenceItem } from "../types";
 import {
   buildGroupsWithResourcesDirect,
   checkCollision,
@@ -20,10 +20,10 @@ import {
 } from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
-import { TimelineHeader } from "./TimelineHeader";
-import { TimelineSidebar } from "./TimelineSidebar";
-import { TimelineDndContext } from "./TimelineDndContext";
+import { Sidebar } from "./Sidebar";
+import { AppDndContext } from "./AppDndContext";
 import { appServicesStatic } from "../services/appServices";
+import { Header } from "./Header";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
@@ -59,7 +59,7 @@ export const Timeline = () => {
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
 
-  const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
+  const [activeLeave, setActiveLeave] = useState<AbsenceItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const previousStartDate = useRef(startDate);
@@ -461,7 +461,7 @@ export const Timeline = () => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
-    const entry: LeaveItem = {
+    const entry: AbsenceItem = {
       id: leaveIdToUpdate || "l-" + Date.now(),
       resourceId: targetRowId,
       startDate: formData.startDate.format("YYYY-MM-DD"),
@@ -719,7 +719,7 @@ export const Timeline = () => {
     });
   };
   const handleDialogAbsenceTrigger = (
-    leaveToEdit?: LeaveItem,
+    leaveToEdit?: AbsenceItem,
     rowId?: string,
     startDate?: Dayjs,
     duration?: number,
@@ -807,7 +807,7 @@ export const Timeline = () => {
       }}
     >
       {/* 1. APP BAR */}
-      <TimelineHeader
+      <Header
         absenceTypes={absenceTypes}
         pickerDate={pickerDate}
         isDatePickerOpen={isDatePickerOpen}
@@ -832,7 +832,7 @@ export const Timeline = () => {
         }}
       >
         {/* SIDEBAR (GLASSMORPHISM) */}
-        <TimelineSidebar
+        <Sidebar
           sidebarMode={sidebarMode}
           collapsedGroups={collapsedGroups}
           disableDeletion={disableDeletion}
@@ -847,7 +847,7 @@ export const Timeline = () => {
           handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
         />
         {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-        <TimelineDndContext
+        <AppDndContext
           // 1. THE REF (Must be exactly like this for forwardRef to work)
           ref={scrollContainerRef}
           onGroupMouseDown={handleGroupRowMouseDown}

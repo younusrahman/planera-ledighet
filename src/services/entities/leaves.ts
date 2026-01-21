@@ -1,17 +1,17 @@
 import { apiRequest } from "../apiInstance";
 import { createEntityModule } from "../entityModule";
-import type { LeaveItem } from "../../types";
+import type { AbsenceItem } from "../../types";
 
-export const leaves = createEntityModule<LeaveItem, LeaveItem>({
+export const leaves = createEntityModule<AbsenceItem, AbsenceItem>({
   name: "leaves",
-  fetchAll: () => apiRequest<LeaveItem[]>("/leaves"),
+  fetchAll: () => apiRequest<AbsenceItem[]>("/leaves"),
   create: (body) =>
-    apiRequest<LeaveItem>("/leaves", {
+    apiRequest<AbsenceItem>("/leaves", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   update: (id, body) =>
-    apiRequest<LeaveItem>(`/leaves/${id}`, {
+    apiRequest<AbsenceItem>(`/leaves/${id}`, {
       method: "PUT",
       body: JSON.stringify(body),
     }),

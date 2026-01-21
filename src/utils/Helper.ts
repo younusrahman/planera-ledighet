@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import type { Group, LeaveItem, Resource } from "../types";
+import type { Group, AbsenceItem, Resource } from "../types";
 import { CELL_WIDTH } from "../utils";
 import { groups } from "../services/entities/groups";
 import { resources } from "../services/entities/resources";
@@ -25,7 +25,7 @@ export const getDateOffset = (
 };
 
 export const checkCollision = (
-  items: LeaveItem[],
+  items: AbsenceItem[],
   targetItem: {
     id: string;
     resourceId: string;

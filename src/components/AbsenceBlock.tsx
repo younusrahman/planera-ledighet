@@ -16,11 +16,10 @@ import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { AbsenceType, LeaveItem } from "../types";
-import { absenceTypes } from "../services/entities/absenceTypes";
+import type { AbsenceType, AbsenceItem } from "../types";
 
 interface Props {
-  leave: LeaveItem;
+  leave: AbsenceItem;
   left?: number;
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
@@ -36,7 +35,7 @@ interface Props {
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
-export const LeaveBlock = ({
+export const AbsenceBlock = ({
   absenceTypes,
   leave,
   left = 0,

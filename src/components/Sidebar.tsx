@@ -33,7 +33,7 @@ import EventBusyIcon from "@mui/icons-material/EventBusy";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 import { buildGroupsWithResourcesDirect } from "../utils/Helper";
-interface TimelineSidebarProps {
+interface SidebarProps {
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
@@ -51,7 +51,7 @@ interface TimelineSidebarProps {
   ) => void;
 }
 
-export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
+export const Sidebar: React.FC<SidebarProps> = ({
   sidebarMode,
   collapsedGroups,
   disableDeletion,
