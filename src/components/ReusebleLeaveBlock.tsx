@@ -20,7 +20,8 @@ import type { LeaveItem } from "../types";
 
 interface Props {
   leave: LeaveItem;
-  left?: number;
+  left: number;
+  cellWidth: number; // <--- ADD THIS PROP
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
@@ -28,13 +29,14 @@ interface Props {
   onDelete?: (id: string) => void;
   onTooltipOpen?: () => void;
   onTooltipClose?: () => void;
-  isDeletionDisabled?: boolean; // <-- ADD THIS
-  isPastDaysBlocked?: boolean; // <-- ADD THIS
-  resourceName?: string; // ADD THIS
+  isDeletionDisabled?: boolean;
+  isPastDaysBlocked?: boolean;
+  resourceName?: string;
 }
+
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
-export const OLDLeaveBlock = ({
+export const LeaveBlock = ({
   leave,
   left = 0,
   isOverlay = false,
@@ -46,7 +48,8 @@ export const OLDLeaveBlock = ({
   onTooltipOpen,
   onTooltipClose,
   isDeletionDisabled = false, // <-- ADD THIS
-  isPastDaysBlocked = true, // <-- ADD THIS
+  isPastDaysBlocked = true, // <-- ADD THIS¨
+  cellWidth,
 }: Props) => {
   const isPast = isPastDaysBlocked && dayjs(leave.startDate).isBefore(today);
   const isFactuallyPast = dayjs(leave.startDate).isBefore(today);
@@ -96,38 +99,47 @@ export const OLDLeaveBlock = ({
 
   const animate = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
+
     const container = scrollContainerRef.current;
     const { left: cL, width: cW } = container.getBoundingClientRect();
     const pX = mouseXRef.current;
-    const eT = 50;
-    const sS = 15;
 
-    if (pX < cL + eT) container.scrollLeft -= sS;
-    else if (pX > cL + cW - eT) container.scrollLeft += sS;
+    // 1. Auto-scroll logic if mouse is near edges
+    const edgeThreshold = 50;
+    const scrollSpeed = 15;
+    if (pX < cL + edgeThreshold) {
+      container.scrollLeft -= scrollSpeed;
+    } else if (pX > cL + cW - edgeThreshold) {
+      container.scrollLeft += scrollSpeed;
+    }
 
+    // 2. Calculate pixel movement
     const currentScrollLeft = container.scrollLeft;
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
     const mouseDiff = pX - startXRef.current;
     const totalDeltaX = mouseDiff + scrollDiff;
-    const startDuration = leave.durationDays;
 
+    // 3. Update Visual State using the dynamic cellWidth prop
     if (directionRef.current === "right") {
-      const newVisualWidth = startDuration * CELL_WIDTH + totalDeltaX;
-      const newVisualDuration = newVisualWidth / CELL_WIDTH;
-      setVisualDuration(Math.max(1, newVisualDuration));
-    } else {
-      const newVisualWidth = startDuration * CELL_WIDTH - totalDeltaX;
+      // Calculate new duration in days based on pixel movement
+      const newVisualWidth = leave.durationDays * cellWidth + totalDeltaX;
+      const newVisualDuration = newVisualWidth / cellWidth;
 
-      if (newVisualWidth < CELL_WIDTH) {
-        setVisualStartShift(startDuration - 1);
-        setVisualDuration(1);
-      } else {
-        const actualShiftInPixels = totalDeltaX;
-        const actualShiftInDays = actualShiftInPixels / CELL_WIDTH;
-        setVisualStartShift(actualShiftInDays);
-        setVisualDuration(startDuration - actualShiftInDays);
-      }
+      setVisualDuration(Math.max(1, newVisualDuration));
+      setVisualStartShift(0);
+    } else {
+      // Calculate how many days we are shifting the start to the left/right
+      const actualShiftInDays = totalDeltaX / cellWidth;
+
+      // Prevent resizing to less than 1 day
+      const maxShift = leave.durationDays - 1;
+      const safeShift = Math.min(actualShiftInDays, maxShift);
+
+      setVisualStartShift(safeShift);
+      setVisualDuration(Math.max(1, leave.durationDays - safeShift));
     }
+
+    // 4. Continue animation loop
     requestRef.current = requestAnimationFrame(animate);
   };
 
@@ -154,50 +166,49 @@ export const OLDLeaveBlock = ({
       mouseXRef.current = moveEvent.clientX; // The animate loop will handle the rest
     };
     const onPointerUp = (upEvent: PointerEvent) => {
-      // 1. Clean up event listeners and refs to stop tracking mouse movement.
+      // 1. Cleanup
       handle.releasePointerCapture(upEvent.pointerId);
-      handle.removeEventListener("pointermove", onPointerMove);
-      handle.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+
       isResizingRef.current = false;
+      setIsResizing(false);
+
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
         requestRef.current = 0;
       }
 
-      // 2. Set isResizing to false. This is the most critical step.
-      // It triggers a re-render where the block's CSS `transition` property becomes active.
-      // The block is still visually at its last dragged position.
-      setIsResizing(false);
-
-      // 3. Calculate the final, snapped values based on the total mouse travel.
-      if (scrollContainerRef?.current) {
+      // 2. Calculate Final Data
+      if (scrollContainerRef?.current && onResizeEnd) {
         const finalScrollLeft = scrollContainerRef.current.scrollLeft;
         const scrollDiff = finalScrollLeft - startScrollLeftRef.current;
         const mouseDiff = upEvent.clientX - startXRef.current;
         const totalDeltaX = mouseDiff + scrollDiff;
-        const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
-        const startDuration = leave.durationDays;
-        let fDur = startDuration;
-        let fS = 0;
+
+        // Convert pixels to whole days using the dynamic cellWidth
+        const deltaDays = Math.round(totalDeltaX / cellWidth);
+
+        let finalDuration = leave.durationDays;
+        let finalStartShift = 0;
 
         if (directionRef.current === "right") {
-          fDur = Math.max(1, startDuration + deltaDays);
+          // Right side: change duration only
+          finalDuration = Math.max(1, leave.durationDays + deltaDays);
+          finalStartShift = 0;
         } else {
-          const mS = startDuration - 1;
-          // Clamp the final shift value to prevent the block from inverting
-          fS = Math.min(deltaDays, mS);
-          fDur = startDuration - fS;
+          // Left side: change duration AND shift start date
+          // Clamp shift so duration doesn't go below 1
+          const maxShift = leave.durationDays - 1;
+          finalStartShift = Math.min(deltaDays, maxShift);
+          finalDuration = Math.max(1, leave.durationDays - finalStartShift);
         }
 
-        // 4. Report these final values to the parent component.
-        // This will cause the parent to update its state and send down new props,
-        // which will trigger the animation.
-        if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
-          onResizeEnd(leave.id, fDur, fS);
+        // 3. Trigger Parent Update (which calls the API)
+        if (finalDuration !== leave.durationDays || finalStartShift !== 0) {
+          onResizeEnd(leave.id, finalDuration, finalStartShift);
         }
       }
-      // NOTE: We do NOT reset visualStartShift here. The useEffect hook will handle it
-      // after the animation is complete, which prevents the visual "jump-back" glitch.
     };
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
@@ -252,8 +263,8 @@ export const OLDLeaveBlock = ({
 
   // --- STYLES ---
   const displayDuration = isResizing ? visualDuration : leave.durationDays;
-  const currentWidth = displayDuration * CELL_WIDTH - 4;
-  const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
+  const currentWidth = displayDuration * cellWidth - 4; // Use prop
+  const displayLeft = isResizing ? left + visualStartShift * cellWidth : left; // Use prop
   const blockHeight = ROW_HEIGHT - 10;
 
   const style: React.CSSProperties = {
@@ -272,6 +283,8 @@ export const OLDLeaveBlock = ({
     cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
     opacity: !isOverlay && isDragging ? 0 : 1,
     boxShadow: isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
+    touchAction: "none", // <--- ADD THIS LINE
+    userSelect: "none", // <--- ALSO ADD THIS TO PREVENT TEXT SELECTION
   };
 
   const handleStyle = {

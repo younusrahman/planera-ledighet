@@ -14,6 +14,8 @@ import {
   ListItemText,
   Divider,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -25,6 +27,8 @@ import {
   PickersLayout,
   type PickersLayoutProps,
 } from "@mui/x-date-pickers/PickersLayout";
+import { useUIActions, useViewMode } from "../services/uiStore";
+import { ViewTimeline, DateRange } from "@mui/icons-material";
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
@@ -39,6 +43,7 @@ interface TimelineHeaderProps {
   onOpenDatePicker: () => void;
   onCloseDatePicker: () => void;
   onDateChange: (date: Dayjs) => void;
+  
 }
 // ---------------------------------------------------------
 // Holiday Context
@@ -158,7 +163,8 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   onDateChange,
 }) => {
   const theme = useTheme();
-
+  const viewMode = useViewMode();
+  const { setViewMode } = useUIActions();
   return (
     <AppBar
       position="static"
@@ -255,7 +261,20 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             )}
           </Box>
         </Box>
-
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, val) => val && setViewMode(val)}
+          size="small"
+          sx={{ ml: 2, bgcolor: "background.paper" }}
+        >
+          <ToggleButton value="timeline">
+            <ViewTimeline fontSize="small" sx={{ mr: 1 }} /> Timeline
+          </ToggleButton>
+          <ToggleButton value="year">
+            <DateRange fontSize="small" sx={{ mr: 1 }} /> Year
+          </ToggleButton>
+        </ToggleButtonGroup>
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Date Navigation */}

@@ -6,11 +6,11 @@ import React, {
   useEffect,
   useLayoutEffect,
 } from "react";
-import { Box } from "@mui/material";
+import { alpha, Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
-import { useSidebarMode, useUIActions } from "../services/uiStore";
+import { useSidebarMode, useUIActions, useViewMode } from "../services/uiStore";
 import type { Group, LeaveItem } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
@@ -19,7 +19,10 @@ import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
 import { appServicesStatic } from "../services/appServices";
-
+import { YearOverview } from "./YearOverview";
+import { PastDaysOverlay } from "./PastDaysOverlay";
+import { BaseDndGrid } from "./BaseDndGrid";
+import { getSwedishHolidays } from "../utils/holidayHelper";
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
@@ -38,7 +41,7 @@ export const Timeline = () => {
 
   // --- STATE ---
   const [startDate, setStartDate] = useState(
-    dayjs().startOf("day").subtract(30, "days")
+    dayjs().startOf("day").subtract(30, "days"),
   );
 
   const [daysCount, setDaysCount] = useState(150);
@@ -53,7 +56,7 @@ export const Timeline = () => {
   // const [absenceTypes, setAbsenceTypes] = useState(ABSENCE_TYPES);
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-
+  const viewMode = useViewMode();
   const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
@@ -84,6 +87,189 @@ export const Timeline = () => {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
   const [isReady, setIsReady] = useState(false); // Prevents the flicker
+
+  // --- 1. CALCULATE VISIBLE DATA FIRST ---
+  const visibleLeaves = useMemo(() => {
+    const timelineEndDate = startDate.add(daysCount, "day");
+    return leaves.filter((l) => {
+      const leaveStart = dayjs(l.startDate);
+      const leaveEnd = leaveStart.add(l.durationDays, "day");
+      return (
+        leaveStart.isBefore(timelineEndDate) && leaveEnd.isAfter(startDate)
+      );
+    });
+  }, [leaves, startDate, daysCount]);
+
+  // --- 2. CALCULATE EXTENDED RANGE ---
+  const extendedDaysCount = useMemo(() => {
+    let maxDaysNeeded = daysCount;
+    visibleLeaves.forEach((l) => {
+      const leaveEnd = dayjs(l.startDate).add(l.durationDays, "day");
+      const daysFromStart = leaveEnd.diff(startDate, "day");
+      if (daysFromStart > maxDaysNeeded) maxDaysNeeded = daysFromStart;
+    });
+    return maxDaysNeeded;
+  }, [visibleLeaves, startDate, daysCount]);
+
+  // --- 3. DEFINE WIDTH AND DAYS ARRAY ---
+  const gridTotalWidth = extendedDaysCount * CELL_WIDTH;
+
+  const days = useMemo(
+    () => getDaysArray(startDate, extendedDaysCount),
+    [startDate, extendedDaysCount],
+  );
+
+  // --- 4. PREPARE HEADER DATA ---
+  const holidays = useMemo(() => {
+    const years = Array.from(new Set(days.map((d) => d.year())));
+    let all: Record<string, any> = {};
+    years.forEach((y) => {
+      all = { ...all, ...getSwedishHolidays(y) };
+    });
+    return all;
+  }, [days]);
+
+  const isRedDay = useCallback(
+    (day: Dayjs) => {
+      const dateStr = day.format("YYYY-MM-DD");
+      return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
+    },
+    [holidays],
+  );
+
+  const monthBlocks = useMemo(() => {
+    const months: { key: string; days: Dayjs[]; label: string }[] = [];
+    const uniqueMonths = Array.from(
+      new Set(days.map((d) => d.format("YYYY-MM"))),
+    );
+    uniqueMonths.forEach((monthKey) => {
+      const mDays = days.filter((d) => d.format("YYYY-MM") === monthKey);
+      months.push({
+        key: monthKey,
+        days: mDays,
+        label: mDays[0].format("MMMM YYYY"),
+      });
+    });
+    return months;
+  }, [days]);
+
+  const weekBlocks = useMemo(() => {
+    const weeks: { key: string; days: Dayjs[]; label: string }[] = [];
+    const uniqueWeeks = Array.from(
+      new Set(days.map((d) => `${d.isoWeekYear()}-${d.isoWeek()}`)),
+    );
+    uniqueWeeks.forEach((weekKey) => {
+      const wDays = days.filter(
+        (d) => `${d.isoWeekYear()}-${d.isoWeek()}` === weekKey,
+      );
+      weeks.push({
+        key: weekKey,
+        days: wDays,
+        label: `v.${wDays[0].isoWeek()}`,
+      });
+    });
+    return weeks;
+  }, [days]);
+
+  // --- 5. FINALLY, DEFINE THE HEADER UI (Now gridTotalWidth is ready) ---
+  const MemoizedHeader = useMemo(
+    () => (
+      <Box sx={{ bgcolor: "white", width: gridTotalWidth }}>
+        <Box
+          sx={{ display: "flex", height: 40, borderBottom: "1px solid #eee" }}
+        >
+          {monthBlocks.map((m) => (
+            <Box
+              key={m.key}
+              sx={{
+                width: m.days.length * CELL_WIDTH,
+                borderRight: "1px solid rgba(0,0,0,0.1)",
+                display: "flex",
+                alignItems: "center",
+                pl: 1,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 700,
+                  color: "primary.main",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {m.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            height: 25,
+            bgcolor: "#fafafa",
+            borderBottom: "1px solid #eee",
+          }}
+        >
+          {weekBlocks.map((w) => (
+            <Box
+              key={w.key}
+              sx={{
+                width: w.days.length * CELL_WIDTH,
+                borderRight: "1px solid rgba(0,0,0,0.05)",
+                pl: 1,
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  color: "text.secondary",
+                  lineHeight: "25px",
+                }}
+              >
+                {w.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+        <Box sx={{ display: "flex", height: 40 }}>
+          {days.map((day) => {
+            const isRed = isRedDay(day);
+            return (
+              <Box
+                key={day.format("YYYY-MM-DD")}
+                sx={{
+                  width: CELL_WIDTH,
+                  minWidth: CELL_WIDTH,
+                  textAlign: "center",
+                  pt: 0.5,
+                  borderRight: "1px solid #eee",
+                  borderBottom: "1px solid #ddd",
+                  bgcolor: day.isSame(new Date(), "day")
+                    ? "#fff9c4"
+                    : isRed
+                      ? "rgba(244, 67, 54, 0.15)"
+                      : "white",
+                  color: isRed ? "error.main" : "text.primary",
+                }}
+              >
+                <Typography
+                  sx={{ fontSize: "0.6rem", fontWeight: isRed ? 700 : 500 }}
+                >
+                  {day.format("ddd").toUpperCase()}
+                </Typography>
+                <Typography sx={{ fontWeight: 800 }}>
+                  {day.format("D")}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+    ),
+    [days, monthBlocks, weekBlocks, isRedDay, gridTotalWidth],
+  );
+
   const handleGroupRowMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
 
@@ -121,16 +307,17 @@ export const Timeline = () => {
     }
   }, [blockPastDays]); // Re-run this effect only when blockPastDays changes
   // --- HELPERS ---
-  const days = useMemo(
-    () => getDaysArray(startDate, daysCount),
-    [startDate, daysCount]
-  );
+  // const days = useMemo(
+  //   () => getDaysArray(startDate, daysCount),
+  //   [startDate, daysCount],
+  // );
+  // 3. Update the 'days' array to use the extended count
 
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((prev) =>
       prev.includes(groupId)
         ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
+        : [...prev, groupId],
     );
   };
 
@@ -195,7 +382,7 @@ export const Timeline = () => {
   const handleSaveAbsenceType = async (
     label: string,
     color: string,
-    idToUpdate?: string | null
+    idToUpdate?: string | null,
   ) => {
     if (!label.trim()) return;
 
@@ -234,7 +421,7 @@ export const Timeline = () => {
   const handleSaveResource = async (
     name: string,
     targetGroupId: string,
-    resourceIdToUpdate: string | null
+    resourceIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
@@ -266,7 +453,7 @@ export const Timeline = () => {
       if (container) {
         const todayOffset = getDateOffset(
           dayjs().format("YYYY-MM-DD"),
-          startDate
+          startDate,
         );
 
         // Attempt to scroll
@@ -344,7 +531,7 @@ export const Timeline = () => {
     window.addEventListener("resize", updateDaysCount);
     return () => window.removeEventListener("resize", updateDaysCount);
   }, []);
-  const handleScroll = useCallback(() => {
+  const handleTimelineScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container || isLoadingRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = container;
@@ -451,7 +638,7 @@ export const Timeline = () => {
   const handleSaveLeave = async (
     formData: { typeId: string; startDate: Dayjs; duration: number },
     leaveIdToUpdate: string | null,
-    targetRowId: string | null
+    targetRowId: string | null,
   ) => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
@@ -549,8 +736,18 @@ export const Timeline = () => {
     setActiveLeave(null);
     const { active, delta } = event;
 
-    const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
-    const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
+    // FIX: Identify the correct scale (Timeline = 45, Year = 5)
+    const currentCellWidth = viewMode === "timeline" ? CELL_WIDTH : 5;
+
+    // Calculate moved days using the view-specific scale
+    const visualMovedDays = Math.round(delta.x / currentCellWidth);
+
+    // In Year Overview, the timeline start is static (Jan 1st), so daysGridMoved is 0
+    const daysGridMoved =
+      viewMode === "timeline"
+        ? startDate.diff(dragStartTimeRef.current, "day")
+        : 0;
+
     const finalDaysDiff = visualMovedDays + daysGridMoved;
 
     if (finalDaysDiff !== 0) {
@@ -560,20 +757,14 @@ export const Timeline = () => {
           .add(finalDaysDiff, "day")
           .format("YYYY-MM-DD");
 
-        // --- VALIDATION ---
+        // Validation and API call
         if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
-          toast(
-            "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
-            "error"
-          );
+          toast("Du kan inte flytta till passerade datum", "error");
           return;
         }
 
         const updatedItem = { ...item, startDate: newStartDate };
-
-        // --- COLLISION CHECK & API CALL ---
         if (!checkCollision(leaves, updatedItem)) {
-          // REPLACE setLeaves with API Call
           await appServicesStatic.leaves.updateOne(item.id, updatedItem);
         }
       }
@@ -590,7 +781,7 @@ export const Timeline = () => {
   const handleLeaveResizeEnd = async (
     id: string,
     newDuration: number,
-    daysShifted: number
+    daysShifted: number,
   ) => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
@@ -603,7 +794,7 @@ export const Timeline = () => {
     if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
       toast(
         "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
-        "error"
+        "error",
       );
       return;
     }
@@ -714,7 +905,7 @@ export const Timeline = () => {
     leaveToEdit?: LeaveItem,
     rowId?: string,
     startDate?: Dayjs,
-    duration?: number
+    duration?: number,
   ) => {
     const isEditing = !!leaveToEdit;
 
@@ -748,7 +939,7 @@ export const Timeline = () => {
         handleSaveLeave(
           formData,
           isEditing ? leaveToEdit.id : null,
-          targetRowId ? targetRowId : null
+          targetRowId ? targetRowId : null,
         );
         dialog.close();
       },
@@ -757,7 +948,7 @@ export const Timeline = () => {
   };
   const handleDialogResourceTrigger = (
     resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string
+    currentGroupId?: string,
   ) => {
     const isEditing = !!resourceToEdit;
 
@@ -772,7 +963,7 @@ export const Timeline = () => {
         handleSaveResource(
           name,
           targetGroupId,
-          isEditing ? resourceToEdit.id : null
+          isEditing ? resourceToEdit.id : null,
         );
         dialog.close();
       },
@@ -791,6 +982,30 @@ export const Timeline = () => {
       },
     });
   };
+
+  const handleYearScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || isLoadingRef.current) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+
+    // Infinite scroll: Load more days when hitting the right edge
+    if (scrollLeft + clientWidth > scrollWidth - 500) {
+      isLoadingRef.current = true;
+      setDaysCount((prev) => prev + 30);
+      setTimeout(() => {
+        isLoadingRef.current = false;
+      }, 100);
+    }
+
+    // Infinite scroll: Load more days when hitting the left edge
+    if (scrollLeft < 500) {
+      isLoadingRef.current = true;
+      setStartDate((prev) => prev.subtract(30, "day"));
+      setDaysCount((prev) => prev + 30);
+    }
+  }, [startDate, daysCount]);
+  // --- ADD THIS LOGIC TO TIMELINE.TSX ---
   return (
     <Box
       style={{ opacity: isReady ? 1 : 0 }}
@@ -826,7 +1041,7 @@ export const Timeline = () => {
           position: "relative",
         }}
       >
-        {/* SIDEBAR (GLASSMORPHISM) */}
+        {/* SIDEBAR - Moved OUTSIDE the condition so it stays visible in both modes */}
         <TimelineSidebar
           groups={groups}
           sidebarMode={sidebarMode}
@@ -842,42 +1057,112 @@ export const Timeline = () => {
           handleDialogResourceTrigger={handleDialogResourceTrigger}
           handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
         />
-        {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-        <TimelineDndContext
-          // 1. THE REF (Must be exactly like this for forwardRef to work)
-          ref={scrollContainerRef}
-          onGroupMouseDown={handleGroupRowMouseDown}
-          onGroupMouseMove={handleGroupRowMouseMove}
-          onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
-          // 2. DATA PROPS (Values from your state/memo)
-          days={days} // from useMemo(() => getDaysArray...)
-          daysCount={daysCount} // from useState
-          startDate={startDate} // from useState
-          groups={groups} // from useState
-          leaves={leaves} // from useState
-          collapsedGroups={collapsedGroups} // from useState
-          absenceTypes={absenceTypes} // from useState
-          activeLeave={activeLeave} // from useState (dnd-kit)
-          // 3. SETTINGS PROPS
-          blockPastDays={blockPastDays} // from useState
-          disabledOverlayWidth={disabledOverlayWidth} // from useMemo
-          disableDeletion={disableDeletion} // from useState
-          // 4. INTERACTION STATE & REFS
-          selection={selection} // from useState (isSelecting, rowId, startX)
-          selectionBoxRef={selectionBoxRef as React.RefObject<HTMLDivElement>} // from useRef
-          // 5. EVENT HANDLERS (The functions in your Timeline component)
-          onScroll={handleScroll}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onGridPointerDown={handleGridPointerDown}
-          onGridPointerMove={handleGridPointerMove}
-          onGridPointerUp={handleGridPointerUp}
-          onLeaveEdit={handleLeaveEdit}
-          onLeaveDelete={handleLeaveDelete}
-          onLeaveResizeEnd={handleLeaveResizeEnd}
-          onTooltipOpen={() => setIsTooltipOpen(true)}
-          onTooltipClose={() => setIsTooltipOpen(false)}
-        />
+
+        {/* SWAPPABLE GRID AREA */}
+        {viewMode === "timeline" ? (
+          <BaseDndGrid
+            ref={scrollContainerRef}
+            // 1. DATA & UI SCALE
+            groups={groups}
+            leaves={visibleLeaves}
+            collapsedGroups={collapsedGroups}
+            activeLeave={activeLeave}
+            header={MemoizedHeader}
+            cellWidth={CELL_WIDTH} // 45px
+            rowHeight={35}
+            // 2. COORDINATE LOGIC
+            leftOffsetCalc={(l) => getDateOffset(l.startDate, startDate)}
+            // 3. EVENT HANDLERS
+            onScroll={handleTimelineScroll}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onGridPointerDown={handleGridPointerDown}
+            onGridPointerMove={handleGridPointerMove}
+            onGridPointerUp={handleGridPointerUp}
+            onLeaveEdit={handleLeaveEdit}
+            onLeaveDelete={handleLeaveDelete}
+            onLeaveResizeEnd={handleLeaveResizeEnd}
+            onGroupMouseDown={handleGroupRowMouseDown}
+            onGroupMouseMove={handleGroupRowMouseMove}
+            onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+            totalWidth={gridTotalWidth} // Use the new dynamic width
+            // 4. SETTINGS
+            disableDeletion={disableDeletion}
+            blockPastDays={blockPastDays}
+            // 5. INJECT TIMELINE-SPECIFIC UI
+            renderBackground={() => (
+              <>
+                <PastDaysOverlay
+                  width={disabledOverlayWidth}
+                  isVisible={blockPastDays}
+                />
+                {/* Red days background */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: "100%",
+                    pointerEvents: "none",
+                    zIndex: 0,
+                  }}
+                >
+                  {days.map(
+                    (day, i) =>
+                      isRedDay(day) && (
+                        <Box
+                          key={`bg-${i}`}
+                          sx={{
+                            position: "absolute",
+                            left: i * CELL_WIDTH,
+                            width: CELL_WIDTH,
+                            height: "100%",
+                            bgcolor: "rgba(244, 67, 54, 0.04)",
+                            borderRight: "1px solid rgba(0, 0, 0, 0.02)",
+                          }}
+                        />
+                      ),
+                  )}
+                </Box>
+              </>
+            )}
+            // Selection box logic for creating new absences
+            renderSelectionBox={(resId) =>
+              selection.isSelecting &&
+              selection.rowId === resId && (
+                <Box
+                  ref={selectionBoxRef}
+                  style={{ left: selection.startX, width: CELL_WIDTH }}
+                  sx={{
+                    position: "absolute",
+                    top: 5,
+                    height: 35 - 10,
+                    bgcolor: alpha("#1976d2", 0.15),
+                    border: "2px dashed #1976d2",
+                    borderRadius: 1,
+                    zIndex: 10,
+                    pointerEvents: "none",
+                  }}
+                />
+              )
+            }
+          />
+        ) : (
+          <YearOverview
+            groups={groups}
+            leaves={leaves}
+            collapsedGroups={collapsedGroups}
+            absenceTypes={absenceTypes}
+            activeLeave={activeLeave}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onLeaveEdit={handleLeaveEdit}
+            onLeaveDelete={handleLeaveDelete}
+            onLeaveResizeEnd={handleLeaveResizeEnd}
+            disableDeletion={disableDeletion}
+            blockPastDays={blockPastDays}
+          />
+        )}
       </Box>
     </Box>
   );
