@@ -24,7 +24,7 @@ export const absenceTypes = createEntityModule<AbsenceType, AbsenceTypeBody>({
     });
 
     // Uppdatera allt efter lyckat anrop
-    await appServicesStatic.leaves.loadAll();
+    await appServicesStatic.absences.loadAll();
 
     return res;
   },

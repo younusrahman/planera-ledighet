@@ -21,7 +21,7 @@ export const resources = createEntityModule<Resource, ResourceBody>({
     });
 
     // Uppdatera allt efter lyckat anrop
-    await appServicesStatic.leaves.loadAll();
+    await appServicesStatic.absences.loadAll();
 
     return res;
   },

@@ -4,14 +4,14 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import "dayjs/locale/sv";
 import { GlobalSnackbar } from "./services/globalSnackbar";
 import { GlobalDialogProvider } from "./services/dialog/GlobalDialogProvider";
-import { Timeline } from "./components/Timeline";
 import { getEntity } from "./services/globalState";
 import { useEffect } from "react";
 import { absenceTypes } from "./services/entities/absenceTypes";
-import { leaves } from "./services/entities/leaves";
+import { absences } from "./services/entities/absences";
 import { resources } from "./services/entities/resources";
 import { groups } from "./services/entities/groups";
 import { appServicesStatic } from "./services/appServices";
+import { Timeline } from "./components/Dayline";
 
 const theme = createTheme({
   palette: {
@@ -25,7 +25,7 @@ export function expologGlobalState() {
   console.log("groups:", groups.useStore.getState());
   console.log("resources:", resources.useStore.getState());
   console.log("absenceTypes:", absenceTypes.useStore.getState());
-  console.log("leaves:", leaves.useStore.getState());
+  console.log("absence:", absences.useStore.getState());
 }
 
 function App() {

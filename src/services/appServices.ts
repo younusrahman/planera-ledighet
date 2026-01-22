@@ -2,7 +2,7 @@ import { resources } from "./entities/resources";
 import { groups } from "./entities/groups";
 import { absenceTypes } from "./entities/absenceTypes";
 import { getEntity } from "./globalState";
-import { leaves } from "./entities/leaves";
+import { absences } from "./entities/absences";
 
 export const appServicesStatic = {
   // NEW: Global refresh helper
@@ -11,7 +11,7 @@ export const appServicesStatic = {
       this.absenceTypes.loadAll(),
       this.groups.loadAll(),
       this.resources.loadAll(),
-      this.leaves.loadAll(),
+      this.absences.loadAll(),
     ]);
   },
   get absenceTypes() {
@@ -23,7 +23,7 @@ export const appServicesStatic = {
   get resources() {
     return getEntity<typeof resources>("resources");
   },
-  get leaves() {
-    return getEntity<typeof leaves>("leaves");
+  get absences() {
+    return getEntity<typeof absences>("absences");
   },
 };

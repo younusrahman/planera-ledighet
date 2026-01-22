@@ -16,10 +16,10 @@ import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { AbsenceType, AbsenceItem } from "../types";
+import type { AbsenceType, Absence } from "../types";
 
 interface Props {
-  leave: AbsenceItem;
+  absence: Absence;
   left?: number;
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
@@ -37,7 +37,7 @@ const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
 export const AbsenceBlock = ({
   absenceTypes,
-  leave,
+  absence,
   left = 0,
   isOverlay = false,
   onResizeEnd,
@@ -50,18 +50,18 @@ export const AbsenceBlock = ({
   isDeletionDisabled = false, // <-- ADD THIS
   isPastDaysBlocked = true, // <-- ADD THIS
 }: Props) => {
-  const isPast = isPastDaysBlocked && dayjs(leave.startDate).isBefore(today);
-  const isFactuallyPast = dayjs(leave.startDate).isBefore(today);
+  const isPast = isPastDaysBlocked && dayjs(absence.startDate).isBefore(today);
+  const isFactuallyPast = dayjs(absence.startDate).isBefore(today);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
-      id: leave.id,
-      data: leave,
+      id: absence.id,
+      data: absence,
       disabled: isOverlay || isPast,
     });
   // --- STATE ---
   const [isResizing, setIsResizing] = useState(false);
-  const [visualDuration, setVisualDuration] = useState(leave.durationDays);
+  const [visualDuration, setVisualDuration] = useState(absence.durationDays);
   const [visualStartShift, setVisualStartShift] = useState(0);
 
   // Tooltip State
@@ -84,10 +84,10 @@ export const AbsenceBlock = ({
 
   useEffect(() => {
     if (!isResizing) {
-      setVisualDuration(leave.durationDays);
+      setVisualDuration(absence.durationDays);
       setVisualStartShift(0);
     }
-  }, [leave.durationDays, isResizing]);
+  }, [absence.durationDays, isResizing]);
   useLayoutEffect(() => {
     const jump = left - prevLeftRef.current;
     if (jump !== 0 && isResizingRef.current) {
@@ -111,7 +111,7 @@ export const AbsenceBlock = ({
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
     const mouseDiff = pX - startXRef.current;
     const totalDeltaX = mouseDiff + scrollDiff;
-    const startDuration = leave.durationDays;
+    const startDuration = absence.durationDays;
 
     if (directionRef.current === "right") {
       const newVisualWidth = startDuration * CELL_WIDTH + totalDeltaX;
@@ -141,7 +141,7 @@ export const AbsenceBlock = ({
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
     setIsResizing(true);
-    setVisualDuration(leave.durationDays);
+    setVisualDuration(absence.durationDays);
     setVisualStartShift(0);
     isResizingRef.current = true;
     directionRef.current = direction;
@@ -178,7 +178,7 @@ export const AbsenceBlock = ({
         const mouseDiff = upEvent.clientX - startXRef.current;
         const totalDeltaX = mouseDiff + scrollDiff;
         const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
-        const startDuration = leave.durationDays;
+        const startDuration = absence.durationDays;
         let fDur = startDuration;
         let fS = 0;
 
@@ -195,7 +195,7 @@ export const AbsenceBlock = ({
         // This will cause the parent to update its state and send down new props,
         // which will trigger the animation.
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
-          onResizeEnd(leave.id, fDur, fS);
+          onResizeEnd(absence.id, fDur, fS);
         }
       }
       // NOTE: We do NOT reset visualStartShift here. The useEffect hook will handle it
@@ -253,7 +253,7 @@ export const AbsenceBlock = ({
   };
 
   // --- STYLES ---
-  const displayDuration = isResizing ? visualDuration : leave.durationDays;
+  const displayDuration = isResizing ? visualDuration : absence.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
   const blockHeight = ROW_HEIGHT - 10;
@@ -343,9 +343,9 @@ export const AbsenceBlock = ({
           >
             <DateRangeIcon fontSize="small" />
             <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {dayjs(leave.startDate).format("D MMM")} -{" "}
-              {dayjs(leave.startDate)
-                .add(leave.durationDays - 1, "day")
+              {dayjs(absence.startDate).format("D MMM")} -{" "}
+              {dayjs(absence.startDate)
+                .add(absence.durationDays - 1, "day")
                 .format("D MMM")}
             </Typography>
           </Box>
@@ -359,7 +359,7 @@ export const AbsenceBlock = ({
           >
             <AccessTimeIcon fontSize="small" />
             <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {leave.durationDays} dagar
+              {absence.durationDays} dagar
             </Typography>
           </Box>
         </Box>
@@ -388,7 +388,7 @@ export const AbsenceBlock = ({
               color="primary"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit?.(leave.id);
+                onEdit?.(absence.id);
               }}
               sx={{
                 border: "1px solid",
@@ -406,7 +406,7 @@ export const AbsenceBlock = ({
               color="error"
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete?.(leave.id);
+                onDelete?.(absence.id);
               }}
               sx={{
                 border: "1px solid",
