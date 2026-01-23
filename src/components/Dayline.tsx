@@ -35,7 +35,16 @@ export const Timeline = () => {
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
 
   const absences = appServicesStatic.absences.useItems();
+  // ADD THESE TWO LINES:
+  const groupsData = appServicesStatic.groups.useItems();
+  const resourcesData = appServicesStatic.resources.useItems();
 
+  const groups = useMemo(() => {
+    return groupsData.map((g) => ({
+      ...g,
+      resources: resourcesData.filter((r) => r.groupId === g.id),
+    }));
+  }, [groupsData, resourcesData]);
   // 2. Trigga laddning
   useEffect(() => {
     appServicesStatic.refreshAllData();
@@ -634,7 +643,7 @@ export const Timeline = () => {
   const handleAbsencedit = (id: string) => {
     const absence = absences.find((l) => l.id === id);
     if (absence) {
-      handleDialogAbsenceTrigger(absence); // Passing the leave object = Edit mode
+      handleDialogAbsenceTrigger(absence); // Passing the absence object = Edit mode
     }
   };
   const handleAbsenceDelete = async (id: string) => {
@@ -857,7 +866,7 @@ export const Timeline = () => {
           days={days} // from useMemo(() => getDaysArray...)
           daysCount={daysCount} // from useState
           startDate={startDate} // from useState
-          groups={buildGroupsWithResourcesDirect()}
+          groups={groups}
           absences={absences} // from useState
           collapsedGroups={collapsedGroups} // from useState
           absenceTypes={absenceTypes} // from useState
