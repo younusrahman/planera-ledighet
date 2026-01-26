@@ -1,4 +1,41 @@
+############################
+# .NET / C# / Visual Studio
+############################
+
+# Build results
+bin/
+obj/
+out/
+Debug/
+Release/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# Visual Studio cache/options
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Others
+*.dll
+*.exe
+*.app
+*.cache
+*.pdb
+*.mdb
+
+############################
 # Logs
+############################
 logs
 *.log
 npm-debug.log*
@@ -7,12 +44,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+############################
+# Node / Frontend
+############################
 node_modules
 dist
 dist-ssr
 *.local
 
+############################
 # Editor directories and files
+############################
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +64,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+############################
+# OS / Misc
+############################
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+############################
+# SQLite databases
+############################
+*.db 
+*.sqlite 
+*.sqlite3 
+*.db-shm
+*.db-wal

@@ -1,0 +1,339 @@
+import React, { createContext, useContext } from "react";
+import {
+  AppBar,
+  Toolbar,
+  Box,
+  Typography,
+  Chip,
+  IconButton,
+  Button,
+  alpha,
+  useTheme,
+  List,
+  ListItemButton,
+  ListItemText,
+  Divider,
+  Paper,
+} from "@mui/material";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { Dayjs } from "dayjs";
+import dayjs from "dayjs";
+import { DatePicker } from "@mui/x-date-pickers";
+import {
+  PickersLayout,
+  type PickersLayoutProps,
+} from "@mui/x-date-pickers/PickersLayout";
+// ---------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------
+interface TimelineHeaderProps {
+  absenceTypes: any[];
+  pickerDate: Dayjs;
+  isDatePickerOpen: boolean;
+  datePickerAnchorRef: React.RefObject<HTMLButtonElement>;
+  onAbsenceTypeClick: (type: any) => void;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  onOpenDatePicker: () => void;
+  onCloseDatePicker: () => void;
+  onDateChange: (date: Dayjs) => void;
+}
+// ---------------------------------------------------------
+// Holiday Context
+// ---------------------------------------------------------
+const HolidayContext = createContext({
+  holidays: [] as { name: string; date: Dayjs }[],
+  onSelectHoliday: (d: Dayjs) => {},
+  onClose: () => {}, // <--- LÄGG TILL DENNA RAD
+});
+
+const useHolidayContext = () => useContext(HolidayContext);
+
+// ---------------------------------------------------------
+// Swedish Holidays Logic
+// ---------------------------------------------------------
+const FIXED_HOLIDAYS = [
+  { name: "Nyårsdagen", date: (y: number) => dayjs(`${y}-01-01`) },
+  { name: "Trettondedag jul", date: (y: number) => dayjs(`${y}-01-06`) },
+  { name: "Första maj", date: (y: number) => dayjs(`${y}-05-01`) },
+  { name: "Nationaldagen", date: (y: number) => dayjs(`${y}-06-06`) },
+  { name: "Juldagen", date: (y: number) => dayjs(`${y}-12-25`) },
+  { name: "Annandag jul", date: (y: number) => dayjs(`${y}-12-26`) },
+];
+
+function easterSunday(year: number): Dayjs {
+  const f = Math.floor;
+  const G = year % 19;
+  const C = f(year / 100);
+  const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+  const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+  const day = I - ((year + f(year / 4) + I + 2 - C + f(C / 4)) % 7) + 28;
+  const month = day > 31 ? 4 : 3;
+  const date = day > 31 ? day - 31 : day;
+  return dayjs(`${year}-${month}-${date}`);
+}
+
+function getSwedishHolidays(year: number) {
+  const easter = easterSunday(year);
+  return [
+    ...FIXED_HOLIDAYS.map((h) => ({ name: h.name, date: h.date(year) })),
+    { name: "Långfredagen", date: easter.subtract(2, "day") },
+    { name: "Påskdagen", date: easter },
+    { name: "Annandag påsk", date: easter.add(1, "day") },
+    { name: "Kristi himmelsfärdsdag", date: easter.add(39, "day") },
+    { name: "Pingstdagen", date: easter.add(49, "day") },
+  ].sort((a, b) => a.date.diff(b.date));
+}
+
+// ---------------------------------------------------------
+// Custom Layout: Calendar on Left, Holidays on Right
+// ---------------------------------------------------------
+function HolidayLayout(props: PickersLayoutProps<any>) {
+  const { holidays, onSelectHoliday, onClose } = useHolidayContext();
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" } }}>
+      <Box>
+        <PickersLayout {...props} />
+      </Box>
+
+      <Box sx={{ width: { xs: "100%", sm: 220 } /* ... din styling ... */ }}>
+        <Box
+          sx={{
+            p: 1,
+            px: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="overline">Helgdagar</Typography>
+          <Button
+            size="small"
+            onClick={() => {
+              onClose(); // <--- STÄNGER MENYN
+              setTimeout(() => onSelectHoliday(dayjs()), 10);
+            }}
+          >
+            I dag
+          </Button>
+        </Box>
+
+        <List dense sx={{ maxHeight: 350, overflowY: "auto" }}>
+          {holidays.map((h) => (
+            <ListItemButton
+              key={h.name}
+              onClick={() => {
+                onClose(); // <--- STÄNGER MENYN OMEDELBART
+                setTimeout(() => onSelectHoliday(h.date), 10); // HOPPAR TILL DATUM
+              }}
+            >
+              <ListItemText
+                primary={h.name}
+                secondary={h.date.format("D MMM")}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------
+export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
+  absenceTypes,
+  pickerDate,
+  isDatePickerOpen,
+  datePickerAnchorRef,
+  onAbsenceTypeClick,
+  onPrevMonth,
+  onNextMonth,
+  onOpenDatePicker,
+  onCloseDatePicker,
+  onDateChange,
+}) => {
+  const theme = useTheme();
+
+  return (
+    <AppBar
+      position="static"
+      color="inherit"
+      elevation={0}
+      sx={{ borderBottom: 1, borderColor: "divider" }}
+    >
+      <Toolbar sx={{ px: { xs: 2, sm: 3 }, py: 1 }}>
+        {/* Title & Filters */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: "text.primary" }}
+          >
+            Planera ledighet
+          </Typography>
+          <Box
+            sx={{
+              display: { xs: "none", md: "flex" },
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
+            {!absenceTypes || absenceTypes.length === 0 ? (
+              <Paper
+                variant="outlined"
+                sx={{
+                  px: 1.5,
+                  py: 1,
+                  bgcolor: alpha(theme.palette.info.main, 0.04),
+                  borderColor: alpha(theme.palette.info.main, 0.2),
+                  borderRadius: 1,
+                  width: "100%",
+
+                  marginLeft: "0.5rem",
+                  mt: 1, // Add some top margin for spacing
+                }}
+              >
+                <Box
+                  sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
+                >
+                  <Box sx={{ flex: 1 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mr: 0.5,
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: "13px",
+                        }}
+                      >
+                        Inge frånvarotyper har lagts till ännu.
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Paper>
+            ) : (
+              absenceTypes.map((type) => (
+                <Chip
+                  key={type.id}
+                  onClick={() => onAbsenceTypeClick(type)}
+                  label={
+                    <Box
+                      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: type.color,
+                        }}
+                      />
+                      <Typography variant="caption">{type.label}</Typography>
+                    </Box>
+                  }
+                  size="small"
+                  sx={{
+                    cursor: "pointer",
+                    bgcolor: "transparent",
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.primary.main, 0.08),
+                    },
+                  }}
+                />
+              ))
+            )}
+          </Box>
+        </Box>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        {/* Date Navigation */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <IconButton size="small" onClick={onPrevMonth}>
+            <ArrowBackIosNewIcon sx={{ fontSize: "1rem" }} />
+          </IconButton>
+
+          <Button
+            ref={datePickerAnchorRef}
+            onClick={onOpenDatePicker}
+            startIcon={<CalendarMonthIcon sx={{ color: "primary.main" }} />}
+            sx={{
+              minWidth: 160,
+              borderRadius: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              color: "text.primary",
+              border: `1px solid ${theme.palette.divider}`,
+              "&:hover": { borderColor: "primary.main" },
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {pickerDate.format("D MMM YYYY")}
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{ color: "text.secondary", fontSize: "0.7rem" }}
+              >
+                Vecka {pickerDate.isoWeek()}
+              </Typography>
+            </Box>
+          </Button>
+
+          <IconButton size="small" onClick={onNextMonth}>
+            <ArrowForwardIosIcon sx={{ fontSize: "1rem" }} />
+          </IconButton>
+        </Box>
+
+        {/* DatePicker Configuration */}
+        <HolidayContext.Provider
+          value={{
+            holidays: getSwedishHolidays(pickerDate.year()),
+            onSelectHoliday: (d: Dayjs) => {
+              onDateChange(d);
+              onCloseDatePicker();
+            },
+            onClose: onCloseDatePicker,
+          }}
+        >
+          <DatePicker
+            displayWeekNumber
+            open={isDatePickerOpen}
+            value={pickerDate}
+            onChange={(newValue) => {
+              if (newValue) onDateChange(newValue);
+            }}
+            onAccept={onCloseDatePicker}
+            onClose={onCloseDatePicker}
+            slots={{ layout: HolidayLayout }}
+            slotProps={{
+              textField: { sx: { display: "none" } },
+              popper: {
+                // HÄR ÄR FIXEN FÖR ATT ÖPPNA TILL HÖGER
+                anchorEl: datePickerAnchorRef.current,
+                placement: "bottom-end",
+              },
+            }}
+          />
+        </HolidayContext.Provider>
+      </Toolbar>
+    </AppBar>
+  );
+};

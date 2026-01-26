@@ -1,0 +1,6 @@
+@planera_ledighet.api_HostAddress = http://localhost:5254
+
+GET {{planera_ledighet.api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
