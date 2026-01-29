@@ -1,6 +1,7 @@
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "dayjs/locale/sv";
 import { GlobalSnackbar } from "./services/globalSnackbar";
 import { GlobalDialogProvider } from "./services/dialog/GlobalDialogProvider";
@@ -13,16 +14,20 @@ const theme = createTheme({
   },
 });
 
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="sv">
-        <CssBaseline />
-        <GlobalDialogProvider />
-        <GlobalSnackbar />
-        <Timeline />
-      </LocalizationProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="sv">
+          <CssBaseline />
+          <GlobalDialogProvider />
+          <GlobalSnackbar />
+          <Timeline />
+        </LocalizationProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

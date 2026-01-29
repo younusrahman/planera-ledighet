@@ -136,6 +136,49 @@ export const useAbsenceMutations = () => {
   return { createMutation, updateMutation, deleteMutation };
 };
 
+// Hook specifically for AbsenceBlock - integrates TanStack Query with Zustand
+export const useAbsenceBlockMutation = () => {
+  const { updateMutation, deleteMutation } = useAbsenceMutations();
+
+  // Update absence duration/dates via TanStack Query
+  const updateAbsence = async (
+    id: string,
+    newDuration: number,
+    newStartDate?: string,
+  ) => {
+    try {
+      await updateMutation.mutateAsync({
+        id,
+        data: newStartDate
+          ? { durationDays: newDuration, startDate: newStartDate }
+          : { durationDays: newDuration },
+      });
+      return true;
+    } catch (error) {
+      console.error("Failed to update absence:", error);
+      return false;
+    }
+  };
+
+  // Delete absence via TanStack Query
+  const deleteAbsence = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete absence:", error);
+      return false;
+    }
+  };
+
+  return {
+    updateAbsence,
+    deleteAbsence,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
+};
+
 // 2. GROUP MUTATIONS
 export const useGroupMutations = () => {
   const queryClient = useQueryClient();
@@ -153,7 +196,7 @@ export const useGroupMutations = () => {
     mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
       apiRequest<Group>(`/Group/${id}`, {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
   });
@@ -165,6 +208,51 @@ export const useGroupMutations = () => {
   });
 
   return { createMutation, updateMutation, deleteMutation };
+};
+
+// Simplified hook for components to use TanStack Query with Groups
+export const useGroupMutation = () => {
+  const { createMutation, updateMutation, deleteMutation } =
+    useGroupMutations();
+
+  const createGroup = async (name: string) => {
+    try {
+      await createMutation.mutateAsync({ name });
+      return true;
+    } catch (error) {
+      console.error("Failed to create group:", error);
+      return false;
+    }
+  };
+
+  const updateGroup = async (id: string, name: string) => {
+    try {
+      await updateMutation.mutateAsync({ id, data: { name } });
+      return true;
+    } catch (error) {
+      console.error("Failed to update group:", error);
+      return false;
+    }
+  };
+
+  const deleteGroup = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete group:", error);
+      return false;
+    }
+  };
+
+  return {
+    createGroup,
+    updateGroup,
+    deleteGroup,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
 };
 
 // 3. RESOURCE (ANSTÄLLD) MUTATIONS
@@ -191,7 +279,7 @@ export const useResourceMutations = () => {
     }) =>
       apiRequest<Resource>(`/Resource/${id}`, {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
   });
@@ -203,6 +291,51 @@ export const useResourceMutations = () => {
   });
 
   return { createMutation, updateMutation, deleteMutation };
+};
+
+// Simplified hook for components to use TanStack Query with Resources
+export const useResourceMutation = () => {
+  const { createMutation, updateMutation, deleteMutation } =
+    useResourceMutations();
+
+  const createResource = async (name: string, groupId: string) => {
+    try {
+      await createMutation.mutateAsync({ name, groupId });
+      return true;
+    } catch (error) {
+      console.error("Failed to create resource:", error);
+      return false;
+    }
+  };
+
+  const updateResource = async (id: string, name: string, groupId: string) => {
+    try {
+      await updateMutation.mutateAsync({ id, data: { name, groupId } });
+      return true;
+    } catch (error) {
+      console.error("Failed to update resource:", error);
+      return false;
+    }
+  };
+
+  const deleteResource = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete resource:", error);
+      return false;
+    }
+  };
+
+  return {
+    createResource,
+    updateResource,
+    deleteResource,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
 };
 
 // 4. ABSENCE TYPE MUTATIONS
@@ -229,7 +362,7 @@ export const useAbsenceTypeMutations = () => {
     }) =>
       apiRequest<AbsenceType>(`/AbsenceType/${id}`, {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
       }),
     onSuccess: () => {
       // Refresh types AND absences because existing blocks might need to update their color/label
@@ -246,6 +379,55 @@ export const useAbsenceTypeMutations = () => {
   });
 
   return { createMutation, updateMutation, deleteMutation };
+};
+
+// Simplified hook for components to use TanStack Query with AbsenceTypes
+export const useAbsenceTypeMutation = () => {
+  const { createMutation, updateMutation, deleteMutation } =
+    useAbsenceTypeMutations();
+
+  const createAbsenceType = async (label: string, color: string) => {
+    try {
+      await createMutation.mutateAsync({ label, color });
+      return true;
+    } catch (error) {
+      console.error("Failed to create absence type:", error);
+      return false;
+    }
+  };
+
+  const updateAbsenceType = async (
+    id: string,
+    label: string,
+    color: string,
+  ) => {
+    try {
+      await updateMutation.mutateAsync({ id, data: { label, color } });
+      return true;
+    } catch (error) {
+      console.error("Failed to update absence type:", error);
+      return false;
+    }
+  };
+
+  const deleteAbsenceType = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete absence type:", error);
+      return false;
+    }
+  };
+
+  return {
+    createAbsenceType,
+    updateAbsenceType,
+    deleteAbsenceType,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  };
 };
 
 // --- DATABASE QUERIES ---
@@ -298,9 +480,3 @@ export const useDatabaseMutations = () => {
     uploadMutation,
   };
 };
-
-
-
-
-
-

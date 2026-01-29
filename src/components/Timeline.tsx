@@ -19,12 +19,24 @@ import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
 import { appServicesStatic } from "../services/appServices";
+import {
+  useGroupMutation,
+  useResourceMutation,
+  useAbsenceTypeMutation,
+} from "../services/hooks/useData";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
   const sidebarMode = useSidebarMode();
   const { toggleSidebar } = useUIActions();
+
+  // TanStack Query Mutation Hooks
+  const { createGroup, updateGroup, deleteGroup } = useGroupMutation();
+  const { createResource, updateResource, deleteResource } =
+    useResourceMutation();
+  const { createAbsenceType, updateAbsenceType, deleteAbsenceType } =
+    useAbsenceTypeMutation();
 
   // 1. Hämta ENDAST från Store/API
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
@@ -184,25 +196,22 @@ export const Timeline = () => {
       scrollRequestRef.current = null;
     }
   };
-  const handleDeleteResource = async (groupId: string, resId: string) => {
+    const handleDeleteResource = async (groupId: string, resId: string) => {
     if (resId && groupId) {
-      // API DELETE
-      await appServicesStatic.resources.removeOne(resId);
-
-      // Uppdatera sidebaren genom att hämta de nya grupp-strukturerna
+      await deleteResource(resId);
       await appServicesStatic.groups.loadAll();
     }
   };
   // --- GROUP ACTIONS ---
 
-  const handleDeleteGroup = async (selectedGroupId: string) => {
+    const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
-      // API DELETE
-      await appServicesStatic.groups.removeOne(selectedGroupId);
+      await deleteGroup(selectedGroupId);
+      await appServicesStatic.groups.loadAll();
     }
   };
 
-  const handleSaveAbsenceType = async (
+    const handleSaveAbsenceType = async (
     label: string,
     color: string,
     idToUpdate?: string | null,
@@ -210,60 +219,34 @@ export const Timeline = () => {
     if (!label.trim()) return;
 
     if (idToUpdate) {
-      // UPDATE: Nu tillåter TypeScript att du skickar med 'id'
-      await appServicesStatic.absenceTypes.updateOne(idToUpdate, {
-        id: idToUpdate, // Viktigt för din C# Controller check
-        label,
-        color,
-      });
+      await updateAbsenceType(idToUpdate, label, color);
     } else {
-      // CREATE: Här behövs inget ID, backend genererar ett nytt GUID
-      await appServicesStatic.absenceTypes.createOne({
-        label,
-        color,
-      });
+      await createAbsenceType(label, color);
     }
+    await appServicesStatic.absenceTypes.loadAll();
   };
-  const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
+    const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
     if (!name.trim()) return;
 
     if (idToUpdate) {
-      await appServicesStatic.groups.updateOne(idToUpdate, {
-        id: idToUpdate,
-        name,
-      });
+      await updateGroup(idToUpdate, name);
     } else {
-      // Här skapas gruppen. Vi väntar tills den är sparad.
-      await appServicesStatic.groups.createOne({ name });
+      await createGroup(name);
     }
-
-    // Eftersom vi inte längre använder optimistiska uppdateringar,
-    // kör vi en extra reload för att säkerställa att allt är synkat.
     await appServicesStatic.groups.loadAll();
   };
-  const handleSaveResource = async (
+    const handleSaveResource = async (
     name: string,
     targetGroupId: string,
     rowIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
-    // Skapa objektet som ska skickas
-    const resourceData = {
-      name: name,
-      groupId: targetGroupId, // Detta måste vara GUID:et från databasen
-    };
-
     if (rowIdToUpdate) {
-      await appServicesStatic.resources.updateOne(rowIdToUpdate, {
-        id: rowIdToUpdate,
-        ...resourceData,
-      });
+      await updateResource(rowIdToUpdate, name, targetGroupId);
     } else {
-      await appServicesStatic.resources.createOne(resourceData);
+      await createResource(name, targetGroupId);
     }
-
-    // Ladda om grupperna för att visa den nya anställda direkt
     await appServicesStatic.groups.loadAll();
   };
 
@@ -596,12 +579,12 @@ export const Timeline = () => {
       }
     }
   };
-  // 2. Ta bort en ledighetstyp
-  const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
+    const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;
 
-    await appServicesStatic.absenceTypes.removeOne(id);
+    await deleteAbsenceType(id);
+    await appServicesStatic.absenceTypes.loadAll();
     setSelectedTypeId(null);
   };
   const handleLeaveResizeEnd = async (
@@ -682,7 +665,8 @@ export const Timeline = () => {
       onDelete: isEditing
         ? async () => {
             if (groupToEdit?.id) {
-              await appServicesStatic.groups.removeOne(groupToEdit.id);
+              await deleteGroup(groupToEdit.id);
+              await appServicesStatic.groups.loadAll();
               dialog.close();
             }
           }
@@ -899,6 +883,4 @@ export const Timeline = () => {
     </Box>
   );
 };
-
-
 

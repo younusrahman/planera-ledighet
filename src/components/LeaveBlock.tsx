@@ -24,7 +24,6 @@ import {
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
 } from "../services/AbsenceBlockStore";
-import { useAbsenceBlockMutation } from "../services/hooks/useData";
 
 interface Props {
   leave: AbsenceDetails;
@@ -72,10 +71,6 @@ export const AbsenceBlock = ({
   const visualStartShift = useAbsenceBlockVisualStartShift(leave.id);
   const isTooltipOpen = useAbsenceBlockIsTooltipOpen(leave.id);
   const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
-
-  // --- TANSTACK QUERY MUTATIONS ---
-  const { updateAbsence, deleteAbsence, isUpdating, isDeleting } =
-    useAbsenceBlockMutation();
 
   // --- REFS FOR VIRTUAL POSITIONING ---
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -219,8 +214,6 @@ export const AbsenceBlock = ({
 
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
           onResizeEnd(leave.id, fDur, fS);
-          // Persist to server via TanStack Query
-          updateAbsence(leave.id, fDur);
         }
       }
     };
@@ -416,12 +409,8 @@ export const AbsenceBlock = ({
             <IconButton
               size="small"
               color="error"
-              disabled={isDeleting}
               onClick={(e) => {
                 e.stopPropagation();
-                // Delete via TanStack Query
-                deleteAbsence(leave.id);
-                // Also call the callback
                 onDelete?.(leave.id);
               }}
               sx={{
@@ -596,3 +585,5 @@ export const AbsenceBlock = ({
     </>
   );
 };
+
+
