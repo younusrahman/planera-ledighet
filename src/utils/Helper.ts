@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import type { LeaveItem } from "../types";
+import type { AbsenceDetails } from "../types";
 import { CELL_WIDTH } from "../utils";
 
 // HELPERS
@@ -23,7 +23,7 @@ export const getDateOffset = (
 };
 
 export const checkCollision = (
-  items: LeaveItem[],
+  items: AbsenceDetails[],
   targetItem: {
     id: string;
     rowId: string;
@@ -47,6 +47,9 @@ export const checkCollision = (
     return targetStart.isBefore(itemEnd) && targetEnd.isAfter(itemStart);
   });
 };
+
+
+
 
 
 

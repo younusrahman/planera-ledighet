@@ -1,5 +1,5 @@
 // src/types.ts
-export interface LeaveItem {
+export interface AbsenceDetails {
   id: string;
   name: string;
   startDate: string; // ISO string
@@ -24,4 +24,7 @@ export interface AbsenceType {
   color: string;
   label: string;
 }
+
+
+
 

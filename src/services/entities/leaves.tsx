@@ -1,10 +1,10 @@
-import type { LeaveItem } from "../../types";
+import type { AbsenceDetails } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { createEntityModule } from "../entityModule";
 
 export const leaves = createEntityModule<
-  LeaveItem,
-  Partial<LeaveItem>
+  AbsenceDetails,
+  Partial<AbsenceDetails>
 >({
   name: "leaves",
   fetchAll: () => apiRequest("/absence"),
@@ -23,6 +23,9 @@ export const leaves = createEntityModule<
       method: "DELETE",
     }),
 });
+
+
+
 
 
 

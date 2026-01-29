@@ -12,7 +12,7 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Group, LeaveItem } from "../types";
+import type { Group, AbsenceDetails } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
@@ -23,10 +23,10 @@ interface TimelineDndContextProps {
   daysCount: number;
   startDate: Dayjs;
   groups: Group[];
-  leaves: LeaveItem[];
+  leaves: AbsenceDetails[];
   collapsedGroups: string[];
   absenceTypes: any[];
-  activeLeave: LeaveItem | null;
+  activeLeave: AbsenceDetails | null;
 
   // Settings
   blockPastDays: boolean;
@@ -713,3 +713,6 @@ export const TimelineDndContext = forwardRef<
     </>
   );
 });
+
+
+

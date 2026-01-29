@@ -16,7 +16,7 @@ import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { LeaveItem } from "../types";
+import type { AbsenceDetails } from "../types";
 import {
   useAbsenceBlockIsResizing,
   useAbsenceBlockVisualDuration,
@@ -26,7 +26,7 @@ import {
 } from "../services/AbsenceBlockStore";
 
 interface Props {
-  leave: LeaveItem;
+  leave: AbsenceDetails;
   left?: number;
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
@@ -585,5 +585,8 @@ export const AbsenceBlock = ({
     </>
   );
 };
+
+
+
 
 

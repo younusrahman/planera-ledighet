@@ -1,6 +1,6 @@
 // src/hooks/useData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AbsenceType, Group, LeaveItem, Resource } from "../../types";
+import type { AbsenceType, Group, AbsenceDetails, Resource } from "../../types";
 import { apiRequest } from "../apiInstance";
 
 // --- QUERIES ---
@@ -20,7 +20,7 @@ export const useGroups = () =>
 export const useAbsences = () =>
   useQuery({
     queryKey: ["absences"],
-    queryFn: () => apiRequest<LeaveItem[]>("/absence"),
+    queryFn: () => apiRequest<AbsenceDetails[]>("/absence"),
   });
 
 // --- MUTATIONS ---
@@ -30,8 +30,8 @@ export const useAbsenceMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newAbsence: Omit<LeaveItem, "id">) =>
-      apiRequest<LeaveItem>("/absence", {
+    mutationFn: (newAbsence: Omit<AbsenceDetails, "id">) =>
+      apiRequest<AbsenceDetails>("/absence", {
         method: "POST",
         body: JSON.stringify(newAbsence),
       }),
@@ -40,18 +40,18 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<LeaveItem[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
         "absences",
       ]);
 
       // Optimistically update to the new value with a temporary ID
       if (previousAbsences) {
         const tempId = `temp-${Date.now()}`;
-        const optimisticAbsence: LeaveItem = {
+        const optimisticAbsence: AbsenceDetails = {
           ...newAbsence,
           id: tempId,
-        } as LeaveItem;
-        queryClient.setQueryData<LeaveItem[]>(["absences"], (old) => [
+        } as AbsenceDetails;
+        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) => [
           ...(old || []),
           optimisticAbsence,
         ]);
@@ -69,8 +69,8 @@ export const useAbsenceMutations = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<LeaveItem> }) =>
-      apiRequest<LeaveItem>(`/absence/${id}`, {
+    mutationFn: ({ id, data }: { id: string; data: Partial<AbsenceDetails> }) =>
+      apiRequest<AbsenceDetails>(`/absence/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
       }),
@@ -79,13 +79,13 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<LeaveItem[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
         "absences",
       ]);
 
       // Optimistically update to the new value
       if (previousAbsences) {
-        queryClient.setQueryData<LeaveItem[]>(["absences"], (old) =>
+        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) =>
           (old || []).map((item) =>
             item.id === id ? { ...item, ...data } : item,
           ),
@@ -111,13 +111,13 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<LeaveItem[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
         "absences",
       ]);
 
       // Optimistically delete
       if (previousAbsences) {
-        queryClient.setQueryData<LeaveItem[]>(["absences"], (old) =>
+        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) =>
           (old || []).filter((item) => item.id !== id),
         );
       }
@@ -298,6 +298,9 @@ export const useDatabaseMutations = () => {
     uploadMutation,
   };
 };
+
+
+
 
 
 

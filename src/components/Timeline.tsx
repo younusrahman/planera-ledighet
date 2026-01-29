@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/uiStore";
-import type { Group, LeaveItem } from "../types";
+import type { Group, AbsenceDetails } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
@@ -64,7 +64,7 @@ export const Timeline = () => {
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
 
-  const [activeLeave, setActiveLeave] = useState<LeaveItem | null>(null);
+  const [activeLeave, setActiveLeave] = useState<AbsenceDetails | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const previousStartDate = useRef(startDate);
@@ -473,7 +473,7 @@ export const Timeline = () => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
-    const entry: LeaveItem = {
+    const entry: AbsenceDetails = {
       id: leaveIdToUpdate || "l-" + Date.now(),
       rowId: targetRowId,
       name: type.label,
@@ -728,7 +728,7 @@ export const Timeline = () => {
     });
   };
   const handleDialogAbsenceTrigger = (
-    leaveToEdit?: LeaveItem,
+    leaveToEdit?: AbsenceDetails,
     rowId?: string,
     startDate?: Dayjs,
     duration?: number,
@@ -899,3 +899,6 @@ export const Timeline = () => {
     </Box>
   );
 };
+
+
+
