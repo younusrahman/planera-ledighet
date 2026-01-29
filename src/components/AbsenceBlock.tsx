@@ -18,12 +18,12 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
 import type { LeaveItem } from "../types";
 import {
-  useLeaveBlockIsResizing,
-  useLeaveBlockVisualDuration,
-  useLeaveBlockVisualStartShift,
-  useLeaveBlockIsTooltipOpen,
-  useLeaveBlockActions,
-} from "../services/leaveBlockStore";
+  useAbsenceBlockIsResizing,
+  useAbsenceBlockVisualDuration,
+  useAbsenceBlockVisualStartShift,
+  useAbsenceBlockIsTooltipOpen,
+  useAbsenceBlockActions,
+} from "../services/AbsenceBlockStore";
 
 interface Props {
   leave: LeaveItem;
@@ -41,7 +41,7 @@ interface Props {
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
-export const LeaveBlock = ({
+export const AbsenceBlock = ({
   leave,
   left = 0,
   isOverlay = false,
@@ -66,11 +66,11 @@ export const LeaveBlock = ({
     });
 
   // --- STATE FROM ZUSTAND ---
-  const isResizing = useLeaveBlockIsResizing(leave.id);
-  const visualDuration = useLeaveBlockVisualDuration(leave.id);
-  const visualStartShift = useLeaveBlockVisualStartShift(leave.id);
-  const isTooltipOpen = useLeaveBlockIsTooltipOpen(leave.id);
-  const { setBlock, resetBlock, removeBlock } = useLeaveBlockActions();
+  const isResizing = useAbsenceBlockIsResizing(leave.id);
+  const visualDuration = useAbsenceBlockVisualDuration(leave.id);
+  const visualStartShift = useAbsenceBlockVisualStartShift(leave.id);
+  const isTooltipOpen = useAbsenceBlockIsTooltipOpen(leave.id);
+  const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
 
   // --- REFS FOR VIRTUAL POSITIONING ---
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -585,3 +585,5 @@ export const LeaveBlock = ({
     </>
   );
 };
+
+

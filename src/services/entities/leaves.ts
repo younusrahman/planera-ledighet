@@ -4,7 +4,12 @@ import type { LeaveItem } from "../../types";
 
 export const leaves = createEntityModule<LeaveItem, LeaveItem>({
   name: "leaves",
-  fetchAll: () => apiRequest<LeaveItem[]>("/leaves"),
+  fetchAll: async () => {
+    console.log("🔄 Fetching leaves from /leaves...");
+    const data = await apiRequest<LeaveItem[]>("/leaves");
+    console.log("✅ Leaves fetched:", data);
+    return data;
+  },
   create: (body) =>
     apiRequest<LeaveItem>("/leaves", {
       method: "POST",
@@ -20,4 +25,3 @@ export const leaves = createEntityModule<LeaveItem, LeaveItem>({
       method: "DELETE",
     }),
 });
-

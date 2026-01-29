@@ -36,9 +36,19 @@ export const Timeline = () => {
     appServicesStatic.refreshAllData();
   }, []);
 
+  // Debug: Log data
+  useEffect(() => {
+    console.log("📊 Timeline Data:", {
+      absenceTypes: absenceTypes.length,
+      groups: groups.length,
+      leaves: leaves.length,
+      leavesData: leaves,
+    });
+  }, [absenceTypes, groups, leaves]);
+
   // --- STATE ---
   const [startDate, setStartDate] = useState(
-    dayjs().startOf("day").subtract(30, "days")
+    dayjs().startOf("day").subtract(30, "days"),
   );
 
   const [daysCount, setDaysCount] = useState(150);
@@ -123,14 +133,14 @@ export const Timeline = () => {
   // --- HELPERS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
-    [startDate, daysCount]
+    [startDate, daysCount],
   );
 
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups((prev) =>
       prev.includes(groupId)
         ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
+        : [...prev, groupId],
     );
   };
 
@@ -195,7 +205,7 @@ export const Timeline = () => {
   const handleSaveAbsenceType = async (
     label: string,
     color: string,
-    idToUpdate?: string | null
+    idToUpdate?: string | null,
   ) => {
     if (!label.trim()) return;
 
@@ -234,7 +244,7 @@ export const Timeline = () => {
   const handleSaveResource = async (
     name: string,
     targetGroupId: string,
-    rowIdToUpdate: string | null
+    rowIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
@@ -266,7 +276,7 @@ export const Timeline = () => {
       if (container) {
         const todayOffset = getDateOffset(
           dayjs().format("YYYY-MM-DD"),
-          startDate
+          startDate,
         );
 
         // Attempt to scroll
@@ -348,17 +358,24 @@ export const Timeline = () => {
     const container = scrollContainerRef.current;
     if (!container || isLoadingRef.current) return;
     const { scrollLeft, scrollWidth, clientWidth } = container;
-    if (scrollLeft + clientWidth > scrollWidth - 500) {
+
+    // Extend to the right when approaching the end
+    if (scrollLeft + clientWidth > scrollWidth - 200) {
       isLoadingRef.current = true;
       setDaysCount((prev) => prev + 30);
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         isLoadingRef.current = false;
-      }, 100);
+      });
     }
-    if (scrollLeft < 500) {
+
+    // Extend to the left when approaching the start
+    if (scrollLeft < 200) {
       isLoadingRef.current = true;
       setStartDate((prev) => prev.subtract(30, "day"));
       setDaysCount((prev) => prev + 30);
+      requestAnimationFrame(() => {
+        isLoadingRef.current = false;
+      });
     }
   }, []);
 
@@ -451,7 +468,7 @@ export const Timeline = () => {
   const handleSaveLeave = async (
     formData: { typeId: string; startDate: Dayjs; duration: number },
     leaveIdToUpdate: string | null,
-    targetRowId: string | null
+    targetRowId: string | null,
   ) => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
@@ -564,7 +581,7 @@ export const Timeline = () => {
         if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
           toast(
             "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
-            "error"
+            "error",
           );
           return;
         }
@@ -590,7 +607,7 @@ export const Timeline = () => {
   const handleLeaveResizeEnd = async (
     id: string,
     newDuration: number,
-    daysShifted: number
+    daysShifted: number,
   ) => {
     const item = leaves.find((l) => l.id === id);
     if (!item) return;
@@ -603,7 +620,7 @@ export const Timeline = () => {
     if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
       toast(
         "Du kan inte ändra storlek på en ledighet till ett datum som redan har passerat.",
-        "error"
+        "error",
       );
       return;
     }
@@ -714,7 +731,7 @@ export const Timeline = () => {
     leaveToEdit?: LeaveItem,
     rowId?: string,
     startDate?: Dayjs,
-    duration?: number
+    duration?: number,
   ) => {
     const isEditing = !!leaveToEdit;
 
@@ -748,7 +765,7 @@ export const Timeline = () => {
         handleSaveLeave(
           formData,
           isEditing ? leaveToEdit.id : null,
-          targetRowId ? targetRowId : null
+          targetRowId ? targetRowId : null,
         );
         dialog.close();
       },
@@ -757,7 +774,7 @@ export const Timeline = () => {
   };
   const handleDialogResourceTrigger = (
     resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string
+    currentGroupId?: string,
   ) => {
     const isEditing = !!resourceToEdit;
 
@@ -772,7 +789,7 @@ export const Timeline = () => {
         handleSaveResource(
           name,
           targetGroupId,
-          isEditing ? resourceToEdit.id : null
+          isEditing ? resourceToEdit.id : null,
         );
         dialog.close();
       },
@@ -882,4 +899,3 @@ export const Timeline = () => {
     </Box>
   );
 };
-

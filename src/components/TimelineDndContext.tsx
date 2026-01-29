@@ -10,7 +10,7 @@ import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import dayjs, { Dayjs } from "dayjs";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
-import { LeaveBlock } from "./LeaveBlock";
+import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Group, LeaveItem } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
@@ -280,7 +280,7 @@ export const TimelineDndContext = forwardRef<
     // Slutdatumet för vad som visas i gridet just nu
     const timelineEndDate = startDate.add(daysCount, "day");
 
-    return leaves.filter((l) => {
+    const filtered = leaves.filter((l) => {
       const leaveStart = dayjs(l.startDate);
       // Vi räknar ut blockets slutdatum
       const leaveEnd = leaveStart.add(l.durationDays, "day");
@@ -292,6 +292,16 @@ export const TimelineDndContext = forwardRef<
         leaveStart.isBefore(timelineEndDate) && leaveEnd.isAfter(startDate)
       );
     });
+
+    console.log("👁️ Visible Leaves:", {
+      total: leaves.length,
+      visible: filtered.length,
+      startDate: startDate.format("YYYY-MM-DD"),
+      endDate: timelineEndDate.format("YYYY-MM-DD"),
+      filtered,
+    });
+
+    return filtered;
   }, [leaves, startDate, daysCount]);
   // --- Grid Visual Constants ---
 
@@ -667,7 +677,7 @@ export const TimelineDndContext = forwardRef<
                           {visibleLeaves
                             .filter((l) => l.rowId === res.id)
                             .map((l) => (
-                              <LeaveBlock
+                              <AbsenceBlock
                                 key={l.id}
                                 leave={l}
                                 resourceName={res.name}
@@ -695,7 +705,7 @@ export const TimelineDndContext = forwardRef<
 
             {/* Drag Visual Ghost */}
             <DragOverlay adjustScale={false}>
-              {activeLeave && <LeaveBlock leave={activeLeave} isOverlay />}
+              {activeLeave && <AbsenceBlock leave={activeLeave} isOverlay />}
             </DragOverlay>
           </DndContext>
         </Box>
@@ -703,4 +713,3 @@ export const TimelineDndContext = forwardRef<
     </>
   );
 });
-

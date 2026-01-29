@@ -1,36 +1,36 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
-export interface LeaveBlockState {
+export interface AbsenceBlockState {
   isResizing: boolean;
   visualDuration: number;
   visualStartShift: number;
   isTooltipOpen: boolean;
 }
 
-export interface LeaveBlockStore {
-  blocks: Record<string, LeaveBlockState>;
-  getBlock: (id: string) => LeaveBlockState | undefined;
-  setBlock: (id: string, state: Partial<LeaveBlockState>) => void;
+export interface AbsenceBlockStore {
+  blocks: Record<string, AbsenceBlockState>;
+  getBlock: (id: string) => AbsenceBlockState | undefined;
+  setBlock: (id: string, state: Partial<AbsenceBlockState>) => void;
   resetBlock: (id: string, durationDays: number) => void;
   removeBlock: (id: string) => void;
 }
 
-const defaultBlockState = (durationDays: number): LeaveBlockState => ({
+const defaultBlockState = (durationDays: number): AbsenceBlockState => ({
   isResizing: false,
   visualDuration: durationDays,
   visualStartShift: 0,
   isTooltipOpen: false,
 });
 
-export const useLeaveBlockStore = create<LeaveBlockStore>((set, get) => ({
+export const useAbsenceBlockStore = create<AbsenceBlockStore>((set, get) => ({
   blocks: {},
 
   getBlock: (id: string) => {
     return get().blocks[id];
   },
 
-  setBlock: (id: string, state: Partial<LeaveBlockState>) => {
+  setBlock: (id: string, state: Partial<AbsenceBlockState>) => {
     set((current) => {
       const currentBlock = current.blocks[id] || defaultBlockState(0);
       return {
@@ -61,25 +61,25 @@ export const useLeaveBlockStore = create<LeaveBlockStore>((set, get) => ({
 
 // --- SELECTORS FOR INDIVIDUAL BLOCKS ---
 
-export const useLeaveBlockState = (id: string) =>
-  useLeaveBlockStore(useShallow((s) => s.blocks[id]));
+export const useAbsenceBlockState = (id: string) =>
+  useAbsenceBlockStore(useShallow((s) => s.blocks[id]));
 
-export const useLeaveBlockIsResizing = (id: string) =>
-  useLeaveBlockStore((s) => s.blocks[id]?.isResizing ?? false);
+export const useAbsenceBlockIsResizing = (id: string) =>
+  useAbsenceBlockStore((s) => s.blocks[id]?.isResizing ?? false);
 
-export const useLeaveBlockVisualDuration = (id: string) =>
-  useLeaveBlockStore((s) => s.blocks[id]?.visualDuration ?? 0);
+export const useAbsenceBlockVisualDuration = (id: string) =>
+  useAbsenceBlockStore((s) => s.blocks[id]?.visualDuration ?? 0);
 
-export const useLeaveBlockVisualStartShift = (id: string) =>
-  useLeaveBlockStore((s) => s.blocks[id]?.visualStartShift ?? 0);
+export const useAbsenceBlockVisualStartShift = (id: string) =>
+  useAbsenceBlockStore((s) => s.blocks[id]?.visualStartShift ?? 0);
 
-export const useLeaveBlockIsTooltipOpen = (id: string) =>
-  useLeaveBlockStore((s) => s.blocks[id]?.isTooltipOpen ?? false);
+export const useAbsenceBlockIsTooltipOpen = (id: string) =>
+  useAbsenceBlockStore((s) => s.blocks[id]?.isTooltipOpen ?? false);
 
 // --- BATCH ACTIONS ---
 
-export const useLeaveBlockActions = () =>
-  useLeaveBlockStore(
+export const useAbsenceBlockActions = () =>
+  useAbsenceBlockStore(
     useShallow((s) => ({
       setBlock: s.setBlock,
       resetBlock: s.resetBlock,
@@ -87,4 +87,5 @@ export const useLeaveBlockActions = () =>
       getBlock: s.getBlock,
     })),
   );
+
 
