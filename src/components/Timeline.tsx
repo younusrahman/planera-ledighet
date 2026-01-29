@@ -224,6 +224,8 @@ export const Timeline = () => {
       await createAbsenceType(label, color);
     }
     await appServicesStatic.absenceTypes.loadAll();
+    // Also refresh leaves since they depend on absenceType colors
+    await appServicesStatic.leaves.loadAll();
   };
     const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
     if (!name.trim()) return;
@@ -585,6 +587,8 @@ export const Timeline = () => {
 
     await deleteAbsenceType(id);
     await appServicesStatic.absenceTypes.loadAll();
+    // Also refresh leaves in case they used this type
+    await appServicesStatic.leaves.loadAll();
     setSelectedTypeId(null);
   };
   const handleLeaveResizeEnd = async (
