@@ -234,7 +234,7 @@ export const Timeline = () => {
   const handleSaveResource = async (
     name: string,
     targetGroupId: string,
-    resourceIdToUpdate: string | null
+    rowIdToUpdate: string | null
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
@@ -244,9 +244,9 @@ export const Timeline = () => {
       groupId: targetGroupId, // Detta måste vara GUID:et från databasen
     };
 
-    if (resourceIdToUpdate) {
-      await appServicesStatic.resources.updateOne(resourceIdToUpdate, {
-        id: resourceIdToUpdate,
+    if (rowIdToUpdate) {
+      await appServicesStatic.resources.updateOne(rowIdToUpdate, {
+        id: rowIdToUpdate,
         ...resourceData,
       });
     } else {
@@ -882,3 +882,4 @@ export const Timeline = () => {
     </Box>
   );
 };
+

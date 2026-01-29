@@ -24,3 +24,4 @@ export interface AbsenceType {
   color: string;
   label: string;
 }
+

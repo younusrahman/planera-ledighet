@@ -47,3 +47,4 @@ export const checkCollision = (
     return targetStart.isBefore(itemEnd) && targetEnd.isAfter(itemStart);
   });
 };
+
