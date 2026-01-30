@@ -1,5 +1,5 @@
 // src/types.ts
-export interface AbsenceDetails {
+export interface AbsenceBlockData {
   id: string;
   name: string;
   startDate: string; // ISO string
@@ -9,22 +9,18 @@ export interface AbsenceDetails {
   absenceTypeId: string; // <--- MAKE SURE THIS IS SENT
 }
 
-export interface Resource {
+export interface Team {
   id: string;
   name: string;
 }
 
-export interface Group {
+export interface Person {
   id: string;
   name: string;
-  resources?: Resource[];
+  resources?: Team[];
 }
-export interface AbsenceType {
+export interface AbsenceReason {
   id: string;
   color: string;
   label: string;
 }
-
-
-
-

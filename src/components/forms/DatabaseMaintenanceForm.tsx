@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   Box,
   Button,
@@ -30,11 +30,11 @@ import {
   FileOpen as BrowseIcon,
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
-import { databaseService } from "../../services/entities/database"; // Path to your service
 import { toast } from "../../services/globalSnackbar";
 import { BASE_URL } from "../../services/apiInstance";
 import { appServicesStatic } from "../../services/appServices";
 import { ProTooltip } from "../ProTooltip";
+import { useBackups, useDatabaseMutations } from "../../services/hooks/useData";
 export interface DatabaseMaintenanceProps {
   title: string;
   onClose: () => void; // This matches what GlobalDialogProvider passes
@@ -43,10 +43,24 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
   title,
   onClose,
 }) => {
-  const [backups, setBackups] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
   const [manualPath, setManualPath] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // TanStack Query hooks
+  const { data: backups = [] } = useBackups();
+  const {
+    backupMutation,
+    resetMutation,
+    restoreMutation,
+    deleteBackupMutation,
+    uploadMutation,
+  } = useDatabaseMutations();
+  const isLoading =
+    backupMutation.isPending ||
+    resetMutation.isPending ||
+    restoreMutation.isPending ||
+    deleteBackupMutation.isPending ||
+    uploadMutation.isPending;
 
   // MUI Confirmation State
   const [confirm, setConfirm] = useState({
@@ -57,24 +71,11 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
     isDanger: false,
   });
 
-  const loadBackups = async () => {
-    try {
-      const data = await databaseService.list();
-      setBackups(data);
-    } catch (e) {
-      toast("Kunde inte hämta backuper", "error");
-    }
-  };
-
-  useEffect(() => {
-    loadBackups();
-  }, []);
-
   const openConfirm = (
     title: string,
     message: string,
     action: () => void,
-    isDanger: boolean = false
+    isDanger: boolean = false,
   ) => {
     setConfirm({ open: true, title, message, action, isDanger });
   };
@@ -83,29 +84,22 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
 
   // Helper to execute actions and refresh UI
   const executeAction = async (
-    task: () => Promise<any>,
-    successMsg: string
+    task: () => Promise<void>,
+    successMsg: string,
   ) => {
-    setLoading(true);
     try {
-      const res = await task();
-      if (res.success) {
-        toast(successMsg, "success");
-        if (
-          successMsg.includes("nollställt") ||
-          successMsg.includes("återställt")
-        ) {
-          await appServicesStatic.refreshAllData();
-        }
-        await loadBackups();
-        if (successMsg.includes("återställt")) setManualPath("");
-      } else {
-        toast(res.message || "Åtgärden misslyckades", "error");
+      await task();
+      toast(successMsg, "success");
+      if (
+        successMsg.includes("nollställt") ||
+        successMsg.includes("återställt")
+      ) {
+        await appServicesStatic.refreshAllData();
       }
+      if (successMsg.includes("återställt")) setManualPath("");
     } catch (e: any) {
       toast(e.message || "Ett oväntat fel uppstod", "error");
     } finally {
-      setLoading(false);
       closeConfirm();
     }
   };
@@ -114,23 +108,16 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setLoading(true);
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      const res = await databaseService.upload(formData);
-      if (res.success) {
-        toast("Filen har laddats upp till servern!", "success");
-        await loadBackups();
-        setManualPath(file.name); // Set the name in text field for easy restore
-      } else {
-        toast(res.message || "Uppladdning misslyckades", "error");
-      }
+      await uploadMutation.mutateAsync(formData);
+      toast("Filen har laddats upp till servern!", "success");
+      setManualPath(file.name); // Set the name in text field for easy restore
     } catch (e) {
       toast("Kunde inte ansluta till servern för uppladdning", "error");
     } finally {
-      setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -172,9 +159,11 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
               disableElevation
               startIcon={<BackupIcon />}
               onClick={() =>
-                executeAction(databaseService.backup, "Ny backup skapad")
+                executeAction(async () => {
+                  await backupMutation.mutateAsync();
+                }, "Ny backup skapad")
               }
-              disabled={loading}
+              disabled={isLoading}
             >
               Skapa Backup
             </Button>
@@ -189,11 +178,13 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                   "Fabriksåterställning",
                   "Detta raderar ALLA data i den aktiva databasen. Systemet återställs till ett tomt läge. Vill du fortsätta?",
                   () =>
-                    executeAction(databaseService.reset, "Systemet nollställt"),
-                  true
+                    executeAction(async () => {
+                      await resetMutation.mutateAsync();
+                    }, "Systemet nollställt"),
+                  true,
                 )
               }
-              disabled={loading}
+              disabled={isLoading}
             >
               Nollställ allt
             </Button>
@@ -225,7 +216,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
               placeholder="Filnamn eller C:\Sökväg\fil.db"
               value={manualPath}
               onChange={(e) => setManualPath(e.target.value)}
-              disabled={loading}
+              disabled={isLoading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -238,7 +229,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                       <IconButton
                         size="small"
                         onClick={() => fileInputRef.current?.click()}
-                        disabled={loading}
+                        disabled={isLoading}
                       >
                         <BrowseIcon fontSize="small" />
                       </IconButton>
@@ -250,17 +241,16 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
             <Button
               variant="contained"
               color="warning"
-              disabled={!manualPath || loading}
+              disabled={!manualPath || isLoading}
               startIcon={<UploadIcon />}
               onClick={() =>
                 openConfirm(
                   "Bekräfta Återställning",
                   `Nuvarande data kommer att skrivas över med filen: ${manualPath}. Vill du fortsätta?`,
                   () =>
-                    executeAction(
-                      () => databaseService.restore(manualPath),
-                      "Systemet återställt"
-                    )
+                    executeAction(async () => {
+                      await restoreMutation.mutateAsync(manualPath);
+                    }, "Systemet återställt"),
                 )
               }
             >
@@ -290,17 +280,16 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
               size="small"
               color="error"
               startIcon={<DeleteIcon />}
-              disabled={backups.length === 0 || loading}
+              disabled={backups.length === 0 || isLoading}
               onClick={() =>
                 openConfirm(
                   "Rensa alla backuper?",
                   "Detta raderar permanent samtliga backup-filer i mappen på servern. Vill du fortsätta?",
                   () =>
-                    executeAction(
-                      databaseService.deleteBackup,
-                      "Alla backuper raderade"
-                    ),
-                  true
+                    executeAction(async () => {
+                      await deleteBackupMutation.mutateAsync(undefined);
+                    }, "Alla backuper raderade"),
+                  true,
                 )
               }
             >
@@ -336,10 +325,9 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                               "Återställ backup?",
                               `Vill du ersätta live-databasen med data från ${file}?`,
                               () =>
-                                executeAction(
-                                  () => databaseService.restore(file),
-                                  "Systemet återställt"
-                                )
+                                executeAction(async () => {
+                                  await restoreMutation.mutateAsync(file);
+                                }, "Systemet återställt"),
                             )
                           }
                         >
@@ -355,11 +343,10 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
                               "Radera fil?",
                               `Är du säker på att du vill radera ${file} permanent?`,
                               () =>
-                                executeAction(
-                                  () => databaseService.deleteBackup(file),
-                                  "Backup raderad"
-                                ),
-                              true
+                                executeAction(async () => {
+                                  await deleteBackupMutation.mutateAsync(file);
+                                }, "Backup raderad"),
+                              true,
                             )
                           }
                         >
@@ -417,7 +404,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
       </Dialog>
 
       {/* Global Loading Overlay inside Dialog */}
-      {loading && (
+      {isLoading && (
         <Box
           sx={{
             position: "absolute",

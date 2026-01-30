@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import type { AbsenceDetails } from "../types";
+import type { AbsenceBlockData } from "../types";
 import { CELL_WIDTH } from "../utils";
 
 // HELPERS
@@ -15,7 +15,7 @@ export const getDaysArray = (start: dayjs.Dayjs, count: number) => {
 
 export const getDateOffset = (
   startDate: string,
-  timelineStart: dayjs.Dayjs
+  timelineStart: dayjs.Dayjs,
 ) => {
   const start = dayjs(startDate).startOf("day");
   const base = timelineStart.startOf("day");
@@ -23,13 +23,13 @@ export const getDateOffset = (
 };
 
 export const checkCollision = (
-  items: AbsenceDetails[],
+  items: AbsenceBlockData[],
   targetItem: {
     id: string;
     rowId: string;
     startDate: string;
     durationDays: number;
-  }
+  },
 ) => {
   const targetStart = dayjs(targetItem.startDate).startOf("day");
   const targetEnd = targetStart.add(targetItem.durationDays, "day");
@@ -47,9 +47,3 @@ export const checkCollision = (
     return targetStart.isBefore(itemEnd) && targetEnd.isAfter(itemStart);
   });
 };
-
-
-
-
-
-

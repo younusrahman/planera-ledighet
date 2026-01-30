@@ -26,7 +26,7 @@ import {
   KeyboardArrowRight,
   Storage as DatabaseIcon,
 } from "@mui/icons-material";
-import type { Group } from "../types";
+import type { Person } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
 import { appServicesStatic } from "../services/appServices";
@@ -34,7 +34,7 @@ import EventBusyIcon from "@mui/icons-material/EventBusy";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 interface TimelineSidebarProps {
-  groups: Group[];
+  groups: Person[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
@@ -43,12 +43,12 @@ interface TimelineSidebarProps {
   openConfig: () => void;
   handleDeleteResource: (groupId: string, resId: string) => void;
   handleDeleteGroup: (groupId: string) => void;
-  handleDialogGroupTrigger: (group?: Group) => void;
+  handleDialogGroupTrigger: (group?: Person) => void;
   handleDialogAbsenceTypeTrigger: () => void;
   handleDialogDatabaseSystemTrigger: () => void;
   handleDialogResourceTrigger: (
     resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string
+    currentGroupId?: string,
   ) => void;
 }
 
@@ -69,17 +69,17 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
 }) => {
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
-    null
+    null,
   );
   const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
-    null
+    null,
   );
   const [resourceMenuAnchor, setResourceMenuAnchor] =
     useState<null | HTMLElement>(null);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
-    null
+    null,
   );
   const theme = useTheme();
   const getInitials = (name: string) => {
@@ -458,7 +458,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           onClick={() => {
             const group = groups.find((g) => g.id === selectedGroupId);
             const res = (group?.resources || []).find(
-              (r) => r.id === selectedResourceId
+              (r) => r.id === selectedResourceId,
             );
             if (res) handleDialogResourceTrigger(res, selectedGroupId!);
             closeMenus();

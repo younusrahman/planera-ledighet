@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/uiStore";
-import type { Group, AbsenceDetails } from "../types";
+import type { Person, AbsenceBlockData } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
@@ -41,7 +41,7 @@ export const Timeline = () => {
   // 1. Hämta ENDAST från Store/API
   const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const groups = appServicesStatic.groups.useItems();
-  const leaves = appServicesStatic.leaves.useItems();
+  const absenceDetails = appServicesStatic.leaves.useItems();
 
   // 2. Trigga laddning
   useEffect(() => {
@@ -53,10 +53,10 @@ export const Timeline = () => {
     console.log("📊 Timeline Data:", {
       absenceTypes: absenceTypes.length,
       groups: groups.length,
-      leaves: leaves.length,
-      leavesData: leaves,
+      leaves: absenceDetails.length,
+      leavesData: absenceDetails,
     });
-  }, [absenceTypes, groups, leaves]);
+  }, [absenceTypes, groups, absenceDetails]);
 
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -76,7 +76,7 @@ export const Timeline = () => {
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
 
-  const [activeLeave, setActiveLeave] = useState<AbsenceDetails | null>(null);
+  const [activeLeave, setActiveLeave] = useState<AbsenceBlockData | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const previousStartDate = useRef(startDate);
@@ -196,7 +196,7 @@ export const Timeline = () => {
       scrollRequestRef.current = null;
     }
   };
-    const handleDeleteResource = async (groupId: string, resId: string) => {
+  const handleDeleteResource = async (groupId: string, resId: string) => {
     if (resId && groupId) {
       await deleteResource(resId);
       await appServicesStatic.groups.loadAll();
@@ -204,14 +204,14 @@ export const Timeline = () => {
   };
   // --- GROUP ACTIONS ---
 
-    const handleDeleteGroup = async (selectedGroupId: string) => {
+  const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
       await deleteGroup(selectedGroupId);
       await appServicesStatic.groups.loadAll();
     }
   };
 
-    const handleSaveAbsenceType = async (
+  const handleSaveAbsenceType = async (
     label: string,
     color: string,
     idToUpdate?: string | null,
@@ -227,7 +227,7 @@ export const Timeline = () => {
     // Also refresh leaves since they depend on absenceType colors
     await appServicesStatic.leaves.loadAll();
   };
-    const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
+  const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
     if (!name.trim()) return;
 
     if (idToUpdate) {
@@ -237,7 +237,7 @@ export const Timeline = () => {
     }
     await appServicesStatic.groups.loadAll();
   };
-    const handleSaveResource = async (
+  const handleSaveResource = async (
     name: string,
     targetGroupId: string,
     rowIdToUpdate: string | null,
@@ -458,7 +458,7 @@ export const Timeline = () => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
-    const entry: AbsenceDetails = {
+    const entry: AbsenceBlockData = {
       id: leaveIdToUpdate || "l-" + Date.now(),
       rowId: targetRowId,
       name: type.label,
@@ -469,7 +469,7 @@ export const Timeline = () => {
     };
 
     // Validation: Collision
-    const otherLeaves = leaves.filter((l) => l.id !== leaveIdToUpdate);
+    const otherLeaves = absenceDetails.filter((l) => l.id !== leaveIdToUpdate);
     if (checkCollision(otherLeaves, entry)) {
       toast("Krockar med annan frånvaro!", "error");
       return;
@@ -542,7 +542,7 @@ export const Timeline = () => {
   const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
     dragStartTimeRef.current = startDate;
-    const item = leaves.find((l) => l.id === event.active.id);
+    const item = absenceDetails.find((l) => l.id === event.active.id);
     if (item) setActiveLeave(item);
   };
 
@@ -556,7 +556,7 @@ export const Timeline = () => {
     const finalDaysDiff = visualMovedDays + daysGridMoved;
 
     if (finalDaysDiff !== 0) {
-      const item = leaves.find((l) => l.id === active.id);
+      const item = absenceDetails.find((l) => l.id === active.id);
       if (item) {
         const newStartDate = dayjs(item.startDate)
           .add(finalDaysDiff, "day")
@@ -574,14 +574,14 @@ export const Timeline = () => {
         const updatedItem = { ...item, startDate: newStartDate };
 
         // --- COLLISION CHECK & API CALL ---
-        if (!checkCollision(leaves, updatedItem)) {
+        if (!checkCollision(absenceDetails, updatedItem)) {
           // REPLACE setLeaves with API Call
           await appServicesStatic.leaves.updateOne(item.id, updatedItem);
         }
       }
     }
   };
-    const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
+  const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;
 
@@ -596,7 +596,7 @@ export const Timeline = () => {
     newDuration: number,
     daysShifted: number,
   ) => {
-    const item = leaves.find((l) => l.id === id);
+    const item = absenceDetails.find((l) => l.id === id);
     if (!item) return;
 
     const newStartDate = dayjs(item.startDate)
@@ -619,7 +619,7 @@ export const Timeline = () => {
     };
 
     // --- COLLISION CHECK & API CALL ---
-    if (checkCollision(leaves, updatedItem)) {
+    if (checkCollision(absenceDetails, updatedItem)) {
       toast("Krockar med annan frånvaro!", "error");
       return;
     }
@@ -628,7 +628,7 @@ export const Timeline = () => {
     await appServicesStatic.leaves.updateOne(id, updatedItem);
   };
   const handleLeaveEdit = (id: string) => {
-    const leave = leaves.find((l) => l.id === id);
+    const leave = absenceDetails.find((l) => l.id === id);
     if (leave) {
       handleDialogAbsenceTrigger(leave); // Passing the leave object = Edit mode
     }
@@ -654,7 +654,7 @@ export const Timeline = () => {
     });
   };
 
-  const handleDialogGroupTrigger = (groupToEdit?: Group) => {
+  const handleDialogGroupTrigger = (groupToEdit?: Person) => {
     const isEditing = !!groupToEdit;
 
     dialog.open("group", {
@@ -716,7 +716,7 @@ export const Timeline = () => {
     });
   };
   const handleDialogAbsenceTrigger = (
-    leaveToEdit?: AbsenceDetails,
+    leaveToEdit?: AbsenceBlockData,
     rowId?: string,
     startDate?: Dayjs,
     duration?: number,
@@ -859,7 +859,7 @@ export const Timeline = () => {
           daysCount={daysCount} // from useState
           startDate={startDate} // from useState
           groups={groups} // from useState
-          leaves={leaves} // from useState
+          leaves={absenceDetails} // from useState
           collapsedGroups={collapsedGroups} // from useState
           absenceTypes={absenceTypes} // from useState
           activeLeave={activeLeave} // from useState (dnd-kit)
@@ -887,4 +887,3 @@ export const Timeline = () => {
     </Box>
   );
 };
-

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { registerEntity } from "./globalState";
 import { toast } from "./globalSnackbar";
-import type { AbsenceType } from "../types";
+import type { AbsenceReason } from "../types";
 
 export interface BaseEntity {
   id: string;
@@ -20,7 +20,7 @@ type Id = string;
 
 export function createEntityModule<T extends BaseEntity, TBody>(
   config: EntityConfig<T, TBody>,
-  absenceTypes: AbsenceType[] = []
+  absenceTypes: AbsenceReason[] = [],
 ) {
   type State = {
     ids: Id[];
@@ -68,7 +68,7 @@ export function createEntityModule<T extends BaseEntity, TBody>(
                 ids: state.ids,
                 byId: { ...state.byId, [item.id]: item },
               }
-            : state
+            : state,
         ),
 
       remove: (id) =>

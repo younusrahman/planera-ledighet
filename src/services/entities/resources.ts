@@ -1,21 +1,21 @@
-import type { Resource } from "../../types";
+import type { Team } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { appServicesStatic } from "../appServices";
 import { createEntityModule } from "../entityModule";
 
 // Vi inkluderar groupId här eftersom din ResourceController behöver veta vilken grupp den anställda tillhör
-type ResourceBody = { id?: string; name: string; groupId: string };
+type TeamBody = { id?: string; name: string; groupId: string };
 
-export const resources = createEntityModule<Resource, ResourceBody>({
+export const resources = createEntityModule<Team, TeamBody>({
   name: "resources",
-  fetchAll: () => apiRequest<Resource[]>("/Resource"),
+  fetchAll: () => apiRequest<Team[]>("/Resource"),
   create: (body) =>
-    apiRequest<Resource>("/Resource", {
+    apiRequest<Team>("/Resource", {
       method: "POST",
       body: JSON.stringify(body),
     }),
   update: async (id, body) => {
-    const res = await apiRequest<Resource>(`/Resource/${id}`, {
+    const res = await apiRequest<Team>(`/Resource/${id}`, {
       method: "PUT",
       body: JSON.stringify(body),
     });

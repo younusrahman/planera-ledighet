@@ -1,6 +1,11 @@
 // src/hooks/useData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AbsenceType, Group, AbsenceDetails, Resource } from "../../types";
+import type {
+  AbsenceReason,
+  Person,
+  AbsenceBlockData,
+  Team,
+} from "../../types";
 import { apiRequest } from "../apiInstance";
 
 // --- QUERIES ---
@@ -8,19 +13,19 @@ import { apiRequest } from "../apiInstance";
 export const useAbsenceTypes = () =>
   useQuery({
     queryKey: ["absenceTypes"],
-    queryFn: () => apiRequest<AbsenceType[]>("/AbsenceType"),
+    queryFn: () => apiRequest<AbsenceReason[]>("/AbsenceType"),
   });
 
 export const useGroups = () =>
   useQuery({
     queryKey: ["groups"],
-    queryFn: () => apiRequest<Group[]>("/Group"),
+    queryFn: () => apiRequest<Person[]>("/Group"),
   });
 
 export const useAbsences = () =>
   useQuery({
     queryKey: ["absences"],
-    queryFn: () => apiRequest<AbsenceDetails[]>("/absence"),
+    queryFn: () => apiRequest<AbsenceBlockData[]>("/absence"),
   });
 
 // --- MUTATIONS ---
@@ -30,8 +35,8 @@ export const useAbsenceMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newAbsence: Omit<AbsenceDetails, "id">) =>
-      apiRequest<AbsenceDetails>("/absence", {
+    mutationFn: (newAbsence: Omit<AbsenceBlockData, "id">) =>
+      apiRequest<AbsenceBlockData>("/absence", {
         method: "POST",
         body: JSON.stringify(newAbsence),
       }),
@@ -40,18 +45,18 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceBlockData[]>([
         "absences",
       ]);
 
       // Optimistically update to the new value with a temporary ID
       if (previousAbsences) {
         const tempId = `temp-${Date.now()}`;
-        const optimisticAbsence: AbsenceDetails = {
+        const optimisticAbsence: AbsenceBlockData = {
           ...newAbsence,
           id: tempId,
-        } as AbsenceDetails;
-        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) => [
+        } as AbsenceBlockData;
+        queryClient.setQueryData<AbsenceBlockData[]>(["absences"], (old) => [
           ...(old || []),
           optimisticAbsence,
         ]);
@@ -69,8 +74,14 @@ export const useAbsenceMutations = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<AbsenceDetails> }) =>
-      apiRequest<AbsenceDetails>(`/absence/${id}`, {
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<AbsenceBlockData>;
+    }) =>
+      apiRequest<AbsenceBlockData>(`/absence/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
       }),
@@ -79,13 +90,13 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceBlockData[]>([
         "absences",
       ]);
 
       // Optimistically update to the new value
       if (previousAbsences) {
-        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) =>
+        queryClient.setQueryData<AbsenceBlockData[]>(["absences"], (old) =>
           (old || []).map((item) =>
             item.id === id ? { ...item, ...data } : item,
           ),
@@ -111,13 +122,13 @@ export const useAbsenceMutations = () => {
       await queryClient.cancelQueries({ queryKey: ["absences"] });
 
       // Snapshot the previous value
-      const previousAbsences = queryClient.getQueryData<AbsenceDetails[]>([
+      const previousAbsences = queryClient.getQueryData<AbsenceBlockData[]>([
         "absences",
       ]);
 
       // Optimistically delete
       if (previousAbsences) {
-        queryClient.setQueryData<AbsenceDetails[]>(["absences"], (old) =>
+        queryClient.setQueryData<AbsenceBlockData[]>(["absences"], (old) =>
           (old || []).filter((item) => item.id !== id),
         );
       }
@@ -185,7 +196,7 @@ export const useGroupMutations = () => {
 
   const createMutation = useMutation({
     mutationFn: (newGroup: { name: string }) =>
-      apiRequest<Group>("/Group", {
+      apiRequest<Person>("/Group", {
         method: "POST",
         body: JSON.stringify(newGroup),
       }),
@@ -194,7 +205,7 @@ export const useGroupMutations = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
-      apiRequest<Group>(`/Group/${id}`, {
+      apiRequest<Person>(`/Group/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),
@@ -261,7 +272,7 @@ export const useResourceMutations = () => {
 
   const createMutation = useMutation({
     mutationFn: (newResource: { name: string; groupId: string }) =>
-      apiRequest<Resource>("/Resource", {
+      apiRequest<Team>("/Resource", {
         method: "POST",
         body: JSON.stringify(newResource),
       }),
@@ -277,7 +288,7 @@ export const useResourceMutations = () => {
       id: string;
       data: { name: string; groupId: string };
     }) =>
-      apiRequest<Resource>(`/Resource/${id}`, {
+      apiRequest<Team>(`/Resource/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),
@@ -344,7 +355,7 @@ export const useAbsenceTypeMutations = () => {
 
   const createMutation = useMutation({
     mutationFn: (newType: { label: string; color: string }) =>
-      apiRequest<AbsenceType>("/AbsenceType", {
+      apiRequest<AbsenceReason>("/AbsenceType", {
         method: "POST",
         body: JSON.stringify(newType),
       }),
@@ -360,7 +371,7 @@ export const useAbsenceTypeMutations = () => {
       id: string;
       data: { label: string; color: string };
     }) =>
-      apiRequest<AbsenceType>(`/AbsenceType/${id}`, {
+      apiRequest<AbsenceReason>(`/AbsenceType/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),

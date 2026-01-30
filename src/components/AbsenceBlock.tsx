@@ -16,18 +16,18 @@ import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { AbsenceDetails } from "../types";
+import type { AbsenceBlockData } from "../types";
 import {
   useAbsenceBlockIsResizing,
   useAbsenceBlockVisualDuration,
   useAbsenceBlockVisualStartShift,
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
-} from "../services/AbsenceBlockStore";
+} from "../services/absenceBlockStore";
 import { useAbsenceBlockMutation } from "../services/hooks/useData";
 
 interface Props {
-  leave: AbsenceDetails;
+  absenceDetails: AbsenceBlockData;
   left?: number;
   isOverlay?: boolean;
   onResizeEnd?: (id: string, newDuration: number, daysShifted: number) => void;
@@ -43,7 +43,7 @@ interface Props {
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
 export const AbsenceBlock = ({
-  leave,
+  absenceDetails,
   left = 0,
   isOverlay = false,
   onResizeEnd,
@@ -56,21 +56,22 @@ export const AbsenceBlock = ({
   isDeletionDisabled = false,
   isPastDaysBlocked = true,
 }: Props) => {
-  const isPast = isPastDaysBlocked && dayjs(leave.startDate).isBefore(today);
-  const isFactuallyPast = dayjs(leave.startDate).isBefore(today);
+  const isPast =
+    isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
+  const isFactuallyPast = dayjs(absenceDetails.startDate).isBefore(today);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
-      id: leave.id,
-      data: leave,
+      id: absenceDetails.id,
+      data: absenceDetails,
       disabled: isOverlay || isPast,
     });
 
   // --- STATE FROM ZUSTAND ---
-  const isResizing = useAbsenceBlockIsResizing(leave.id);
-  const visualDuration = useAbsenceBlockVisualDuration(leave.id);
-  const visualStartShift = useAbsenceBlockVisualStartShift(leave.id);
-  const isTooltipOpen = useAbsenceBlockIsTooltipOpen(leave.id);
+  const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
+  const visualDuration = useAbsenceBlockVisualDuration(absenceDetails.id);
+  const visualStartShift = useAbsenceBlockVisualStartShift(absenceDetails.id);
+  const isTooltipOpen = useAbsenceBlockIsTooltipOpen(absenceDetails.id);
   const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
 
   // --- TANSTACK QUERY MUTATIONS ---
@@ -94,8 +95,8 @@ export const AbsenceBlock = ({
 
   // Initialize block state on mount
   useEffect(() => {
-    setBlock(leave.id, {
-      visualDuration: leave.durationDays,
+    setBlock(absenceDetails.id, {
+      visualDuration: absenceDetails.durationDays,
       visualStartShift: 0,
       isResizing: false,
       isTooltipOpen: false,
@@ -114,17 +115,17 @@ export const AbsenceBlock = ({
   // Reset visual state when resizing ends or props change
   useEffect(() => {
     if (!isResizing) {
-      resetBlock(leave.id, leave.durationDays);
+      resetBlock(absenceDetails.id, absenceDetails.durationDays);
     }
-  }, [leave.durationDays, isResizing, leave.id, resetBlock]);
+  }, [absenceDetails.durationDays, isResizing, absenceDetails.id, resetBlock]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      removeBlock(leave.id);
+      removeBlock(absenceDetails.id);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [leave.id, removeBlock]);
+  }, [absenceDetails.id, removeBlock]);
 
   const animate = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
@@ -141,24 +142,26 @@ export const AbsenceBlock = ({
     const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
     const mouseDiff = pX - startXRef.current;
     const totalDeltaX = mouseDiff + scrollDiff;
-    const startDuration = leave.durationDays;
+    const startDuration = absenceDetails.durationDays;
 
     if (directionRef.current === "right") {
       const newVisualWidth = startDuration * CELL_WIDTH + totalDeltaX;
       const newVisualDuration = newVisualWidth / CELL_WIDTH;
-      setBlock(leave.id, { visualDuration: Math.max(1, newVisualDuration) });
+      setBlock(absenceDetails.id, {
+        visualDuration: Math.max(1, newVisualDuration),
+      });
     } else {
       const newVisualWidth = startDuration * CELL_WIDTH - totalDeltaX;
 
       if (newVisualWidth < CELL_WIDTH) {
-        setBlock(leave.id, {
+        setBlock(absenceDetails.id, {
           visualStartShift: startDuration - 1,
           visualDuration: 1,
         });
       } else {
         const actualShiftInPixels = totalDeltaX;
         const actualShiftInDays = actualShiftInPixels / CELL_WIDTH;
-        setBlock(leave.id, {
+        setBlock(absenceDetails.id, {
           visualStartShift: actualShiftInDays,
           visualDuration: startDuration - actualShiftInDays,
         });
@@ -171,10 +174,10 @@ export const AbsenceBlock = ({
     e.preventDefault();
     e.stopPropagation();
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-    setBlock(leave.id, { isTooltipOpen: false });
+    setBlock(absenceDetails.id, { isTooltipOpen: false });
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
-    setBlock(leave.id, { isResizing: true });
+    setBlock(absenceDetails.id, { isResizing: true });
     isResizingRef.current = true;
     directionRef.current = direction;
     startXRef.current = e.clientX;
@@ -197,7 +200,7 @@ export const AbsenceBlock = ({
         requestRef.current = 0;
       }
 
-      setBlock(leave.id, { isResizing: false });
+      setBlock(absenceDetails.id, { isResizing: false });
 
       if (scrollContainerRef?.current) {
         const finalScrollLeft = scrollContainerRef.current.scrollLeft;
@@ -205,7 +208,7 @@ export const AbsenceBlock = ({
         const mouseDiff = upEvent.clientX - startXRef.current;
         const totalDeltaX = mouseDiff + scrollDiff;
         const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
-        const startDuration = leave.durationDays;
+        const startDuration = absenceDetails.durationDays;
         let fDur = startDuration;
         let fS = 0;
 
@@ -218,9 +221,9 @@ export const AbsenceBlock = ({
         }
 
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
-          onResizeEnd(leave.id, fDur, fS);
+          onResizeEnd(absenceDetails.id, fDur, fS);
           // Persist to server via TanStack Query
-          updateAbsence(leave.id, fDur);
+          updateAbsence(absenceDetails.id, fDur);
         }
       }
     };
@@ -244,7 +247,7 @@ export const AbsenceBlock = ({
     if (!isTooltipOpen) {
       if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
       openTimeoutRef.current = window.setTimeout(() => {
-        setBlock(leave.id, { isTooltipOpen: true });
+        setBlock(absenceDetails.id, { isTooltipOpen: true });
         onTooltipOpen?.();
       }, TOOLTIP_DELAY);
     }
@@ -256,7 +259,7 @@ export const AbsenceBlock = ({
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
 
     openTimeoutRef.current = window.setTimeout(() => {
-      setBlock(leave.id, { isTooltipOpen: true });
+      setBlock(absenceDetails.id, { isTooltipOpen: true });
       onTooltipOpen?.();
     }, TOOLTIP_DELAY);
   };
@@ -264,13 +267,15 @@ export const AbsenceBlock = ({
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
 
     closeTimeoutRef.current = window.setTimeout(() => {
-      setBlock(leave.id, { isTooltipOpen: false });
+      setBlock(absenceDetails.id, { isTooltipOpen: false });
       onTooltipClose?.();
     }, 300);
   };
 
   // --- STYLES ---
-  const displayDuration = isResizing ? visualDuration : leave.durationDays;
+  const displayDuration = isResizing
+    ? visualDuration
+    : absenceDetails.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
   const blockHeight = ROW_HEIGHT - 10;
@@ -280,7 +285,7 @@ export const AbsenceBlock = ({
     left: isOverlay ? 0 : `${displayLeft}px`,
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-    backgroundColor: leave.color,
+    backgroundColor: absenceDetails.color,
     color: "white",
     padding: "4px 8px",
     borderRadius: "30px",
@@ -323,13 +328,15 @@ export const AbsenceBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
-      <Box sx={{ bgcolor: leave.color, height: 6, width: "100%", mb: 1 }} />
+      <Box
+        sx={{ bgcolor: absenceDetails.color, height: 6, width: "100%", mb: 1 }}
+      />
       <Box>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
-          {leave.name}
+          {absenceDetails.name}
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -356,9 +363,9 @@ export const AbsenceBlock = ({
           >
             <DateRangeIcon fontSize="small" />
             <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {dayjs(leave.startDate).format("D MMM")} -{" "}
-              {dayjs(leave.startDate)
-                .add(leave.durationDays - 1, "day")
+              {dayjs(absenceDetails.startDate).format("D MMM")} -{" "}
+              {dayjs(absenceDetails.startDate)
+                .add(absenceDetails.durationDays - 1, "day")
                 .format("D MMM")}
             </Typography>
           </Box>
@@ -372,7 +379,7 @@ export const AbsenceBlock = ({
           >
             <AccessTimeIcon fontSize="small" />
             <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {leave.durationDays} dagar
+              {absenceDetails.durationDays} dagar
             </Typography>
           </Box>
         </Box>
@@ -400,7 +407,7 @@ export const AbsenceBlock = ({
               color="primary"
               onClick={(e) => {
                 e.stopPropagation();
-                onEdit?.(leave.id);
+                onEdit?.(absenceDetails.id);
               }}
               sx={{
                 border: "1px solid",
@@ -420,9 +427,9 @@ export const AbsenceBlock = ({
               onClick={(e) => {
                 e.stopPropagation();
                 // Delete via TanStack Query
-                deleteAbsence(leave.id);
+                deleteAbsence(absenceDetails.id);
                 // Also call the callback
-                onDelete?.(leave.id);
+                onDelete?.(absenceDetails.id);
               }}
               sx={{
                 border: "1px solid",
@@ -470,7 +477,7 @@ export const AbsenceBlock = ({
         fontWeight="bold"
         sx={{ flex: 1, textAlign: "center" }}
       >
-        {leave.name}
+        {absenceDetails.name}
       </Typography>
       {!isDragging && !isPast && (
         <Box
@@ -519,7 +526,7 @@ export const AbsenceBlock = ({
           },
           arrow: {
             sx: {
-              color: leave.color,
+              color: absenceDetails.color,
               fontSize: 12,
               "&:before": {
                 border: "1px solid",
@@ -543,7 +550,7 @@ export const AbsenceBlock = ({
               maxWidth: 320,
               borderRadius: "10px",
               border: "1px solid",
-              borderColor: `${leave.color}70`,
+              borderColor: `${absenceDetails.color}70`,
               pointerEvents: "auto",
               fontSize: "0.875rem",
               lineHeight: 1.6,

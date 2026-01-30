@@ -12,7 +12,7 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Group, AbsenceDetails } from "../types";
+import type { Person, AbsenceBlockData } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
@@ -22,11 +22,11 @@ interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
-  groups: Group[];
-  leaves: AbsenceDetails[];
+  groups: Person[];
+  leaves: AbsenceBlockData[];
   collapsedGroups: string[];
   absenceTypes: any[];
-  activeLeave: AbsenceDetails | null;
+  activeLeave: AbsenceBlockData | null;
 
   // Settings
   blockPastDays: boolean;
@@ -679,7 +679,7 @@ export const TimelineDndContext = forwardRef<
                             .map((l) => (
                               <AbsenceBlock
                                 key={l.id}
-                                leave={l}
+                                absenceDetails={l}
                                 resourceName={res.name}
                                 left={getDateOffset(l.startDate, startDate)}
                                 // HÄR ÄR FIXEN - Du måste skicka med dessa:
@@ -705,7 +705,9 @@ export const TimelineDndContext = forwardRef<
 
             {/* Drag Visual Ghost */}
             <DragOverlay adjustScale={false}>
-              {activeLeave && <AbsenceBlock leave={activeLeave} isOverlay />}
+              {activeLeave && (
+                <AbsenceBlock absenceDetails={activeLeave} isOverlay />
+              )}
             </DragOverlay>
           </DndContext>
         </Box>
@@ -713,6 +715,3 @@ export const TimelineDndContext = forwardRef<
     </>
   );
 });
-
-
-
