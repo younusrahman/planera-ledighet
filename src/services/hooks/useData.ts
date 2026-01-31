@@ -27,6 +27,12 @@ export const useAbsences = () =>
     queryKey: ["absences"],
     queryFn: () => apiRequest<AbsenceBlockData[]>("/absence"),
   });
+  
+export const useResources = () =>
+  useQuery({
+    queryKey: ["resources"],
+    queryFn: () => apiRequest<AbsenceBlockData[]>("/resource"),
+  });
 
 // --- MUTATIONS ---
 
@@ -65,7 +71,7 @@ export const useAbsenceMutations = () => {
       // Return a context object with the snapshotted value
       return { previousAbsences };
     },
-    onError: (err, newAbsence, context) => {
+    onError: (_err, _newAbsence, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAbsences) {
         queryClient.setQueryData(["absences"], context.previousAbsences);
@@ -106,7 +112,7 @@ export const useAbsenceMutations = () => {
       // Return a context object with the snapshotted value
       return { previousAbsences };
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAbsences) {
         queryClient.setQueryData(["absences"], context.previousAbsences);
@@ -136,7 +142,7 @@ export const useAbsenceMutations = () => {
       // Return a context object with the snapshotted value
       return { previousAbsences };
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousAbsences) {
         queryClient.setQueryData(["absences"], context.previousAbsences);

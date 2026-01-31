@@ -29,7 +29,6 @@ import {
 import type { Person } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
-import { appServicesStatic } from "../services/appServices";
 import EventBusyIcon from "@mui/icons-material/EventBusy";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
@@ -50,6 +49,7 @@ interface TimelineSidebarProps {
     resourceToEdit?: { id: string; name: string },
     currentGroupId?: string,
   ) => void;
+  doseHaveAbsenceTypes?: boolean;
 }
 
 export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
@@ -66,8 +66,8 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   handleDialogAbsenceTypeTrigger,
   handleDialogResourceTrigger,
   handleDialogDatabaseSystemTrigger,
+  doseHaveAbsenceTypes = false,
 }) => {
-  const absenceTypes = appServicesStatic.absenceTypes.useItems();
   const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
     null,
   );
@@ -411,7 +411,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           frånvarotyper
         </MenuItem>
         <MenuItem
-          disabled={absenceTypes.length === 0}
+          disabled={!doseHaveAbsenceTypes}
           onClick={() => {
             closeMenus();
             handleDialogGroupTrigger();

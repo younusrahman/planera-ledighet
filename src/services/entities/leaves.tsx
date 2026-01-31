@@ -1,10 +1,11 @@
-import type { AbsenceDetails } from "../../types";
+
+import { AbsenceReason } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { createEntityModule } from "../entityModule";
 
 export const leaves = createEntityModule<
-  AbsenceDetails,
-  Partial<AbsenceDetails>
+  AbsenceReason,
+  Partial<AbsenceReason>
 >({
   name: "leaves",
   fetchAll: () => apiRequest("/absence"),

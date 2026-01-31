@@ -32,7 +32,6 @@ import {
 } from "@mui/icons-material";
 import { toast } from "../../services/globalSnackbar";
 import { BASE_URL } from "../../services/apiInstance";
-import { appServicesStatic } from "../../services/appServices";
 import { ProTooltip } from "../ProTooltip";
 import { useBackups, useDatabaseMutations } from "../../services/hooks/useData";
 export interface DatabaseMaintenanceProps {
@@ -90,12 +89,6 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
     try {
       await task();
       toast(successMsg, "success");
-      if (
-        successMsg.includes("nollställt") ||
-        successMsg.includes("återställt")
-      ) {
-        await appServicesStatic.refreshAllData();
-      }
       if (successMsg.includes("återställt")) setManualPath("");
     } catch (e: any) {
       toast(e.message || "Ett oväntat fel uppstod", "error");

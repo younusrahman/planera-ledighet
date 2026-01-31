@@ -75,7 +75,7 @@ export const AbsenceBlock = ({
   const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
 
   // --- TANSTACK QUERY MUTATIONS ---
-  const { updateAbsence, deleteAbsence, isUpdating, isDeleting } =
+  const { updateAbsence, deleteAbsence, isDeleting } =
     useAbsenceBlockMutation();
 
   // --- REFS FOR VIRTUAL POSITIONING ---

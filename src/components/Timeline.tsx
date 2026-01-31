@@ -23,11 +23,16 @@ import {
   useGroupMutation,
   useResourceMutation,
   useAbsenceTypeMutation,
+  useGroups,
+  useAbsenceTypes,
 } from "../services/hooks/useData";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
+  // 1. Hämta ENDAST från Store/API
+
+  const absenceDetails = appServicesStatic.leaves.useItems();
   const sidebarMode = useSidebarMode();
   const { toggleSidebar } = useUIActions();
 
@@ -37,16 +42,8 @@ export const Timeline = () => {
     useResourceMutation();
   const { createAbsenceType, updateAbsenceType, deleteAbsenceType } =
     useAbsenceTypeMutation();
-
-  // 1. Hämta ENDAST från Store/API
-  const absenceTypes = appServicesStatic.absenceTypes.useItems();
-  const groups = appServicesStatic.groups.useItems();
-  const absenceDetails = appServicesStatic.leaves.useItems();
-
-  // 2. Trigga laddning
-  useEffect(() => {
-    appServicesStatic.refreshAllData();
-  }, []);
+  const { data: groups = [] } = useGroups();
+  const { data: absenceTypes = [] } = useAbsenceTypes();
 
   // Debug: Log data
   useEffect(() => {
@@ -199,7 +196,6 @@ export const Timeline = () => {
   const handleDeleteResource = async (groupId: string, resId: string) => {
     if (resId && groupId) {
       await deleteResource(resId);
-      await appServicesStatic.groups.loadAll();
     }
   };
   // --- GROUP ACTIONS ---
@@ -207,7 +203,6 @@ export const Timeline = () => {
   const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
       await deleteGroup(selectedGroupId);
-      await appServicesStatic.groups.loadAll();
     }
   };
 
@@ -223,9 +218,6 @@ export const Timeline = () => {
     } else {
       await createAbsenceType(label, color);
     }
-    await appServicesStatic.absenceTypes.loadAll();
-    // Also refresh leaves since they depend on absenceType colors
-    await appServicesStatic.leaves.loadAll();
   };
   const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
     if (!name.trim()) return;
@@ -235,7 +227,6 @@ export const Timeline = () => {
     } else {
       await createGroup(name);
     }
-    await appServicesStatic.groups.loadAll();
   };
   const handleSaveResource = async (
     name: string,
@@ -249,7 +240,6 @@ export const Timeline = () => {
     } else {
       await createResource(name, targetGroupId);
     }
-    await appServicesStatic.groups.loadAll();
   };
 
   // --- TIMELINE LOGIC ---
@@ -312,30 +302,24 @@ export const Timeline = () => {
       isLoadingRef.current = false;
     }
   }, [startDate]);
-  // 1. Calculate the width of the disabled area
+
   const disabledOverlayWidth = useMemo(() => {
     const offset = getDateOffset(today.format("YYYY-MM-DD"), startDate);
-    return Math.max(0, offset); // Ensure width is not negative
+    return Math.max(0, offset);
   }, [startDate]);
   useEffect(() => {
     const updateDaysCount = () => {
       if (scrollContainerRef.current) {
         const containerWidth = scrollContainerRef.current.offsetWidth;
-        // Beräkna hur många dagar som syns på skärmen just nu
         const visibleDays = Math.ceil(containerWidth / CELL_WIDTH);
-
-        // Vi sätter daysCount till synliga dagar + ca 60 dagar buffert (2 månader extra)
-        // så att det inte blir tomt när man scrollar lite.
         const optimalDays = visibleDays + 60;
 
         setDaysCount(optimalDays);
       }
     };
 
-    // Kör direkt vid start
-    updateDaysCount();
 
-    // Lyssna på om användaren ändrar storlek på webbläsarfönstret
+    updateDaysCount();
     window.addEventListener("resize", updateDaysCount);
     return () => window.removeEventListener("resize", updateDaysCount);
   }, []);
@@ -586,7 +570,6 @@ export const Timeline = () => {
     if (!id) return;
 
     await deleteAbsenceType(id);
-    await appServicesStatic.absenceTypes.loadAll();
     // Also refresh leaves in case they used this type
     await appServicesStatic.leaves.loadAll();
     setSelectedTypeId(null);
@@ -670,7 +653,7 @@ export const Timeline = () => {
         ? async () => {
             if (groupToEdit?.id) {
               await deleteGroup(groupToEdit.id);
-              await appServicesStatic.groups.loadAll();
+
               dialog.close();
             }
           }
@@ -846,6 +829,7 @@ export const Timeline = () => {
           handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
           handleDialogResourceTrigger={handleDialogResourceTrigger}
           handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
+          doseHaveAbsenceTypes={absenceTypes.length > 0}
         />
         {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
         <TimelineDndContext
