@@ -1,9 +1,11 @@
 // leavesStore.ts
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { toast } from "./globalSnackbar";
+
 import { apiRequest } from "../apiInstance";
 import type { AbsenceBlockData } from "../../types";
+import { toast } from "./globalSnackbar";
+import { queryClient } from "../../App";
 
 type Id = string;
 
@@ -21,6 +23,9 @@ type Actions = {
   remove: (id: Id) => void;
 };
 
+// --------------------------------------------------
+// ZUSTAND STORE
+// --------------------------------------------------
 const useLeavesStore = create<State & { actions: Actions }>((set) => ({
   ids: [],
   byId: {},
@@ -68,9 +73,9 @@ const useLeavesStore = create<State & { actions: Actions }>((set) => ({
   },
 }));
 
-// -----------------------------
+// --------------------------------------------------
 // SELECTORS (same API as before)
-// -----------------------------
+// --------------------------------------------------
 const useIds = () => useLeavesStore(useShallow((s) => s.ids));
 
 const useItems = () =>
@@ -90,18 +95,35 @@ const useItemField = <K extends keyof AbsenceBlockData>(id: Id, field: K) =>
 const useDerived = <R>(selectorFn: (items: AbsenceBlockData[]) => R) =>
   useLeavesStore(useShallow((s) => selectorFn(s.ids.map((id) => s.byId[id]))));
 
-// -----------------------------
-// CRUD SERVICE (same API as before)
-// -----------------------------
+// --------------------------------------------------
+// MUTATION HELPER (TanStack Query v5)
+// --------------------------------------------------
+async function runMutation<T>(mutationFn: () => Promise<T>) {
+  const mutation = queryClient.getMutationCache().build(queryClient, {
+    mutationFn,
+  });
+  return mutation.execute(undefined);
+}
+
+// --------------------------------------------------
+// CRUD SERVICE (TanStack Query v5)
+// --------------------------------------------------
 async function loadAll() {
   const { actions } = useLeavesStore.getState();
+
   try {
     useLeavesStore.setState({ loading: true, error: null });
-    const data = await apiRequest<AbsenceBlockData[]>("/leaves");
+
+    const data = await queryClient.fetchQuery({
+      queryKey: ["leaves"],
+      queryFn: () => apiRequest<AbsenceBlockData[]>("/leaves"),
+      staleTime: 1000 * 60 * 5,
+    });
+
     actions.setAll(data);
   } catch (e: any) {
     useLeavesStore.setState({ error: "Failed to load data" });
-    toast(`leaves: load failed`, "error");
+    toast("leaves: load failed", "error");
     throw e;
   } finally {
     useLeavesStore.setState({ loading: false });
@@ -110,16 +132,25 @@ async function loadAll() {
 
 async function createOne(body: AbsenceBlockData) {
   const { actions } = useLeavesStore.getState();
+
   try {
-    const real = await apiRequest<AbsenceBlockData>("/leaves", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    actions.add(real);
-    toast(`leaves: created`, "success");
-    return real;
+    const newItem = await runMutation(() =>
+      apiRequest<AbsenceBlockData>("/leaves", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    );
+
+    actions.add(newItem);
+
+    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+      old ? [...old, newItem] : [newItem],
+    );
+
+    toast("leaves: created", "success");
+    return newItem;
   } catch (e: any) {
-    toast(`leaves: create failed`, "error");
+    toast("leaves: create failed", "error");
     throw e;
   }
 }
@@ -131,16 +162,24 @@ async function updateOne(id: Id, body: AbsenceBlockData) {
   if (prev) actions.update({ ...prev, ...(body as any) });
 
   try {
-    const real = await apiRequest<AbsenceBlockData>(`/leaves/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    });
-    actions.update(real);
-    toast(`leaves: updated`, "success");
-    return real;
+    const updated = await runMutation(() =>
+      apiRequest<AbsenceBlockData>(`/leaves/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    );
+
+    actions.update(updated);
+
+    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+      old ? old.map((i) => (i.id === id ? updated : i)) : [updated],
+    );
+
+    toast("leaves: updated", "success");
+    return updated;
   } catch (e: any) {
     if (prev) actions.update(prev);
-    toast(`leaves: update failed`, "error");
+    toast("leaves: update failed", "error");
     throw e;
   }
 }
@@ -152,18 +191,27 @@ async function removeOne(id: Id) {
   if (prev) actions.remove(id);
 
   try {
-    await apiRequest<void>(`/leaves/${id}`, { method: "DELETE" });
-    toast(`leaves: deleted`, "success");
+    await runMutation(() =>
+      apiRequest<void>(`/leaves/${id}`, {
+        method: "DELETE",
+      }),
+    );
+
+    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+      old ? old.filter((i) => i.id !== id) : [],
+    );
+
+    toast("leaves: deleted", "success");
   } catch (e: any) {
     if (prev) actions.add(prev);
-    toast(`leaves: delete failed`, "error");
+    toast("leaves: delete failed", "error");
     throw e;
   }
 }
 
-// -----------------------------
+// --------------------------------------------------
 // EXPORT (same API as before)
-// -----------------------------
+// --------------------------------------------------
 export const leaves = {
   useStore: useLeavesStore,
   useIds,
