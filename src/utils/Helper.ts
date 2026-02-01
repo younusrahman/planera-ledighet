@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import type { AbsenceBlockData } from "../types";
+import type { Absence } from "../types";
 import { CELL_WIDTH } from "../utils";
 
 // HELPERS
@@ -23,7 +23,7 @@ export const getDateOffset = (
 };
 
 export const checkCollision = (
-  items: AbsenceBlockData[],
+  items: Absence[],
   targetItem: {
     id: string;
     rowId: string;

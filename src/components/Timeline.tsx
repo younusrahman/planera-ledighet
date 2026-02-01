@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
-import type { Person, AbsenceBlockData } from "../types";
+import type { Employee, Absence } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
@@ -26,7 +26,7 @@ import {
   useGroups,
   useAbsenceTypes,
 } from "../services/hooks/useData";
-import { leaves } from "../services/stores/leavesStore";
+import { absence } from "../services/stores/absenceStore";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
@@ -34,9 +34,9 @@ export const Timeline = () => {
   // 1. Hämta ENDAST från Store/API
   useEffect(() => {
     // Load leaves on mount
-    leaves.loadAll();
+    absence.loadAll();
   }, []); // Load leaves on mount
-  const absenceDetails = leaves.useItems();
+  const absenceDetails = absence.useItems();
   const sidebarMode = useSidebarMode();
   const { toggleSidebar } = useUIActions();
 
@@ -77,7 +77,7 @@ export const Timeline = () => {
 
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
 
-  const [activeLeave, setActiveLeave] = useState<AbsenceBlockData | null>(null);
+  const [activeLeave, setActiveLeave] = useState<Absence | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const datePickerAnchorRef = useRef<HTMLButtonElement>(null);
   const previousStartDate = useRef(startDate);
@@ -445,7 +445,7 @@ export const Timeline = () => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
-    const entry: AbsenceBlockData = {
+    const entry: Absence = {
       id: leaveIdToUpdate || "l-" + Date.now(),
       rowId: targetRowId,
       name: type.label,
@@ -464,10 +464,10 @@ export const Timeline = () => {
 
     if (leaveIdToUpdate) {
       // UPDATE Logic
-      await leaves.updateOne(leaveIdToUpdate, entry);
+      await absence.updateOne(leaveIdToUpdate, entry);
     } else {
       // CREATE Logic
-      await leaves.createOne(entry);
+      await absence.createOne(entry);
     }
   };
   const handleGridPointerUp = (e: React.PointerEvent) => {
@@ -563,7 +563,7 @@ export const Timeline = () => {
         // --- COLLISION CHECK & API CALL ---
         if (!checkCollision(absenceDetails, updatedItem)) {
           // REPLACE setLeaves with API Call
-          await leaves.updateOne(item.id, updatedItem);
+          await absence.updateOne(item.id, updatedItem);
         }
       }
     }
@@ -574,7 +574,7 @@ export const Timeline = () => {
 
     await deleteAbsenceType(id);
     // Also refresh leaves in case they used this type
-    await leaves.loadAll();
+    await absence.loadAll();
     setSelectedTypeId(null);
   };
   const handleLeaveResizeEnd = async (
@@ -611,7 +611,7 @@ export const Timeline = () => {
     }
 
     // REPLACE setLeaves with API Call
-    await leaves.updateOne(id, updatedItem);
+    await absence.updateOne(id, updatedItem);
   };
   const handleLeaveEdit = (id: string) => {
     const leave = absenceDetails.find((l) => l.id === id);
@@ -624,7 +624,7 @@ export const Timeline = () => {
       toast("Borttagning är inaktiverad i inställningarna.", "error");
       return;
     }
-    await leaves.removeOne(id);
+    await absence.removeOne(id);
   };
 
   // -----------Dialog---------------------
@@ -640,7 +640,7 @@ export const Timeline = () => {
     });
   };
 
-  const handleDialogGroupTrigger = (groupToEdit?: Person) => {
+  const handleDialogGroupTrigger = (groupToEdit?: Employee) => {
     const isEditing = !!groupToEdit;
 
     dialog.open("group", {
@@ -702,7 +702,7 @@ export const Timeline = () => {
     });
   };
   const handleDialogAbsenceTrigger = (
-    leaveToEdit?: AbsenceBlockData,
+    leaveToEdit?: Absence,
     rowId?: string,
     startDate?: Dayjs,
     duration?: number,
@@ -846,7 +846,7 @@ export const Timeline = () => {
           daysCount={daysCount} // from useState
           startDate={startDate} // from useState
           groups={groups} // from useState
-          leaves={absenceDetails} // from useState
+          absences={absenceDetails} // from useState
           collapsedGroups={collapsedGroups} // from useState
           absenceTypes={absenceTypes} // from useState
           activeLeave={activeLeave} // from useState (dnd-kit)

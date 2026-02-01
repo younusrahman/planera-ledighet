@@ -12,7 +12,7 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Person, AbsenceBlockData } from "../types";
+import type { Employee, Absence } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
@@ -22,11 +22,11 @@ interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
-  groups: Person[];
-  leaves: AbsenceBlockData[];
+  groups: Employee[];
+  absences: Absence[];
   collapsedGroups: string[];
   absenceTypes: any[];
-  activeLeave: AbsenceBlockData | null;
+  activeLeave: Absence | null;
 
   // Settings
   blockPastDays: boolean;
@@ -71,7 +71,7 @@ export const TimelineDndContext = forwardRef<
     daysCount,
     startDate,
     groups,
-    leaves,
+    absences,
     collapsedGroups,
     absenceTypes,
     activeLeave,
@@ -275,12 +275,12 @@ export const TimelineDndContext = forwardRef<
     [days, monthBlocks, weekBlocks, holidays],
   ); // Rubriken ritas om ENDAST om dagarna ändras
 
-  // 1. Beräkna vilka leaves som faktiskt är inom det synliga fönstret
-  const visibleLeaves = useMemo(() => {
+  // 1. Beräkna vilka absences som faktiskt är inom det synliga fönstret
+  const visibleAbsences = useMemo(() => {
     // Slutdatumet för vad som visas i gridet just nu
     const timelineEndDate = startDate.add(daysCount, "day");
 
-    const filtered = leaves.filter((l) => {
+    const filtered = absences.filter((l) => {
       const leaveStart = dayjs(l.startDate);
       // Vi räknar ut blockets slutdatum
       const leaveEnd = leaveStart.add(l.durationDays, "day");
@@ -293,8 +293,8 @@ export const TimelineDndContext = forwardRef<
       );
     });
 
-    console.log("👁️ Visible Leaves:", {
-      total: leaves.length,
+    console.log("👁️ Visible Absences:", {
+      total: absences.length,
       visible: filtered.length,
       startDate: startDate.format("YYYY-MM-DD"),
       endDate: timelineEndDate.format("YYYY-MM-DD"),
@@ -302,7 +302,7 @@ export const TimelineDndContext = forwardRef<
     });
 
     return filtered;
-  }, [leaves, startDate, daysCount]);
+  }, [absences, startDate, daysCount]);
   // --- Grid Visual Constants ---
 
   const noGroups = !groups || groups.length === 0;
@@ -673,8 +673,8 @@ export const TimelineDndContext = forwardRef<
                             )}
 
                           {/* Render Leave Blocks for this Resource */}
-                          {/* Render Leave Blocks for this Resource - använder nu visibleLeaves */}
-                          {visibleLeaves
+                          {/* Render Absence Blocks for this Resource - använder nu visibleAbsences */}
+                          {visibleAbsences
                             .filter((l) => l.rowId === res.id)
                             .map((l) => (
                               <AbsenceBlock

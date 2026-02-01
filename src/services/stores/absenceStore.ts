@@ -1,9 +1,9 @@
-// leavesStore.ts
+// absenceStore.ts
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
 import { apiRequest } from "../apiInstance";
-import type { AbsenceBlockData } from "../../types";
+import type { Absence } from "../../types";
 import { toast } from "./globalSnackbar";
 import { queryClient } from "../../App";
 
@@ -11,22 +11,22 @@ type Id = string;
 
 type State = {
   ids: Id[];
-  byId: Record<Id, AbsenceBlockData>;
+  byId: Record<Id, Absence>;
   loading: boolean;
   error: string | null;
 };
 
 type Actions = {
-  setAll: (items: AbsenceBlockData[]) => void;
-  add: (item: AbsenceBlockData) => void;
-  update: (item: AbsenceBlockData) => void;
+  setAll: (items: Absence[]) => void;
+  add: (item: Absence) => void;
+  update: (item: Absence) => void;
   remove: (id: Id) => void;
 };
 
 // --------------------------------------------------
 // ZUSTAND STORE
 // --------------------------------------------------
-const useLeavesStore = create<State & { actions: Actions }>((set) => ({
+const useAbsenceStore = create<State & { actions: Actions }>((set) => ({
   ids: [],
   byId: {},
   loading: false,
@@ -36,7 +36,7 @@ const useLeavesStore = create<State & { actions: Actions }>((set) => ({
     setAll: (items) =>
       set(() => ({
         ids: items.map((i) => i.id),
-        byId: items.reduce<Record<string, AbsenceBlockData>>((acc, item) => {
+        byId: items.reduce<Record<string, Absence>>((acc, item) => {
           acc[item.id] = item;
           return acc;
         }, {}),
@@ -76,24 +76,24 @@ const useLeavesStore = create<State & { actions: Actions }>((set) => ({
 // --------------------------------------------------
 // SELECTORS (same API as before)
 // --------------------------------------------------
-const useIds = () => useLeavesStore(useShallow((s) => s.ids));
+const useIds = () => useAbsenceStore(useShallow((s) => s.ids));
 
 const useItems = () =>
-  useLeavesStore(useShallow((s) => s.ids.map((id) => s.byId[id])));
+  useAbsenceStore(useShallow((s) => s.ids.map((id) => s.byId[id])));
 
-const useLoading = () => useLeavesStore((s) => s.loading);
+const useLoading = () => useAbsenceStore((s) => s.loading);
 
-const useError = () => useLeavesStore((s) => s.error);
+const useError = () => useAbsenceStore((s) => s.error);
 
-const useActions = () => useLeavesStore((s) => s.actions);
+const useActions = () => useAbsenceStore((s) => s.actions);
 
-const useItem = (id: Id) => useLeavesStore(useShallow((s) => s.byId[id]));
+const useItem = (id: Id) => useAbsenceStore(useShallow((s) => s.byId[id]));
 
-const useItemField = <K extends keyof AbsenceBlockData>(id: Id, field: K) =>
-  useLeavesStore((s) => s.byId[id]?.[field]);
+const useItemField = <K extends keyof Absence>(id: Id, field: K) =>
+  useAbsenceStore((s) => s.byId[id]?.[field]);
 
-const useDerived = <R>(selectorFn: (items: AbsenceBlockData[]) => R) =>
-  useLeavesStore(useShallow((s) => selectorFn(s.ids.map((id) => s.byId[id]))));
+const useDerived = <R>(selectorFn: (items: Absence[]) => R) =>
+  useAbsenceStore(useShallow((s) => selectorFn(s.ids.map((id) => s.byId[id]))));
 
 // --------------------------------------------------
 // MUTATION HELPER (TanStack Query v5)
@@ -109,33 +109,33 @@ async function runMutation<T>(mutationFn: () => Promise<T>) {
 // CRUD SERVICE (TanStack Query v5)
 // --------------------------------------------------
 async function loadAll() {
-  const { actions } = useLeavesStore.getState();
+  const { actions } = useAbsenceStore.getState();
 
   try {
-    useLeavesStore.setState({ loading: true, error: null });
+    useAbsenceStore.setState({ loading: true, error: null });
 
     const data = await queryClient.fetchQuery({
       queryKey: ["leaves"],
-      queryFn: () => apiRequest<AbsenceBlockData[]>("/leaves"),
+      queryFn: () => apiRequest<Absence[]>("/leaves"),
       staleTime: 1000 * 60 * 5,
     });
 
     actions.setAll(data);
   } catch (e: any) {
-    useLeavesStore.setState({ error: "Failed to load data" });
+    useAbsenceStore.setState({ error: "Failed to load data" });
     toast("leaves: load failed", "error");
     throw e;
   } finally {
-    useLeavesStore.setState({ loading: false });
+    useAbsenceStore.setState({ loading: false });
   }
 }
 
-async function createOne(body: AbsenceBlockData) {
-  const { actions } = useLeavesStore.getState();
+async function createOne(body: Absence) {
+  const { actions } = useAbsenceStore.getState();
 
   try {
     const newItem = await runMutation(() =>
-      apiRequest<AbsenceBlockData>("/leaves", {
+      apiRequest<Absence>("/leaves", {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -143,7 +143,7 @@ async function createOne(body: AbsenceBlockData) {
 
     actions.add(newItem);
 
-    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
       old ? [...old, newItem] : [newItem],
     );
 
@@ -155,15 +155,15 @@ async function createOne(body: AbsenceBlockData) {
   }
 }
 
-async function updateOne(id: Id, body: AbsenceBlockData) {
-  const { byId, actions } = useLeavesStore.getState();
+async function updateOne(id: Id, body: Absence) {
+  const { byId, actions } = useAbsenceStore.getState();
   const prev = byId[id];
 
   if (prev) actions.update({ ...prev, ...(body as any) });
 
   try {
     const updated = await runMutation(() =>
-      apiRequest<AbsenceBlockData>(`/leaves/${id}`, {
+      apiRequest<Absence>(`/leaves/${id}`, {
         method: "PUT",
         body: JSON.stringify(body),
       }),
@@ -171,7 +171,7 @@ async function updateOne(id: Id, body: AbsenceBlockData) {
 
     actions.update(updated);
 
-    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
       old ? old.map((i) => (i.id === id ? updated : i)) : [updated],
     );
 
@@ -185,7 +185,7 @@ async function updateOne(id: Id, body: AbsenceBlockData) {
 }
 
 async function removeOne(id: Id) {
-  const { byId, actions } = useLeavesStore.getState();
+  const { byId, actions } = useAbsenceStore.getState();
   const prev = byId[id];
 
   if (prev) actions.remove(id);
@@ -197,7 +197,7 @@ async function removeOne(id: Id) {
       }),
     );
 
-    queryClient.setQueryData<AbsenceBlockData[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
       old ? old.filter((i) => i.id !== id) : [],
     );
 
@@ -212,8 +212,8 @@ async function removeOne(id: Id) {
 // --------------------------------------------------
 // EXPORT (same API as before)
 // --------------------------------------------------
-export const leaves = {
-  useStore: useLeavesStore,
+export const absence = {
+  useStore: useAbsenceStore,
   useIds,
   useItems,
   useLoading,

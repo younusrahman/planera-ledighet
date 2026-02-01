@@ -26,14 +26,14 @@ import {
   KeyboardArrowRight,
   Storage as DatabaseIcon,
 } from "@mui/icons-material";
-import type { Person } from "../types";
+import type { Employee } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
 import EventBusyIcon from "@mui/icons-material/EventBusy";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PersonIcon from "@mui/icons-material/Person";
 interface TimelineSidebarProps {
-  groups: Person[];
+  groups: Employee[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
@@ -42,7 +42,7 @@ interface TimelineSidebarProps {
   openConfig: () => void;
   handleDeleteResource: (groupId: string, resId: string) => void;
   handleDeleteGroup: (groupId: string) => void;
-  handleDialogGroupTrigger: (group?: Person) => void;
+  handleDialogGroupTrigger: (group?: Employee) => void;
   handleDialogAbsenceTypeTrigger: () => void;
   handleDialogDatabaseSystemTrigger: () => void;
   handleDialogResourceTrigger: (
