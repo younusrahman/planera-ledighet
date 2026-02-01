@@ -30,7 +30,7 @@ import {
   FileOpen as BrowseIcon,
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
-import { toast } from "../../services/globalSnackbar";
+import { toast } from "../../services/stores/globalSnackbar";
 import { BASE_URL } from "../../services/apiInstance";
 import { ProTooltip } from "../ProTooltip";
 import { useBackups, useDatabaseMutations } from "../../services/hooks/useData";

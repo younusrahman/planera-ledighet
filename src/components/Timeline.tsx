@@ -10,15 +10,15 @@ import { Box } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
-import { useSidebarMode, useUIActions } from "../services/uiStore";
+import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
 import type { Person, AbsenceBlockData } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
-import { toast } from "../services/globalSnackbar";
+import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
 import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
-import { appServicesStatic } from "../services/appServices";
+
 import {
   useGroupMutation,
   useResourceMutation,
@@ -26,13 +26,17 @@ import {
   useGroups,
   useAbsenceTypes,
 } from "../services/hooks/useData";
+import { leaves } from "../services/stores/leavesStore";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
   // 1. Hämta ENDAST från Store/API
-
-  const absenceDetails = appServicesStatic.leaves.useItems();
+  useEffect(() => {
+    // Load leaves on mount
+    leaves.loadAll();
+  }, []); // Load leaves on mount
+  const absenceDetails = leaves.useItems();
   const sidebarMode = useSidebarMode();
   const { toggleSidebar } = useUIActions();
 
@@ -318,7 +322,6 @@ export const Timeline = () => {
       }
     };
 
-
     updateDaysCount();
     window.addEventListener("resize", updateDaysCount);
     return () => window.removeEventListener("resize", updateDaysCount);
@@ -461,10 +464,10 @@ export const Timeline = () => {
 
     if (leaveIdToUpdate) {
       // UPDATE Logic
-      await appServicesStatic.leaves.updateOne(leaveIdToUpdate, entry);
+      await leaves.updateOne(leaveIdToUpdate, entry);
     } else {
       // CREATE Logic
-      await appServicesStatic.leaves.createOne(entry);
+      await leaves.createOne(entry);
     }
   };
   const handleGridPointerUp = (e: React.PointerEvent) => {
@@ -560,7 +563,7 @@ export const Timeline = () => {
         // --- COLLISION CHECK & API CALL ---
         if (!checkCollision(absenceDetails, updatedItem)) {
           // REPLACE setLeaves with API Call
-          await appServicesStatic.leaves.updateOne(item.id, updatedItem);
+          await leaves.updateOne(item.id, updatedItem);
         }
       }
     }
@@ -571,7 +574,7 @@ export const Timeline = () => {
 
     await deleteAbsenceType(id);
     // Also refresh leaves in case they used this type
-    await appServicesStatic.leaves.loadAll();
+    await leaves.loadAll();
     setSelectedTypeId(null);
   };
   const handleLeaveResizeEnd = async (
@@ -608,7 +611,7 @@ export const Timeline = () => {
     }
 
     // REPLACE setLeaves with API Call
-    await appServicesStatic.leaves.updateOne(id, updatedItem);
+    await leaves.updateOne(id, updatedItem);
   };
   const handleLeaveEdit = (id: string) => {
     const leave = absenceDetails.find((l) => l.id === id);
@@ -621,7 +624,7 @@ export const Timeline = () => {
       toast("Borttagning är inaktiverad i inställningarna.", "error");
       return;
     }
-    await appServicesStatic.leaves.removeOne(id);
+    await leaves.removeOne(id);
   };
 
   // -----------Dialog---------------------

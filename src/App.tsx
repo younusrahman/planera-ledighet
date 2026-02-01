@@ -3,7 +3,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "dayjs/locale/sv";
-import { GlobalSnackbar } from "./services/globalSnackbar";
+import { GlobalSnackbar } from "./services/stores/globalSnackbar";
 import { GlobalDialogProvider } from "./services/dialog/GlobalDialogProvider";
 import { Timeline } from "./components/Timeline";
 

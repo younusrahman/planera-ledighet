@@ -23,7 +23,7 @@ import {
   useAbsenceBlockVisualStartShift,
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
-} from "../services/absenceBlockStore";
+} from "../services/stores/absenceBlockStore";
 import { useAbsenceBlockMutation } from "../services/hooks/useData";
 
 interface Props {
