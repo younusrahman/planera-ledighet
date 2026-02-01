@@ -39,6 +39,7 @@ interface Props {
   isDeletionDisabled?: boolean;
   isPastDaysBlocked?: boolean;
   resourceName?: string;
+  absenceTypes?: any[];
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -55,7 +56,20 @@ export const AbsenceBlock = ({
   onTooltipClose,
   isDeletionDisabled = false,
   isPastDaysBlocked = true,
+  absenceTypes = [],
 }: Props) => {
+  // Resolve the current absence type to get the latest color and label
+  const getAbsenceTypeInfo = () => {
+    const absenceType = absenceTypes?.find(
+      (type) => type.id === absenceDetails.absenceTypeId,
+    );
+    return {
+      color: absenceType?.color || absenceDetails.color,
+      name: absenceType?.label || absenceDetails.name,
+    };
+  };
+
+  const { color: resolvedColor, name: resolvedName } = getAbsenceTypeInfo();
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
   const isFactuallyPast = dayjs(absenceDetails.startDate).isBefore(today);
@@ -285,7 +299,7 @@ export const AbsenceBlock = ({
     left: isOverlay ? 0 : `${displayLeft}px`,
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-    backgroundColor: absenceDetails.color,
+    backgroundColor: resolvedColor,
     color: "white",
     padding: "4px 8px",
     borderRadius: "30px",
@@ -328,15 +342,13 @@ export const AbsenceBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
-      <Box
-        sx={{ bgcolor: absenceDetails.color, height: 6, width: "100%", mb: 1 }}
-      />
+      <Box sx={{ bgcolor: resolvedColor, height: 6, width: "100%", mb: 1 }} />
       <Box>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
-          {absenceDetails.name}
+          {resolvedName}
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>

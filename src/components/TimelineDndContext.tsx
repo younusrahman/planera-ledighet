@@ -680,6 +680,7 @@ export const TimelineDndContext = forwardRef<
                               <AbsenceBlock
                                 key={l.id}
                                 absenceDetails={l}
+                                absenceTypes={absenceTypes}
                                 resourceName={res.name}
                                 left={getDateOffset(l.startDate, startDate)}
                                 // HÄR ÄR FIXEN - Du måste skicka med dessa:
