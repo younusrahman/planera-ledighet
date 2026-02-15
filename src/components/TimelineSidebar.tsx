@@ -3,96 +3,36 @@ import {
   Box,
   Typography,
   IconButton,
-  Button,
   Collapse,
-  Menu,
-  MenuItem,
-  Grow,
   alpha,
-  Alert,
   Paper,
   useTheme,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import MenuIcon from "@mui/icons-material/Menu";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import SettingsIcon from "@mui/icons-material/Settings";
-import {
-  KeyboardArrowLeft,
-  KeyboardArrowRight,
-  Storage as DatabaseIcon,
-} from "@mui/icons-material";
 import type { Employee } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
-import EventBusyIcon from "@mui/icons-material/EventBusy";
-import GroupsIcon from "@mui/icons-material/Groups";
-import PersonIcon from "@mui/icons-material/Person";
 interface TimelineSidebarProps {
   groups: Employee[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
-  disableDeletion: boolean;
   toggleGroup: (groupId: string) => void;
-  toggleSidebar: () => void;
-  openConfig: () => void;
-  handleDeleteResource: (groupId: string, resId: string) => void;
-  handleDeleteGroup: (groupId: string) => void;
-  handleDialogGroupTrigger: (group?: Employee) => void;
-  handleDialogAbsenceTypeTrigger: () => void;
-  handleDialogDatabaseSystemTrigger: () => void;
-  handleDialogResourceTrigger: (
-    resourceToEdit?: { id: string; name: string },
-    currentGroupId?: string,
-  ) => void;
-  doseHaveAbsenceTypes?: boolean;
 }
 
 export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   groups,
   sidebarMode,
   collapsedGroups,
-  disableDeletion,
   toggleGroup,
-  toggleSidebar,
-  openConfig,
-  handleDeleteResource,
-  handleDeleteGroup,
-  handleDialogGroupTrigger,
-  handleDialogAbsenceTypeTrigger,
-  handleDialogResourceTrigger,
-  handleDialogDatabaseSystemTrigger,
-  doseHaveAbsenceTypes = false,
 }) => {
-  const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
-    null,
-  );
-  const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
-    null,
-  );
-  const [resourceMenuAnchor, setResourceMenuAnchor] =
-    useState<null | HTMLElement>(null);
-
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
-    null,
-  );
   const theme = useTheme();
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2)
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
-  };
-
-  const closeMenus = () => {
-    setMainMenuAnchor(null);
-    setGroupMenuAnchor(null);
-    setResourceMenuAnchor(null);
   };
 
   return (
@@ -116,12 +56,12 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
         {/* 1. SIDEBAR HEADER - FIXED & OPAQUE */}
         <Box
           sx={{
-            height: 105,
+            height: 105, // Matches the 40+25+40 height of your grid header
             borderBottom: "1px solid rgba(0,0,0,0.1)",
             position: "sticky",
             top: 0,
-            bgcolor: "white", // Solid white to hide names
-            zIndex: 12, // Top layer
+            zIndex: 1100, // Match the Grid Header
+            bgcolor: "white",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -145,7 +85,6 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
             </Box>
           )}
         </Box>
-
         <Box sx={{ flex: 1 }}>
           {groups.length === 0 ? (
             <Paper
@@ -159,7 +98,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                 width: "100%",
                 maxWidth: "100%",
                 marginRight: "1rem",
-                mt: 1, // Add some top margin for spacing
+                mt: 1,
               }}
             >
               <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
@@ -242,8 +181,6 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                           sx={{ opacity: 0 }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedGroupId(group.id);
-                            setGroupMenuAnchor(e.currentTarget);
                           }}
                         >
                           <MoreVertIcon fontSize="small" />
@@ -313,9 +250,6 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                                 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setSelectedGroupId(group.id);
-                                  setSelectedResourceId(res.id);
-                                  setResourceMenuAnchor(e.currentTarget);
                                 }}
                               >
                                 <MoreVertIcon fontSize="small" />
@@ -344,159 +278,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
             </Box>
           )}
         </Box>
-
-        {sidebarMode !== "hidden" && (
-          <Box
-            sx={{
-              position: "sticky",
-              bottom: 0,
-              bgcolor: "white", // MUST BE WHITE to hide names scrolling down
-              zIndex: 12,
-              borderTop: "1px solid rgba(0,0,0,0.1)",
-              p: 1,
-              height: 56, // Explicit height to match the Grid footer
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <Button
-              fullWidth
-              startIcon={<MenuIcon />}
-              onClick={(e) => setMainMenuAnchor(e.currentTarget)}
-              sx={{ fontWeight: 700 }}
-            >
-              {sidebarMode === "full" && "Meny"}
-            </Button>
-          </Box>
-        )}
       </Box>
-
-      {/* --- MENYER --- */}
-
-      {/* Huvudmeny (Botten) */}
-      <Menu
-        anchorEl={mainMenuAnchor}
-        open={Boolean(mainMenuAnchor)}
-        onClose={closeMenus}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-        transformOrigin={{ vertical: "bottom", horizontal: "center" }}
-        slots={{ transition: Grow }}
-      >
-        <MenuItem
-          onClick={() => {
-            closeMenus();
-            handleDialogAbsenceTypeTrigger();
-          }}
-        >
-          <EventBusyIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till
-          frånvarotyper
-        </MenuItem>
-        <MenuItem
-          disabled={!doseHaveAbsenceTypes}
-          onClick={() => {
-            closeMenus();
-            handleDialogGroupTrigger();
-          }}
-        >
-          <GroupsIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till grupp
-        </MenuItem>
-        <MenuItem
-          disabled={groups.length === 0}
-          onClick={() => {
-            handleDialogResourceTrigger(undefined, selectedGroupId!);
-            closeMenus();
-          }}
-        >
-          <PersonIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställda
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            closeMenus();
-            openConfig();
-          }}
-        >
-          <SettingsIcon fontSize="small" sx={{ mr: 1.5 }} /> Konfigurera
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            closeMenus();
-            handleDialogDatabaseSystemTrigger();
-          }}
-        >
-          <DatabaseIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Databassystem
-        </MenuItem>
-      </Menu>
-
-      {/* Resursmeny (Anställd) */}
-      <Menu
-        anchorEl={resourceMenuAnchor}
-        open={Boolean(resourceMenuAnchor)}
-        onClose={closeMenus}
-        slots={{ transition: Grow }}
-      >
-        <MenuItem
-          onClick={() => {
-            const group = groups.find((g) => g.id === selectedGroupId);
-            const res = (group?.resources || []).find(
-              (r) => r.id === selectedResourceId,
-            );
-            if (res) handleDialogResourceTrigger(res, selectedGroupId!);
-            closeMenus();
-          }}
-        >
-          <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
-        </MenuItem>
-        {!disableDeletion && (
-          <MenuItem
-            onClick={() => {
-              if (selectedGroupId && selectedResourceId)
-                handleDeleteResource(selectedGroupId, selectedResourceId);
-              closeMenus();
-            }}
-            sx={{ color: "error.main" }}
-          >
-            <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Gruppmeny */}
-      <Menu
-        anchorEl={groupMenuAnchor}
-        open={Boolean(groupMenuAnchor)}
-        onClose={closeMenus}
-        slots={{ transition: Grow }}
-      >
-        <MenuItem
-          onClick={() => {
-            handleDialogResourceTrigger(undefined, selectedGroupId!);
-            closeMenus();
-          }}
-        >
-          <AddIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställd
-        </MenuItem>
-        <MenuItem
-          onClick={() => {
-            const group = groups.find((g) => g.id === selectedGroupId);
-            if (group) handleDialogGroupTrigger(group);
-            closeMenus();
-          }}
-        >
-          <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
-        </MenuItem>
-        {!disableDeletion && (
-          <MenuItem
-            onClick={() => {
-              if (selectedGroupId) handleDeleteGroup(selectedGroupId);
-              closeMenus();
-            }}
-            sx={{ color: "error.main" }}
-          >
-            <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
-          </MenuItem>
-        )}
-      </Menu>
     </Box>
   );
 };

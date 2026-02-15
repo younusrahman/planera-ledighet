@@ -1,19 +1,18 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useState } from "react";
 import {
   AppBar,
   Toolbar,
   Box,
   Typography,
-  Chip,
   IconButton,
   Button,
-  alpha,
   useTheme,
   List,
   ListItemButton,
   ListItemText,
-  Divider,
-  Paper,
+  Menu,
+  MenuItem,
+  Grow,
 } from "@mui/material";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
@@ -25,20 +24,42 @@ import {
   PickersLayout,
   type PickersLayoutProps,
 } from "@mui/x-date-pickers/PickersLayout";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
+import GroupsIcon from "@mui/icons-material/Groups";
+import PersonIcon from "@mui/icons-material/Person";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SettingsIcon from "@mui/icons-material/Settings";
+import type { Employee } from "../types";
+import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
+import { Storage as DatabaseIcon } from "@mui/icons-material";
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
 interface TimelineHeaderProps {
-  absenceTypes: any[];
+  openConfig: () => void;
+  groups: Employee[];
   pickerDate: Dayjs;
   isDatePickerOpen: boolean;
   datePickerAnchorRef: React.RefObject<HTMLButtonElement>;
-  onAbsenceTypeClick: (type: any) => void;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onOpenDatePicker: () => void;
   onCloseDatePicker: () => void;
   onDateChange: (date: Dayjs) => void;
+  sidebarMode: "full" | "initials" | "hidden";
+  handleDeleteResource: (groupId: string, resId: string) => void;
+  handleDeleteGroup: (groupId: string) => void;
+  handleDialogGroupTrigger: (group?: Employee) => void;
+  handleDialogAbsenceTypeTrigger: () => void;
+  handleDialogDatabaseSystemTrigger: () => void;
+  handleDialogResourceTrigger: (
+    resourceToEdit?: { id: string; name: string },
+    currentGroupId?: string,
+  ) => void;
+  doseHaveAbsenceTypes?: boolean;
+  disableDeletion: boolean;
 }
 // ---------------------------------------------------------
 // Holiday Context
@@ -146,18 +167,45 @@ function HolidayLayout(props: PickersLayoutProps<any>) {
 // Main Component
 // ---------------------------------------------------------
 export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
-  absenceTypes,
+  groups,
   pickerDate,
   isDatePickerOpen,
   datePickerAnchorRef,
-  onAbsenceTypeClick,
   onPrevMonth,
   onNextMonth,
   onOpenDatePicker,
   onCloseDatePicker,
   onDateChange,
+  handleDeleteResource,
+  handleDeleteGroup,
+  handleDialogGroupTrigger,
+  handleDialogAbsenceTypeTrigger,
+  handleDialogResourceTrigger,
+  handleDialogDatabaseSystemTrigger,
+  openConfig,
+  doseHaveAbsenceTypes,
+  disableDeletion,
 }) => {
   const theme = useTheme();
+  const { setSidebarMode } = useUIActions();
+  const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
+    null,
+  );
+  const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
+    null,
+  );
+  const [resourceMenuAnchor, setResourceMenuAnchor] =
+    useState<null | HTMLElement>(null);
+
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
+    null,
+  );
+  const closeMenus = () => {
+    setMainMenuAnchor(null);
+    setGroupMenuAnchor(null);
+    setResourceMenuAnchor(null);
+  };
 
   return (
     <AppBar
@@ -175,87 +223,182 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
           >
             Planera ledighet
           </Typography>
-          <Box
-            sx={{
-              display: { xs: "none", md: "flex" },
-              alignItems: "center",
-              gap: 1.5,
-            }}
-          >
-            {!absenceTypes || absenceTypes.length === 0 ? (
-              <Paper
-                variant="outlined"
-                sx={{
-                  px: 1.5,
-                  py: 1,
-                  bgcolor: alpha(theme.palette.info.main, 0.04),
-                  borderColor: alpha(theme.palette.info.main, 0.2),
-                  borderRadius: 1,
-                  width: "100%",
-
-                  marginLeft: "0.5rem",
-                  mt: 1, // Add some top margin for spacing
-                }}
-              >
-                <Box
-                  sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}
-                >
-                  <Box sx={{ flex: 1 }}>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        mr: 0.5,
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: "13px",
-                        }}
-                      >
-                        Inge frånvarotyper har lagts till ännu.
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Paper>
-            ) : (
-              absenceTypes.map((type) => (
-                <Chip
-                  key={type.id}
-                  onClick={() => onAbsenceTypeClick(type)}
-                  label={
-                    <Box
-                      sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
-                    >
-                      <Box
-                        sx={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: type.color,
-                        }}
-                      />
-                      <Typography variant="caption">{type.label}</Typography>
-                    </Box>
-                  }
-                  size="small"
-                  sx={{
-                    cursor: "pointer",
-                    bgcolor: "transparent",
-                    "&:hover": {
-                      bgcolor: alpha(theme.palette.primary.main, 0.08),
-                    },
-                  }}
-                />
-              ))
-            )}
-          </Box>
         </Box>
 
+        <Box sx={{ flexGrow: 1 }} />
+        <Box
+          sx={{
+            position: "sticky",
+            bottom: 0,
+            bgcolor: "white",
+            zIndex: 12,
+            borderTop: "1px solid rgba(0,0,0,0.1)",
+            p: 1,
+            height: 56,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Button
+            fullWidth
+            onClick={(e) => setMainMenuAnchor(e.currentTarget)}
+            sx={{ fontWeight: 700 }}
+          >
+            Meny
+          </Button>
+        </Box>
+
+        {/* --- MENYER --- */}
+
+        {/* Huvudmeny (Botten) */}
+        <Menu
+          anchorEl={mainMenuAnchor}
+          open={Boolean(mainMenuAnchor)}
+          onClose={closeMenus}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          transformOrigin={{ vertical: "bottom", horizontal: "center" }}
+          slots={{ transition: Grow }}
+        >
+          <MenuItem
+            onClick={() => {
+              closeMenus();
+              handleDialogAbsenceTypeTrigger();
+            }}
+          >
+            <EventBusyIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till
+            frånvarotyper
+          </MenuItem>
+          <MenuItem
+            disabled={!doseHaveAbsenceTypes}
+            onClick={() => {
+              closeMenus();
+              handleDialogGroupTrigger();
+            }}
+          >
+            <GroupsIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till grupp
+          </MenuItem>
+          <MenuItem
+            disabled={groups.length === 0}
+            onClick={() => {
+              handleDialogResourceTrigger(undefined, selectedGroupId!);
+              closeMenus();
+            }}
+          >
+            <PersonIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställda
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenus();
+              openConfig();
+            }}
+          >
+            <SettingsIcon fontSize="small" sx={{ mr: 1.5 }} /> Konfigurera
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenus();
+              handleDialogDatabaseSystemTrigger();
+            }}
+          >
+            <DatabaseIcon fontSize="small" sx={{ mr: 1.5 }} />
+            Databassystem
+          </MenuItem>
+          <Box sx={{ flexGrow: 1 }}>
+            <Button
+              sx={{ fontSize: "13px", fontWeight: 700 }}
+              variant="text"
+              onClick={() => setSidebarMode("full")}
+            >
+              Full
+            </Button>
+            |
+            <Button
+              sx={{ fontSize: "13px", fontWeight: 700 }}
+              variant="text"
+              onClick={() => setSidebarMode("initials")}
+            >
+              Compact
+            </Button>
+            |
+            <Button
+              sx={{ fontSize: "13px", fontWeight: 700 }}
+              variant="text"
+              onClick={() => setSidebarMode("hidden")}
+            >
+              Hidden
+            </Button>
+          </Box>
+        </Menu>
+
+        {/* Resursmeny (Anställd) */}
+        <Menu
+          anchorEl={resourceMenuAnchor}
+          open={Boolean(resourceMenuAnchor)}
+          onClose={closeMenus}
+          slots={{ transition: Grow }}
+        >
+          <MenuItem
+            onClick={() => {
+              const group = groups.find((g) => g.id === selectedGroupId);
+              const res = (group?.resources || []).find(
+                (r) => r.id === selectedResourceId,
+              );
+              if (res) handleDialogResourceTrigger(res, selectedGroupId!);
+              closeMenus();
+            }}
+          >
+            <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
+          </MenuItem>
+          {!disableDeletion && (
+            <MenuItem
+              onClick={() => {
+                if (selectedGroupId && selectedResourceId)
+                  handleDeleteResource(selectedGroupId, selectedResourceId);
+                closeMenus();
+              }}
+              sx={{ color: "error.main" }}
+            >
+              <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
+            </MenuItem>
+          )}
+        </Menu>
+
+        {/* Gruppmeny */}
+        <Menu
+          anchorEl={groupMenuAnchor}
+          open={Boolean(groupMenuAnchor)}
+          onClose={closeMenus}
+          slots={{ transition: Grow }}
+        >
+          <MenuItem
+            onClick={() => {
+              handleDialogResourceTrigger(undefined, selectedGroupId!);
+              closeMenus();
+            }}
+          >
+            <AddIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställd
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              const group = groups.find((g) => g.id === selectedGroupId);
+              if (group) handleDialogGroupTrigger(group);
+              closeMenus();
+            }}
+          >
+            <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
+          </MenuItem>
+          {!disableDeletion && (
+            <MenuItem
+              onClick={() => {
+                if (selectedGroupId) handleDeleteGroup(selectedGroupId);
+                closeMenus();
+              }}
+              sx={{ color: "error.main" }}
+            >
+              <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
+            </MenuItem>
+          )}
+        </Menu>
         <Box sx={{ flexGrow: 1 }} />
 
         {/* Date Navigation */}
