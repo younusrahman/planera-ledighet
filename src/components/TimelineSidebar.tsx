@@ -100,32 +100,31 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       sx={{
         width:
           sidebarMode === "full" ? 200 : sidebarMode === "initials" ? 70 : 0,
-        transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        position: "relative",
+        position: "sticky",
+        left: 0,
         zIndex: 1100,
+        height: "fit-content",
+        minHeight: "100%",
+        display: "flex",
+        flexDirection: "column",
+        transition: "width 0.3s ease",
+        background: "white", // Solid background
+        borderRight: "1px solid rgba(0, 0, 0, 0.1)",
       }}
     >
-      <Box
-        sx={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          background: "rgba(255, 255, 255, 0.7)",
-          backdropFilter: "blur(20px)",
-          borderRight:
-            sidebarMode === "hidden" ? "none" : "1px solid rgba(0, 0, 0, 0.1)",
-        }}
-      >
+      <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
+        {/* 1. SIDEBAR HEADER - FIXED & OPAQUE */}
         <Box
           sx={{
             height: 105,
             borderBottom: "1px solid rgba(0,0,0,0.1)",
+            position: "sticky",
+            top: 0,
+            bgcolor: "white", // Solid white to hide names
+            zIndex: 12, // Top layer
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flexShrink: 0,
           }}
         >
           {sidebarMode !== "hidden" && (
@@ -142,12 +141,12 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                 fontWeight: "bold",
               }}
             >
-              P
+              YR
             </Box>
           )}
         </Box>
 
-        <Box sx={{ overflowY: "auto", flex: 1, overflowX: "hidden", mx: 1 }}>
+        <Box sx={{ flex: 1 }}>
           {groups.length === 0 ? (
             <Paper
               variant="outlined"
@@ -187,165 +186,177 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
               </Box>
             </Paper>
           ) : (
-            groups.map((group) => {
-              const isCollapsed = collapsedGroups.includes(group.id);
-              const isInitials = sidebarMode === "initials";
-              const isFull = sidebarMode === "full";
+            <Box sx={{ flex: 1 }}>
+              {groups.map((group) => {
+                const isCollapsed = collapsedGroups.includes(group.id);
+                const isInitials = sidebarMode === "initials";
+                const isFull = sidebarMode === "full";
 
-              return (
-                <Box key={group.id}>
-                  <Box
-                    onClick={() => toggleGroup(group.id)}
-                    sx={{
-                      height: 40,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: isInitials ? "center" : "space-between",
-                      px: isInitials ? 0 : 2,
-                      bgcolor: "rgba(0,0,0,0.04)",
-                      borderBottom: "1px solid rgba(0,0,0,0.03)",
-                      cursor: "pointer",
-                      "&:hover": { "& .group-more": { opacity: 1 } },
-                    }}
-                  >
+                return (
+                  <Box key={group.id}>
                     <Box
+                      onClick={() => toggleGroup(group.id)}
                       sx={{
+                        height: 40,
                         display: "flex",
                         alignItems: "center",
-                        overflow: "hidden",
+                        justifyContent: isInitials ? "center" : "space-between",
+                        px: isInitials ? 0 : 2,
+                        bgcolor: "rgba(0,0,0,0.04)",
+                        borderBottom: "1px solid rgba(0,0,0,0.03)",
+                        cursor: "pointer",
+                        "&:hover": { "& .group-more": { opacity: 1 } },
                       }}
                     >
-                      {isFull && (
-                        <KeyboardArrowDownIcon
-                          fontSize="small"
-                          sx={{
-                            mr: 0.5,
-                            transition: "0.3s",
-                            transform: isCollapsed
-                              ? "rotate(-90deg)"
-                              : "rotate(0deg)",
-                          }}
-                        />
-                      )}
-                      <Typography
-                        variant="subtitle1"
-                        noWrap
-                        sx={{ fontWeight: 700 }}
-                      >
-                        {isInitials ? getInitials(group.name) : group.name}
-                      </Typography>
-                    </Box>
-                    {isFull && (
-                      <IconButton
-                        className="group-more"
-                        size="small"
-                        sx={{ opacity: 0 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedGroupId(group.id);
-                          setGroupMenuAnchor(e.currentTarget);
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          overflow: "hidden",
                         }}
                       >
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-
-                  {/* Anställda-rader */}
-                  <Collapse in={!isCollapsed}>
-                    {(group.resources || []).map((res) => {
-                      const resRow = (
-                        <Box
-                          key={res.id}
-                          sx={{
-                            height: ROW_HEIGHT,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: isFull ? "space-between" : "center",
-                            px: isInitials ? 0 : 2,
-                            borderBottom: "1px solid rgba(0,0,0,0.03)",
-                            boxSizing: "border-box",
-                            "&:hover": {
-                              bgcolor: "rgba(0,0,0,0.04)",
-                              "& .res-more": { opacity: 1 },
-                            },
+                        {isFull && (
+                          <KeyboardArrowDownIcon
+                            fontSize="small"
+                            sx={{
+                              mr: 0.5,
+                              transition: "0.3s",
+                              transform: isCollapsed
+                                ? "rotate(-90deg)"
+                                : "rotate(0deg)",
+                            }}
+                          />
+                        )}
+                        <Typography
+                          variant="subtitle1"
+                          noWrap
+                          sx={{ fontWeight: 700 }}
+                        >
+                          {isInitials ? getInitials(group.name) : group.name}
+                        </Typography>
+                      </Box>
+                      {isFull && (
+                        <IconButton
+                          className="group-more"
+                          size="small"
+                          sx={{ opacity: 0 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedGroupId(group.id);
+                            setGroupMenuAnchor(e.currentTarget);
                           }}
                         >
-                          <Typography
-                            variant="body2"
-                            noWrap
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+
+                    {/* Anställda-rader */}
+                    <Collapse in={!isCollapsed}>
+                      {(group.resources || []).map((res) => {
+                        const resRow = (
+                          <Box
+                            key={res.id}
                             sx={{
-                              fontWeight: 500,
-                              maxWidth: isFull ? "calc(100% - 35px)" : "100%",
+                              height: ROW_HEIGHT,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: isFull
+                                ? "space-between"
+                                : "center",
+                              px: isInitials ? 0 : 2,
+                              borderBottom: "1px solid rgba(0,0,0,0.03)",
+                              boxSizing: "border-box",
+                              "&:hover": {
+                                bgcolor: "rgba(0,0,0,0.04)",
+                                "& .res-more": { opacity: 1 },
+                              },
                             }}
-                            component="span"
                           >
-                            <FiberManualRecordIcon
+                            <Typography
+                              variant="body2"
+                              noWrap
                               sx={{
-                                fontSize: 8,
-                                mr: 0.5,
-                                color: "text.secondary",
+                                fontWeight: 500,
+                                maxWidth: isFull ? "calc(100% - 35px)" : "100%",
                               }}
-                            />
-                            <ProTooltip
-                              title={res.name}
-                              placement="right"
-                              arrow
+                              component="span"
                             >
-                              <span>
-                                {isInitials ? getInitials(res.name) : res.name}
-                              </span>
-                            </ProTooltip>
-                          </Typography>
+                              <FiberManualRecordIcon
+                                sx={{
+                                  fontSize: 8,
+                                  mr: 0.5,
+                                  color: "text.secondary",
+                                }}
+                              />
+                              <ProTooltip
+                                title={res.name}
+                                placement="right"
+                                arrow
+                              >
+                                <span>
+                                  {isInitials
+                                    ? getInitials(res.name)
+                                    : res.name}
+                                </span>
+                              </ProTooltip>
+                            </Typography>
 
-                          {isFull && (
-                            <IconButton
-                              className="res-more"
-                              size="small"
-                              sx={{
-                                opacity: 0,
-                                transition: "opacity 0.2s",
-                                ml: 1,
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedGroupId(group.id);
-                                setSelectedResourceId(res.id);
-                                setResourceMenuAnchor(e.currentTarget);
-                              }}
-                            >
-                              <MoreVertIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                        </Box>
-                      );
+                            {isFull && (
+                              <IconButton
+                                className="res-more"
+                                size="small"
+                                sx={{
+                                  opacity: 0,
+                                  transition: "opacity 0.2s",
+                                  ml: 1,
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedGroupId(group.id);
+                                  setSelectedResourceId(res.id);
+                                  setResourceMenuAnchor(e.currentTarget);
+                                }}
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                          </Box>
+                        );
 
-                      return isInitials ? (
-                        <ProTooltip
-                          key={res.id}
-                          title={res.name}
-                          placement="right"
-                          arrow
-                        >
-                          {resRow}
-                        </ProTooltip>
-                      ) : (
-                        resRow
-                      );
-                    })}
-                  </Collapse>
-                </Box>
-              );
-            })
+                        return isInitials ? (
+                          <ProTooltip
+                            key={res.id}
+                            title={res.name}
+                            placement="right"
+                            arrow
+                          >
+                            {resRow}
+                          </ProTooltip>
+                        ) : (
+                          resRow
+                        );
+                      })}
+                    </Collapse>
+                  </Box>
+                );
+              })}
+            </Box>
           )}
         </Box>
 
         {sidebarMode !== "hidden" && (
           <Box
             sx={{
-              p: 1,
+              position: "sticky",
+              bottom: 0,
+              bgcolor: "white", // MUST BE WHITE to hide names scrolling down
+              zIndex: 12,
               borderTop: "1px solid rgba(0,0,0,0.1)",
-              bgcolor: "white",
+              p: 1,
+              height: 56, // Explicit height to match the Grid footer
+              display: "flex",
+              alignItems: "center",
             }}
           >
             <Button
@@ -359,36 +370,6 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           </Box>
         )}
       </Box>
-
-      {/* Sidofältets handtag/knapp */}
-      <IconButton
-        onClick={toggleSidebar}
-        size="small"
-        sx={{
-          position: "absolute",
-          bottom: 104,
-          right: sidebarMode === "hidden" ? -24 : -14,
-          zIndex: 1200,
-          width: 38,
-          height: 38,
-          border: "1px solid #ddd",
-          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-          bgcolor: sidebarMode === "hidden" ? "primary.main" : "white",
-          color: sidebarMode === "hidden" ? "white" : "primary.main",
-          transition:
-            "background-color 0.6s ease-in-out, color 0.6s ease-in-out, right 0.3s ease",
-          "&:hover": {
-            bgcolor: sidebarMode === "hidden" ? "primary.dark" : "#f8f9fa",
-            transform: "scale(1.1)",
-          },
-        }}
-      >
-        {sidebarMode === "hidden" ? (
-          <KeyboardArrowRight />
-        ) : (
-          <KeyboardArrowLeft />
-        )}
-      </IconButton>
 
       {/* --- MENYER --- */}
 

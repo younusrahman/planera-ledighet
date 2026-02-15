@@ -154,9 +154,9 @@ export const TimelineDndContext = forwardRef<
     () => (
       <Box
         sx={{
-          position: "sticky",
+          position: "sticky", // STICKY TO THE TOP
           top: 0,
-          zIndex: 20,
+          zIndex: 20, // Above the employee blocks
           bgcolor: "white",
           width: daysCount * CELL_WIDTH,
         }}
@@ -559,157 +559,200 @@ export const TimelineDndContext = forwardRef<
         // ------------------------------------
         // ELSE → YOUR NORMAL UI GOES HERE
         // ------------------------------------
-        <Box
-          ref={ref}
-          onScroll={onScroll}
-          sx={{
-            flex: 1,
-            overflowX: "auto",
-            position: "relative",
-            bgcolor: "#fff",
-          }}
-        >
-          <PastDaysOverlay
-            width={disabledOverlayWidth}
-            isVisible={blockPastDays}
-          />
-
-          {/* 2. Sticky Header Area */}
-          {MemoizedHeader}
-
-          {/* 3. Drag and Drop Context Area */}
-          <DndContext
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-            modifiers={[restrictToHorizontalAxis]}
+        <Box>
+          <Box
+            sx={{
+              position: "sticky",
+              top: 0,
+              zIndex: 100,
+              bgcolor: "white",
+              width: daysCount * CELL_WIDTH,
+            }}
           >
-            <Box sx={{ position: "relative", width: daysCount * CELL_WIDTH }}>
+            {MemoizedHeader}{" "}
+          </Box>
+          <Box
+            ref={ref}
+            sx={{
+              flex: 1,
+              minHeight: 0, 
+              overflowX: "auto", 
+              overflowY: "visible", 
+              position: "relative",
+              bgcolor: "#fff",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <PastDaysOverlay
+              width={disabledOverlayWidth}
+              isVisible={blockPastDays}
+            />
+
+            {/* 3. Drag and Drop Context Area */}
+            <DndContext
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              modifiers={[restrictToHorizontalAxis]}
+            >
               <Box
                 sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  height: "100%",
-                  pointerEvents: "none",
-                  zIndex: 0,
+                  position: "relative",
+                  width: daysCount * CELL_WIDTH,
+                  flex: 1,
                 }}
               >
-                {days.map(
-                  (day, i) =>
-                    isRedDay(day) && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    bottom: 0, // USE bottom: 0 instead of height: 100% to ensure it reaches the end
+                    pointerEvents: "none",
+                    zIndex: 0,
+                  }}
+                >
+                  {days.map(
+                    (day, i) =>
+                      isRedDay(day) && (
+                        <Box
+                          key={`bg-${i}`}
+                          sx={{
+                            position: "absolute",
+                            left: i * CELL_WIDTH,
+                            width: CELL_WIDTH,
+                            top: 0,
+                            bottom: 0,
+                            bgcolor: "rgba(244, 67, 54, 0.04)",
+                            borderRight: "1px solid rgba(0, 0, 0, 0.02)",
+                          }}
+                        />
+                      ),
+                  )}
+                </Box>
+                {groups.map((group) => {
+                  const isCollapsed = collapsedGroups.includes(group.id);
+                  return (
+                    <Box key={group.id}>
+                      {/* Visual Separator for Group */}
                       <Box
-                        key={`bg-${i}`}
+                        onMouseDown={onGroupMouseDown}
+                        onMouseMove={onGroupMouseMove}
+                        onMouseUp={onGroupMouseUp}
+                        onMouseLeave={onGroupMouseUp}
                         sx={{
-                          position: "absolute",
-                          left: i * CELL_WIDTH,
-                          width: CELL_WIDTH,
-                          height: "100%",
-                          bgcolor: "rgba(244, 67, 54, 0.04)",
-                          borderRight: "1px solid rgba(0, 0, 0, 0.02)",
+                          height: 40,
+                          bgcolor: alpha("#000", 0.04),
+                          borderBottom: "1px solid #eee",
+                          cursor: "grab",
+                          userSelect: "none",
+                          "&:hover": { bgcolor: alpha("#000", 0.08) },
+                          "&:active": { cursor: "grabbing" },
                         }}
                       />
-                    ),
-                )}
+
+                      <Collapse in={!isCollapsed}>
+                        {(group.resources || []).map((res) => (
+                          <Box
+                            key={res.id}
+                            onPointerDown={(e) => onGridPointerDown(e, res.id)}
+                            onPointerMove={onGridPointerMove}
+                            onPointerUp={onGridPointerUp}
+                            sx={{
+                              height: ROW_HEIGHT,
+                              borderBottom: "1px solid #eee",
+                              position: "relative",
+                              // TA BORT individuella rutor och använd denna CSS-bakgrund:
+                              backgroundImage: `linear-gradient(to right, #eee 1px, transparent 1px)`,
+                              backgroundSize: `${CELL_WIDTH}px 100%`, // Detta skapar de vertikala strecken automatiskt!
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                          >
+                            {/* Drag-to-Select Box (Ghost block during creation) */}
+                            {selection.isSelecting &&
+                              selection.rowId === res.id && (
+                                <Box
+                                  ref={selectionBoxRef}
+                                  style={{
+                                    left: selection.startX,
+                                    width: CELL_WIDTH,
+                                  }}
+                                  sx={{
+                                    position: "absolute",
+                                    top: 5,
+                                    height: ROW_HEIGHT - 10,
+                                    bgcolor: alpha("#1976d2", 0.15),
+                                    border: "2px dashed #1976d2",
+                                    borderRadius: 1,
+                                    zIndex: 10,
+                                    pointerEvents: "none",
+                                  }}
+                                />
+                              )}
+
+                            {/* Render Leave Blocks for this Resource */}
+                            {/* Render Absence Blocks for this Resource - använder nu visibleAbsences */}
+                            {visibleAbsences
+                              .filter((l) => l.rowId === res.id)
+                              .map((l) => (
+                                <AbsenceBlock
+                                  key={l.id}
+                                  absenceDetails={l}
+                                  resourceName={res.name}
+                                  left={getDateOffset(l.startDate, startDate)}
+                                  // HÄR ÄR FIXEN - Du måste skicka med dessa:
+                                  onResizeEnd={onLeaveResizeEnd}
+                                  onEdit={onLeaveEdit}
+                                  onDelete={onLeaveDelete}
+                                  onTooltipOpen={onTooltipOpen}
+                                  onTooltipClose={onTooltipClose}
+                                  isDeletionDisabled={disableDeletion}
+                                  isPastDaysBlocked={blockPastDays}
+                                  scrollContainerRef={
+                                    ref as React.RefObject<HTMLDivElement>
+                                  }
+                                />
+                              ))}
+                          </Box>
+                        ))}
+                      </Collapse>
+                    </Box>
+                  );
+                })}
               </Box>
-              {groups.map((group) => {
-                const isCollapsed = collapsedGroups.includes(group.id);
-                return (
-                  <Box key={group.id}>
-                    {/* Visual Separator for Group */}
-                    <Box
-                      onMouseDown={onGroupMouseDown}
-                      onMouseMove={onGroupMouseMove}
-                      onMouseUp={onGroupMouseUp}
-                      onMouseLeave={onGroupMouseUp}
-                      sx={{
-                        height: 40,
-                        bgcolor: alpha("#000", 0.04),
-                        borderBottom: "1px solid #eee",
-                        cursor: "grab",
-                        userSelect: "none",
-                        "&:hover": { bgcolor: alpha("#000", 0.08) },
-                        "&:active": { cursor: "grabbing" },
-                      }}
-                    />
 
-                    <Collapse in={!isCollapsed}>
-                      {(group.resources || []).map((res) => (
-                        <Box
-                          key={res.id}
-                          onPointerDown={(e) => onGridPointerDown(e, res.id)}
-                          onPointerMove={onGridPointerMove}
-                          onPointerUp={onGridPointerUp}
-                          sx={{
-                            height: ROW_HEIGHT,
-                            borderBottom: "1px solid #eee",
-                            position: "relative",
-                            // TA BORT individuella rutor och använd denna CSS-bakgrund:
-                            backgroundImage: `linear-gradient(to right, #eee 1px, transparent 1px)`,
-                            backgroundSize: `${CELL_WIDTH}px 100%`, // Detta skapar de vertikala strecken automatiskt!
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          {/* Drag-to-Select Box (Ghost block during creation) */}
-                          {selection.isSelecting &&
-                            selection.rowId === res.id && (
-                              <Box
-                                ref={selectionBoxRef}
-                                style={{
-                                  left: selection.startX,
-                                  width: CELL_WIDTH,
-                                }}
-                                sx={{
-                                  position: "absolute",
-                                  top: 5,
-                                  height: ROW_HEIGHT - 10,
-                                  bgcolor: alpha("#1976d2", 0.15),
-                                  border: "2px dashed #1976d2",
-                                  borderRadius: 1,
-                                  zIndex: 10,
-                                  pointerEvents: "none",
-                                }}
-                              />
-                            )}
-
-                          {/* Render Leave Blocks for this Resource */}
-                          {/* Render Absence Blocks for this Resource - använder nu visibleAbsences */}
-                          {visibleAbsences
-                            .filter((l) => l.rowId === res.id)
-                            .map((l) => (
-                              <AbsenceBlock
-                                key={l.id}
-                                absenceDetails={l}
-                                resourceName={res.name}
-                                left={getDateOffset(l.startDate, startDate)}
-                                // HÄR ÄR FIXEN - Du måste skicka med dessa:
-                                onResizeEnd={onLeaveResizeEnd}
-                                onEdit={onLeaveEdit}
-                                onDelete={onLeaveDelete}
-                                onTooltipOpen={onTooltipOpen}
-                                onTooltipClose={onTooltipClose}
-                                isDeletionDisabled={disableDeletion}
-                                isPastDaysBlocked={blockPastDays}
-                                scrollContainerRef={
-                                  ref as React.RefObject<HTMLDivElement>
-                                }
-                              />
-                            ))}
-                        </Box>
-                      ))}
-                    </Collapse>
-                  </Box>
-                );
-              })}
-            </Box>
-
-            {/* Drag Visual Ghost */}
-            <DragOverlay adjustScale={false}>
-              {activeLeave && (
-                <AbsenceBlock absenceDetails={activeLeave} isOverlay />
-              )}
-            </DragOverlay>
-          </DndContext>
+              {/* Drag Visual Ghost */}
+              <DragOverlay adjustScale={false}>
+                {activeLeave && (
+                  <AbsenceBlock absenceDetails={activeLeave} isOverlay />
+                )}
+              </DragOverlay>
+            </DndContext>
+            {/* 3. NEW: STICKY GRID FOOTER (Bottom) */}
+            {/* This covers the grid rows when they reach the level of the Sidebar's Menu */}
+          </Box>
+          <Box
+            sx={{
+              position: "sticky",
+              bottom: 0,
+              left: 0,
+              zIndex: 100, // Above the blocks
+              bgcolor: "white", // Solid color hides blocks scrolling behind it
+              width: daysCount * CELL_WIDTH,
+              height: 56, // MATCH SIDEBAR FOOTER HEIGHT EXACTLY
+              borderTop: "1px solid rgba(0,0,0,0.1)",
+              display: "flex",
+              alignItems: "center",
+              px: 2,
+              color: "text.secondary",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+            }}
+          >
+            {/* Optional: Add a simple summary or empty space here */}
+            Tidslinje slut
+          </Box>
         </Box>
       )}
     </>

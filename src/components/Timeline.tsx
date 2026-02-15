@@ -18,7 +18,8 @@ import { dialog } from "../services/dialog/dialogStore";
 import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
-
+import IconButton from "@mui/material/IconButton";
+import { KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
 import {
   useGroupMutation,
   useResourceMutation,
@@ -783,94 +784,146 @@ export const Timeline = () => {
     });
   };
   return (
-    <Box
-      style={{ opacity: isReady ? 1 : 0 }}
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        overflow: "hidden",
-      }}
-    >
-      {/* 1. APP BAR */}
-      <TimelineHeader
-        absenceTypes={absenceTypes}
-        pickerDate={pickerDate}
-        isDatePickerOpen={isDatePickerOpen}
-        datePickerAnchorRef={
-          datePickerAnchorRef as React.RefObject<HTMLButtonElement>
-        }
-        onAbsenceTypeClick={handleDialogAbsenceTypeTrigger}
-        onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
-        onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
-        onOpenDatePicker={() => setIsDatePickerOpen(true)}
-        onCloseDatePicker={() => setIsDatePickerOpen(false)}
-        onDateChange={(newDate) => jumpToDate(newDate)}
-      />
-
-      {/* 2. MAIN CONTENT AREA */}
+    <>
       <Box
         sx={{
-          display: "flex",
-          flex: 1,
-          overflow: "hidden",
-          position: "relative",
+          position: "fixed",
+          bottom: 120,
+          left:
+            sidebarMode === "full"
+              ? 170
+              : sidebarMode === "initials"
+                ? 50
+                : -15,
+          zIndex: 3000,
+          transition: "left 0.25s ease",
+          pointerEvents: "none", // ← IMPORTANT
         }}
       >
-        {/* SIDEBAR (GLASSMORPHISM) */}
-        <TimelineSidebar
-          groups={groups}
-          sidebarMode={sidebarMode}
-          collapsedGroups={collapsedGroups}
-          disableDeletion={disableDeletion}
-          toggleGroup={toggleGroup}
-          toggleSidebar={toggleSidebar}
-          openConfig={openConfig}
-          handleDeleteResource={handleDeleteResource}
-          handleDeleteGroup={handleDeleteGroup}
-          handleDialogGroupTrigger={handleDialogGroupTrigger}
-          handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
-          handleDialogResourceTrigger={handleDialogResourceTrigger}
-          handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
-          doseHaveAbsenceTypes={absenceTypes.length > 0}
-        />
-        {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-        <TimelineDndContext
-          // 1. THE REF (Must be exactly like this for forwardRef to work)
-          ref={scrollContainerRef}
-          onGroupMouseDown={handleGroupRowMouseDown}
-          onGroupMouseMove={handleGroupRowMouseMove}
-          onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
-          // 2. DATA PROPS (Values from your state/memo)
-          days={days} // from useMemo(() => getDaysArray...)
-          daysCount={daysCount} // from useState
-          startDate={startDate} // from useState
-          groups={groups} // from useState
-          absences={absenceDetails} // from useState
-          collapsedGroups={collapsedGroups} // from useState
-          absenceTypes={absenceTypes} // from useState
-          activeLeave={activeLeave} // from useState (dnd-kit)
-          // 3. SETTINGS PROPS
-          blockPastDays={blockPastDays} // from useState
-          disabledOverlayWidth={disabledOverlayWidth} // from useMemo
-          disableDeletion={disableDeletion} // from useState
-          // 4. INTERACTION STATE & REFS
-          selection={selection} // from useState (isSelecting, rowId, startX)
-          selectionBoxRef={selectionBoxRef as React.RefObject<HTMLDivElement>} // from useRef
-          // 5. EVENT HANDLERS (The functions in your Timeline component)
-          onScroll={handleScroll}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onGridPointerDown={handleGridPointerDown}
-          onGridPointerMove={handleGridPointerMove}
-          onGridPointerUp={handleGridPointerUp}
-          onLeaveEdit={handleLeaveEdit}
-          onLeaveDelete={handleLeaveDelete}
-          onLeaveResizeEnd={handleLeaveResizeEnd}
-          onTooltipOpen={() => setIsTooltipOpen(true)}
-          onTooltipClose={() => setIsTooltipOpen(false)}
-        />
+        <IconButton
+          onClick={toggleSidebar}
+          size="small"
+          sx={{
+            pointerEvents: "auto", // ← BUTTON STILL CLICKABLE
+            width: 38,
+            height: 38,
+            border: "1px solid #ddd",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+            bgcolor: sidebarMode === "hidden" ? "primary.main" : "white",
+            color: sidebarMode === "hidden" ? "white" : "primary.main",
+            transition:
+              "background-color 0.6s ease-in-out, color 0.6s ease-in-out, transform 0.25s ease",
+            "&:hover": {
+              bgcolor: sidebarMode === "hidden" ? "primary.dark" : "#f8f9fa",
+              transform: "scale(1.1)",
+            },
+          }}
+        >
+          {sidebarMode === "hidden" ? (
+            <KeyboardArrowRight />
+          ) : (
+            <KeyboardArrowLeft />
+          )}
+        </IconButton>
       </Box>
-    </Box>
+
+      <Box
+        style={{ opacity: isReady ? 1 : 0 }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          overflow: "hidden",
+        }}
+      >
+        {/* 1. APP BAR */}
+        <TimelineHeader
+          absenceTypes={absenceTypes}
+          pickerDate={pickerDate}
+          isDatePickerOpen={isDatePickerOpen}
+          datePickerAnchorRef={
+            datePickerAnchorRef as React.RefObject<HTMLButtonElement>
+          }
+          onAbsenceTypeClick={handleDialogAbsenceTypeTrigger}
+          onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
+          onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
+          onOpenDatePicker={() => setIsDatePickerOpen(true)}
+          onCloseDatePicker={() => setIsDatePickerOpen(false)}
+          onDateChange={(newDate) => jumpToDate(newDate)}
+        />
+
+        {/* 2. MAIN CONTENT AREA */}
+        <Box
+          sx={{
+            display: "flex",
+            flex: 1,
+            // This creates one single vertical scrollbar for both Sidebar and Grid
+            overflowY: "auto",
+            overflowX: "hidden",
+            position: "relative",
+            // This forces the height to 100% of available space so footer stays pinned
+            height: "100%",
+            alignItems: "flex-start",
+            minHeight: 0
+          }}
+        >
+          {/* SIDEBAR (GLASSMORPHISM) */}
+          <TimelineSidebar
+            groups={groups}
+            sidebarMode={sidebarMode}
+            collapsedGroups={collapsedGroups}
+            disableDeletion={disableDeletion}
+            toggleGroup={toggleGroup}
+            toggleSidebar={toggleSidebar}
+            openConfig={openConfig}
+            handleDeleteResource={handleDeleteResource}
+            handleDeleteGroup={handleDeleteGroup}
+            handleDialogGroupTrigger={handleDialogGroupTrigger}
+            handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
+            handleDialogResourceTrigger={handleDialogResourceTrigger}
+            handleDialogDatabaseSystemTrigger={
+              handleDialogDatabaseSystemTrigger
+            }
+            doseHaveAbsenceTypes={absenceTypes.length > 0}
+          />
+          {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
+          <TimelineDndContext
+            // 1. THE REF (Must be exactly like this for forwardRef to work)
+            ref={scrollContainerRef}
+            onGroupMouseDown={handleGroupRowMouseDown}
+            onGroupMouseMove={handleGroupRowMouseMove}
+            onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+            // 2. DATA PROPS (Values from your state/memo)
+            days={days} // from useMemo(() => getDaysArray...)
+            daysCount={daysCount} // from useState
+            startDate={startDate} // from useState
+            groups={groups} // from useState
+            absences={absenceDetails} // from useState
+            collapsedGroups={collapsedGroups} // from useState
+            absenceTypes={absenceTypes} // from useState
+            activeLeave={activeLeave} // from useState (dnd-kit)
+            // 3. SETTINGS PROPS
+            blockPastDays={blockPastDays} // from useState
+            disabledOverlayWidth={disabledOverlayWidth} // from useMemo
+            disableDeletion={disableDeletion} // from useState
+            // 4. INTERACTION STATE & REFS
+            selection={selection} // from useState (isSelecting, rowId, startX)
+            selectionBoxRef={selectionBoxRef as React.RefObject<HTMLDivElement>} // from useRef
+            // 5. EVENT HANDLERS (The functions in your Timeline component)
+            onScroll={handleScroll}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onGridPointerDown={handleGridPointerDown}
+            onGridPointerMove={handleGridPointerMove}
+            onGridPointerUp={handleGridPointerUp}
+            onLeaveEdit={handleLeaveEdit}
+            onLeaveDelete={handleLeaveDelete}
+            onLeaveResizeEnd={handleLeaveResizeEnd}
+            onTooltipOpen={() => setIsTooltipOpen(true)}
+            onTooltipClose={() => setIsTooltipOpen(false)}
+          />
+        </Box>
+      </Box>
+    </>
   );
 };
