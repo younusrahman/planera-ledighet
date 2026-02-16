@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useLayoutEffect,
 } from "react";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
@@ -29,6 +29,8 @@ import {
 } from "../services/hooks/useData";
 import { absence } from "../services/stores/absenceStore";
 import TimelineFooter from "./TimelineFooter";
+import { getSwedishHolidays } from "../utils/holidayHelper";
+import { ProTooltip } from "./ProTooltip";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
@@ -784,49 +786,182 @@ export const Timeline = () => {
       },
     });
   };
-  return (
-    <>
+  // _______________________________________________________________
+  const monthBlocks = useMemo(() => {
+    const months: { key: string; days: Dayjs[]; label: string }[] = [];
+    const uniqueMonths = Array.from(
+      new Set(days.map((d) => d.format("YYYY-MM"))),
+    );
+    uniqueMonths.forEach((monthKey) => {
+      const mDays = days.filter((d) => d.format("YYYY-MM") === monthKey);
+      months.push({
+        key: monthKey,
+        days: mDays,
+        label: mDays[0].format("MMMM YYYY"),
+      });
+    });
+    return months;
+  }, [days]);
+
+  const weekBlocks = useMemo(() => {
+    const weeks: { key: string; days: Dayjs[]; label: string }[] = [];
+    const uniqueWeeks = Array.from(
+      new Set(days.map((d) => `${d.isoWeekYear()}-${d.isoWeek()}`)),
+    );
+    uniqueWeeks.forEach((weekKey) => {
+      const wDays = days.filter(
+        (d) => `${d.isoWeekYear()}-${d.isoWeek()}` === weekKey,
+      );
+      weeks.push({
+        key: weekKey,
+        days: wDays,
+        label: `v.${wDays[0].isoWeek()}`,
+      });
+    });
+    return weeks;
+  }, [days]);
+
+  const holidays = useMemo(() => {
+    const years = Array.from(new Set(days.map((d) => d.year())));
+    let allHolidays: Record<string, any> = {};
+    years.forEach((y) => {
+      allHolidays = { ...allHolidays, ...getSwedishHolidays(y) };
+    });
+    return allHolidays;
+  }, [days]);
+
+  const isRedDay = (day: Dayjs) => {
+    const dateStr = day.format("YYYY-MM-DD");
+    return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
+  };
+  const MemoizedHeader = useMemo(
+    () => (
       <Box
         sx={{
-          position: "fixed",
-          bottom: "40%",
-          left:
-            sidebarMode === "full"
-              ? 180
-              : sidebarMode === "initials"
-                ? 50
-                : -15,
-          zIndex: 3000,
-          transition: "left 0.25s ease",
-          pointerEvents: "none", // ← IMPORTANT
+          position: "sticky",
+          top: 0,
+          zIndex: 1100, // Increased to stay above Resizing Blocks (1000)
+          bgcolor: "white", // Must have a background to hide content scrolling under
+          width: daysCount * CELL_WIDTH,
+          borderBottom: "1px solid #ddd",
         }}
       >
-        <IconButton
-          onClick={toggleSidebar}
-          size="small"
+        <Box
+          sx={{ display: "flex", height: 40, borderBottom: "1px solid #eee" }}
+        >
+          {monthBlocks.map((m) => (
+            <Box
+              key={m.key}
+              sx={{
+                position: "relative",
+                width: m.days.length * CELL_WIDTH,
+                height: "100%",
+                flexShrink: 0,
+                borderRight: "1px solid rgba(0,0,0,0.1)",
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  position: "sticky",
+                  left: 0,
+                  paddingLeft: "10px",
+                  paddingTop: "8px",
+                  fontWeight: 700,
+                  color: "primary.main",
+                  whiteSpace: "nowrap",
+                  width: "fit-content",
+                  display: "block",
+                  zIndex: 1, // Ensure text stays on top
+                }}
+              >
+                {m.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+
+        {/* --- 2. Weeks Row --- */}
+        <Box
           sx={{
-            pointerEvents: "auto", // ← BUTTON STILL CLICKABLE
-            width: 38,
-            height: 38,
-            border: "1px solid #ddd",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-            bgcolor: sidebarMode === "hidden" ? "primary.main" : "white",
-            color: sidebarMode === "hidden" ? "white" : "primary.main",
-            transition:
-              "background-color 0.6s ease-in-out, color 0.6s ease-in-out, transform 0.25s ease",
-            "&:hover": {
-              bgcolor: sidebarMode === "hidden" ? "primary.dark" : "#f8f9fa",
-              transform: "scale(1.1)",
-            },
+            display: "flex",
+            height: 25,
+            bgcolor: "#fafafa",
+            borderBottom: "1px solid #eee",
           }}
         >
-          {sidebarMode === "hidden" ? (
-            <KeyboardArrowRight />
-          ) : (
-            <KeyboardArrowLeft />
-          )}
-        </IconButton>
+          {weekBlocks.map((w) => (
+            <Box
+              key={w.key}
+              sx={{
+                position: "relative",
+                width: w.days.length * CELL_WIDTH,
+                height: "100%",
+                borderRight: "1px solid rgba(0,0,0,0.05)",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  position: "sticky",
+                  left: 0,
+                  pl: "8px",
+                  lineHeight: "25px",
+                  fontWeight: 700,
+                  color: "text.secondary",
+                }}
+              >
+                {w.label}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+
+        {/* --- 3. Individual Days Row --- */}
+        <Box sx={{ display: "flex", height: 40 }}>
+          {days.map((day) => {
+            const isRed = isRedDay(day);
+            return (
+              <ProTooltip
+                key={day.format("YYYY-MM-DD")}
+                title={holidays[day.format("YYYY-MM-DD")]?.name || ""}
+              >
+                <Box
+                  sx={{
+                    width: CELL_WIDTH,
+                    minWidth: CELL_WIDTH,
+                    textAlign: "center",
+                    pt: 0.5,
+                    borderRight: "1px solid #eee",
+                    borderBottom: "1px solid #ddd",
+                    bgcolor: day.isSame(new Date(), "day")
+                      ? "#fff9c4"
+                      : isRed
+                        ? "rgba(244, 67, 54, 0.15)"
+                        : "white",
+                    color: isRed ? "error.main" : "text.primary",
+                  }}
+                >
+                  <Typography
+                    sx={{ fontSize: "0.6rem", fontWeight: isRed ? 700 : 500 }}
+                  >
+                    {day.format("ddd").toUpperCase()}
+                  </Typography>
+                  <Typography sx={{ fontWeight: 800 }}>
+                    {day.format("D")}
+                  </Typography>
+                </Box>
+              </ProTooltip>
+            );
+          })}
+        </Box>
       </Box>
+    ),
+    [days, monthBlocks, weekBlocks, holidays],
+  );
+  return (
+    <>
+      {/* ... (Sidebar Toggle Box) ... */}
 
       <Box
         style={{ opacity: isReady ? 1 : 0 }}
@@ -837,7 +972,6 @@ export const Timeline = () => {
           overflow: "hidden",
         }}
       >
-        {/* 1. APP BAR */}
         <TimelineHeader
           pickerDate={pickerDate}
           isDatePickerOpen={isDatePickerOpen}
@@ -862,69 +996,80 @@ export const Timeline = () => {
           onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
         />
 
-        {/* 2. MAIN CONTENT AREA */}
+        {/* MAIN CONTENT AREA */}
         <Box
           sx={{
             display: "flex",
             flex: 1,
-            overflow: "auto", // THIS IS NOW THE ONLY SCROLLBAR (X and Y)
+            overflow: "hidden",
             position: "relative",
-            height: "100%",
-            alignItems: "flex-start",
           }}
         >
-          {/* SIDEBAR (GLASSMORPHISM) */}
-          <Box>
-            <TimelineSidebar
-              groups={groups}
-              sidebarMode={sidebarMode}
-              collapsedGroups={collapsedGroups}
-              toggleGroup={toggleGroup}
-            />
-          </Box>
+          <TimelineSidebar
+            groups={groups}
+            sidebarMode={sidebarMode}
+            collapsedGroups={collapsedGroups}
+            toggleGroup={toggleGroup}
+          />
 
-          {/* TIMELINE AREA (SYNCED WITH SIDEBAR) */}
-          <Box sx={{ flex: 1, minWidth: 0, height: "100%" }}>
-            <TimelineDndContext
-              // 1. THE REF (Must be exactly like this for forwardRef to work)
-              ref={scrollContainerRef}
-              onGroupMouseDown={handleGroupRowMouseDown}
-              onGroupMouseMove={handleGroupRowMouseMove}
-              onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
-              // 2. DATA PROPS (Values from your state/memo)
-              days={days} // from useMemo(() => getDaysArray...)
-              daysCount={daysCount} // from useState
-              startDate={startDate} // from useState
-              groups={groups} // from useState
-              absences={absenceDetails} // from useState
-              collapsedGroups={collapsedGroups} // from useState
-              absenceTypes={absenceTypes} // from useState
-              activeLeave={activeLeave} // from useState (dnd-kit)
-              // 3. SETTINGS PROPS
-              blockPastDays={blockPastDays} // from useState
-              disabledOverlayWidth={disabledOverlayWidth} // from useMemo
-              disableDeletion={disableDeletion} // from useState
-              // 4. INTERACTION STATE & REFS
-              selection={selection} // from useState (isSelecting, rowId, startX)
-              selectionBoxRef={
-                selectionBoxRef as React.RefObject<HTMLDivElement>
-              } // from useRef
-              // 5. EVENT HANDLERS (The functions in your Timeline component)
-              onScroll={handleScroll}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onGridPointerDown={handleGridPointerDown}
-              onGridPointerMove={handleGridPointerMove}
-              onGridPointerUp={handleGridPointerUp}
-              onLeaveEdit={handleLeaveEdit}
-              onLeaveDelete={handleLeaveDelete}
-              onLeaveResizeEnd={handleLeaveResizeEnd}
-              onTooltipOpen={() => setIsTooltipOpen(true)}
-              onTooltipClose={() => setIsTooltipOpen(false)}
-            />
+          {/* 
+              THE VERTICAL & HORIZONTAL SCROLLER 
+              We wrap the Header and Grid in this box to sync their horizontal movement.
+          */}
+          <Box
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            sx={{
+              flex: 1,
+              overflow: "auto", // This box now handles ALL scrolling for the timeline part
+              position: "relative",
+              bgcolor: "background.paper",
+            }}
+          >
+            <Box sx={{ width: daysCount * CELL_WIDTH, position: "relative" }}>
+              {/* --- 2. THE STICKY HEADER (Moved from Context) --- */}
+              {MemoizedHeader}
+              {/* --- 3. THE GRID (The Context) --- */}
+              <TimelineDndContext
+                // 1. THE REF (Must be exactly like this for forwardRef to work)
+                ref={scrollContainerRef}
+                onGroupMouseDown={handleGroupRowMouseDown}
+                onGroupMouseMove={handleGroupRowMouseMove}
+                onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+                // 2. DATA PROPS (Values from your state/memo)
+                days={days} // from useMemo(() => getDaysArray...)
+                daysCount={daysCount} // from useState
+                startDate={startDate} // from useState
+                groups={groups} // from useState
+                absences={absenceDetails} // from useState
+                collapsedGroups={collapsedGroups} // from useState
+                absenceTypes={absenceTypes} // from useState
+                activeLeave={activeLeave} // from useState (dnd-kit)
+                // 3. SETTINGS PROPS
+                blockPastDays={blockPastDays} // from useState
+                disabledOverlayWidth={disabledOverlayWidth} // from useMemo
+                disableDeletion={disableDeletion} // from useState
+                // 4. INTERACTION STATE & REFS
+                selection={selection} // from useState (isSelecting, rowId, startX)
+                selectionBoxRef={
+                  selectionBoxRef as React.RefObject<HTMLDivElement>
+                } // from useRef
+                // 5. EVENT HANDLERS (The functions in your Timeline component)
+                onScroll={handleScroll}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onGridPointerDown={handleGridPointerDown}
+                onGridPointerMove={handleGridPointerMove}
+                onGridPointerUp={handleGridPointerUp}
+                onLeaveEdit={handleLeaveEdit}
+                onLeaveDelete={handleLeaveDelete}
+                onLeaveResizeEnd={handleLeaveResizeEnd}
+                onTooltipOpen={() => setIsTooltipOpen(true)}
+                onTooltipClose={() => setIsTooltipOpen(false)}
+              />
+            </Box>
           </Box>
         </Box>
-        {/* 3. STICKY FOOTER */}
         <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
       </Box>
     </>
