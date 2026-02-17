@@ -959,20 +959,17 @@ export const Timeline = () => {
     ),
     [days, monthBlocks, weekBlocks, holidays],
   );
-  return (
-    <>
-      {/* ... (Sidebar Toggle Box) ... */}
-
-      <Box
-        style={{ opacity: isReady ? 1 : 0 }}
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100vh",
-          overflow: "hidden",
-        }}
-      >
-        <TimelineHeader
+return (
+  <Box
+    style={{ opacity: isReady ? 1 : 0 }}
+    sx={{
+      display: "flex",
+      flexDirection: "column",
+      height: "100vh",
+      overflow: "hidden", // Prevent body scroll
+    }}
+  >
+            <TimelineHeader
           pickerDate={pickerDate}
           isDatePickerOpen={isDatePickerOpen}
           datePickerAnchorRef={
@@ -996,41 +993,37 @@ export const Timeline = () => {
           onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
         />
 
-        {/* MAIN CONTENT AREA */}
-        <Box
-          sx={{
-            display: "flex",
-            flex: 1,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          <TimelineSidebar
-            groups={groups}
-            sidebarMode={sidebarMode}
-            collapsedGroups={collapsedGroups}
-            toggleGroup={toggleGroup}
-          />
+    {/* MAIN SCROLLER: Handles both vertical and horizontal scroll */}
+    <Box
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      sx={{
+        flex: 1,
+        overflow: "auto", 
+        position: "relative",
+        bgcolor: "background.paper",
+      }}
+    >
+      {/* 
+         FLEX CONTAINER: 
+         Ensures Sidebar and Grid are side-by-side.
+         width: "fit-content" is crucial so the container expands to the width of the dates.
+      */}
+      <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
+        
+        <TimelineSidebar
+          groups={groups}
+          sidebarMode={sidebarMode}
+          collapsedGroups={collapsedGroups}
+          toggleGroup={toggleGroup}
+        />
 
-          {/* 
-              THE VERTICAL & HORIZONTAL SCROLLER 
-              We wrap the Header and Grid in this box to sync their horizontal movement.
-          */}
-          <Box
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            sx={{
-              flex: 1,
-              overflow: "auto", // This box now handles ALL scrolling for the timeline part
-              position: "relative",
-              bgcolor: "background.paper",
-            }}
-          >
-            <Box sx={{ width: daysCount * CELL_WIDTH, position: "relative" }}>
-              {/* --- 2. THE STICKY HEADER (Moved from Context) --- */}
-              {MemoizedHeader}
-              {/* --- 3. THE GRID (The Context) --- */}
-              <TimelineDndContext
+        <Box sx={{ position: "relative" }}>
+          {/* THE STICKY DATES HEADER */}
+          {MemoizedHeader}
+
+          {/* THE GRID CONTENT */}
+          <TimelineDndContext
                 // 1. THE REF (Must be exactly like this for forwardRef to work)
                 ref={scrollContainerRef}
                 onGroupMouseDown={handleGroupRowMouseDown}
@@ -1067,11 +1060,12 @@ export const Timeline = () => {
                 onTooltipOpen={() => setIsTooltipOpen(true)}
                 onTooltipClose={() => setIsTooltipOpen(false)}
               />
-            </Box>
-          </Box>
         </Box>
-        <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
       </Box>
-    </>
-  );
-};
+    </Box>
+
+    <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
+  </Box>
+)};
+
+export default Timeline;

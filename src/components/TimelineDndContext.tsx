@@ -159,11 +159,7 @@ export const TimelineDndContext = forwardRef<
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        // CHANGE THIS:
-        overflowX: "auto",
-        overflowY: "visible", // This is currently correct, but...
-        // ...the outer container (Page 27) MUST be the one with overflow: "auto"
-        width: "100%",
+        width: "100%", 
         position: "relative",
       }}
     >

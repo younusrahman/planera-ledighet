@@ -41,243 +41,240 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
         width:
           sidebarMode === "full" ? 200 : sidebarMode === "initials" ? 70 : 0,
         position: "sticky",
-        left: 0,
-        zIndex: 1100,
+        left: 0, // Keeps names visible during horizontal scroll
+        zIndex: 1150, // Higher than grid blocks
         height: "fit-content",
-        minHeight: "100%",
         display: "flex",
         flexDirection: "column",
         transition: "width 0.3s ease",
-        background: "white", // Solid background
+        background: "white",
         borderRight: "1px solid rgba(0, 0, 0, 0.1)",
+        flexShrink: 0, // Prevent sidebar from squishing
       }}
     >
-      <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
-        {/* 1. SIDEBAR HEADER - FIXED & OPAQUE */}
-        <Box
-          sx={{
-            height: 105, // Matches the 40+25+40 height of your grid header
-            borderBottom: "1px solid rgba(0,0,0,0.1)",
-            position: "sticky",
-            top: 0,
-            zIndex: 1100, // Match the Grid Header
-            bgcolor: "white",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          {sidebarMode !== "hidden" && (
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                bgcolor: "primary.main",
-                borderRadius: 1.5,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              YR
-            </Box>
-          )}
-        </Box>
-        <Box sx={{ flex: 1 }}>
-          {groups.length === 0 ? (
-            <Paper
-              variant="outlined"
-              sx={{
-                px: 1.5,
-                py: 1,
-                bgcolor: alpha(theme.palette.info.main, 0.04),
-                borderColor: alpha(theme.palette.info.main, 0.2),
-                borderRadius: 1,
-                width: "100%",
-                maxWidth: "100%",
-                marginRight: "1rem",
-                mt: 1,
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
-                <Box sx={{ flex: 1 }}>
-                  <Box
+      {/* SIDEBAR HEADER - Needs to be sticky TOP and LEFT */}
+      <Box
+        sx={{
+          height: 105, // Matches the 40+25+40 height of the date header
+          borderBottom: "1px solid rgba(0,0,0,0.1)",
+          position: "sticky",
+          top: 0, // Keeps it at the top during vertical scroll
+          left: 0,
+          zIndex: 1200,
+          bgcolor: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {sidebarMode !== "hidden" && (
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              bgcolor: "primary.main",
+              borderRadius: 1.5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontWeight: "bold",
+            }}
+          >
+            YR
+          </Box>
+        )}
+      </Box>
+
+      {/* Group List */}
+      <Box sx={{ flex: 1 }}>
+        {groups.length === 0 ? (
+          <Paper
+            variant="outlined"
+            sx={{
+              px: 1.5,
+              py: 1,
+              bgcolor: alpha(theme.palette.info.main, 0.04),
+              borderColor: alpha(theme.palette.info.main, 0.2),
+              borderRadius: 1,
+              width: "100%",
+              maxWidth: "100%",
+              marginRight: "1rem",
+              mt: 1,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+              <Box sx={{ flex: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mr: 0.5,
+                    justifyContent: "center",
+                  }}
+                >
+                  <Typography
                     sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mr: 0.5,
-                      justifyContent: "center",
+                      fontWeight: 700,
+                      fontSize: "13px",
                     }}
                   >
-                    <Typography
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: "13px",
-                      }}
-                    >
-                      Grupp lista är tom
-                    </Typography>
-                  </Box>
+                    Grupp lista är tom
+                  </Typography>
                 </Box>
               </Box>
-            </Paper>
-          ) : (
-            <Box sx={{ flex: 1 }}>
-              {groups.map((group) => {
-                const isCollapsed = collapsedGroups.includes(group.id);
-                const isInitials = sidebarMode === "initials";
-                const isFull = sidebarMode === "full";
+            </Box>
+          </Paper>
+        ) : (
+          <Box sx={{ flex: 1 }}>
+            {groups.map((group) => {
+              const isCollapsed = collapsedGroups.includes(group.id);
+              const isInitials = sidebarMode === "initials";
+              const isFull = sidebarMode === "full";
 
-                return (
-                  <Box key={group.id}>
+              return (
+                <Box key={group.id}>
+                  <Box
+                    onClick={() => toggleGroup(group.id)}
+                    sx={{
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: isInitials ? "center" : "space-between",
+                      px: isInitials ? 0 : 2,
+                      bgcolor: "rgba(0,0,0,0.04)",
+                      borderBottom: "1px solid rgba(0,0,0,0.03)",
+                      cursor: "pointer",
+                      "&:hover": { "& .group-more": { opacity: 1 } },
+                    }}
+                  >
                     <Box
-                      onClick={() => toggleGroup(group.id)}
                       sx={{
-                        height: 40,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: isInitials ? "center" : "space-between",
-                        px: isInitials ? 0 : 2,
-                        bgcolor: "rgba(0,0,0,0.04)",
-                        borderBottom: "1px solid rgba(0,0,0,0.03)",
-                        cursor: "pointer",
-                        "&:hover": { "& .group-more": { opacity: 1 } },
+                        overflow: "hidden",
                       }}
                     >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          overflow: "hidden",
+                      {isFull && (
+                        <KeyboardArrowDownIcon
+                          fontSize="small"
+                          sx={{
+                            mr: 0.5,
+                            transition: "0.3s",
+                            transform: isCollapsed
+                              ? "rotate(-90deg)"
+                              : "rotate(0deg)",
+                          }}
+                        />
+                      )}
+                      <Typography
+                        variant="subtitle1"
+                        noWrap
+                        sx={{ fontWeight: 700 }}
+                      >
+                        {isInitials ? getInitials(group.name) : group.name}
+                      </Typography>
+                    </Box>
+                    {isFull && (
+                      <IconButton
+                        className="group-more"
+                        size="small"
+                        sx={{ opacity: 0 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
                         }}
                       >
-                        {isFull && (
-                          <KeyboardArrowDownIcon
-                            fontSize="small"
-                            sx={{
-                              mr: 0.5,
-                              transition: "0.3s",
-                              transform: isCollapsed
-                                ? "rotate(-90deg)"
-                                : "rotate(0deg)",
-                            }}
-                          />
-                        )}
-                        <Typography
-                          variant="subtitle1"
-                          noWrap
-                          sx={{ fontWeight: 700 }}
-                        >
-                          {isInitials ? getInitials(group.name) : group.name}
-                        </Typography>
-                      </Box>
-                      {isFull && (
-                        <IconButton
-                          className="group-more"
-                          size="small"
-                          sx={{ opacity: 0 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+
+                  {/* Anställda-rader */}
+                  <Collapse in={!isCollapsed}>
+                    {(group.resources || []).map((res) => {
+                      const resRow = (
+                        <Box
+                          key={res.id}
+                          sx={{
+                            height: ROW_HEIGHT,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: isFull ? "space-between" : "center",
+                            px: isInitials ? 0 : 2,
+                            borderBottom: "1px solid rgba(0,0,0,0.03)",
+                            boxSizing: "border-box",
+                            "&:hover": {
+                              bgcolor: "rgba(0,0,0,0.04)",
+                              "& .res-more": { opacity: 1 },
+                            },
                           }}
                         >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
-
-                    {/* Anställda-rader */}
-                    <Collapse in={!isCollapsed}>
-                      {(group.resources || []).map((res) => {
-                        const resRow = (
-                          <Box
-                            key={res.id}
+                          <Typography
+                            variant="body2"
+                            noWrap
                             sx={{
-                              height: ROW_HEIGHT,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: isFull
-                                ? "space-between"
-                                : "center",
-                              px: isInitials ? 0 : 2,
-                              borderBottom: "1px solid rgba(0,0,0,0.03)",
-                              boxSizing: "border-box",
-                              "&:hover": {
-                                bgcolor: "rgba(0,0,0,0.04)",
-                                "& .res-more": { opacity: 1 },
-                              },
+                              fontWeight: 500,
+                              maxWidth: isFull ? "calc(100% - 35px)" : "100%",
                             }}
+                            component="span"
                           >
-                            <Typography
-                              variant="body2"
-                              noWrap
+                            <FiberManualRecordIcon
                               sx={{
-                                fontWeight: 500,
-                                maxWidth: isFull ? "calc(100% - 35px)" : "100%",
+                                fontSize: 8,
+                                mr: 0.5,
+                                color: "text.secondary",
                               }}
-                              component="span"
+                            />
+                            <ProTooltip
+                              title={res.name}
+                              placement="right"
+                              arrow
                             >
-                              <FiberManualRecordIcon
-                                sx={{
-                                  fontSize: 8,
-                                  mr: 0.5,
-                                  color: "text.secondary",
-                                }}
-                              />
-                              <ProTooltip
-                                title={res.name}
-                                placement="right"
-                                arrow
-                              >
-                                <span>
-                                  {isInitials
-                                    ? getInitials(res.name)
-                                    : res.name}
-                                </span>
-                              </ProTooltip>
-                            </Typography>
+                              <span>
+                                {isInitials ? getInitials(res.name) : res.name}
+                              </span>
+                            </ProTooltip>
+                          </Typography>
 
-                            {isFull && (
-                              <IconButton
-                                className="res-more"
-                                size="small"
-                                sx={{
-                                  opacity: 0,
-                                  transition: "opacity 0.2s",
-                                  ml: 1,
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
-                              >
-                                <MoreVertIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                          </Box>
-                        );
+                          {isFull && (
+                            <IconButton
+                              className="res-more"
+                              size="small"
+                              sx={{
+                                opacity: 0,
+                                transition: "opacity 0.2s",
+                                ml: 1,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      );
 
-                        return isInitials ? (
-                          <ProTooltip
-                            key={res.id}
-                            title={res.name}
-                            placement="right"
-                            arrow
-                          >
-                            {resRow}
-                          </ProTooltip>
-                        ) : (
-                          resRow
-                        );
-                      })}
-                    </Collapse>
-                  </Box>
-                );
-              })}
-            </Box>
-          )}
-        </Box>
+                      return isInitials ? (
+                        <ProTooltip
+                          key={res.id}
+                          title={res.name}
+                          placement="right"
+                          arrow
+                        >
+                          {resRow}
+                        </ProTooltip>
+                      ) : (
+                        resRow
+                      );
+                    })}
+                  </Collapse>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
       </Box>
     </Box>
   );
