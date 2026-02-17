@@ -379,31 +379,30 @@ export const Timeline = () => {
 
   // --- BLOCK CREATION LOGIC (UNCHANGED FROM YOUR ORIGINAL) ---
   const handleGridPointerDown = (e: React.PointerEvent, rowId: string) => {
-    // --- Start with all exit conditions ---
     if (e.button !== 0 || isDragging || isTooltipOpen) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
 
-    // --- Perform calculations once ---
-    const rect = container.getBoundingClientRect();
-    const absoluteX = e.clientX - rect.left + container.scrollLeft;
-    const dayIndex = Math.floor(absoluteX / CELL_WIDTH);
+    // 1. Get the bounding box of the ACTUAL row being clicked
+    const rect = e.currentTarget.getBoundingClientRect();
+
+    // 2. Calculate X relative to the start of the grid (not the sidebar)
+    const xInGrid = e.clientX - rect.left;
+
+    // 3. Determine the day index
+    const dayIndex = Math.floor(xInGrid / CELL_WIDTH);
     const clickedDate = startDate.add(dayIndex, "day");
 
-    // --- Perform the validation check ---
     if (blockPastDays && clickedDate.isBefore(today)) {
-      return; // This completely stops the selection from starting
+      return;
     }
 
-    // --- If validation passes, proceed with the selection logic ---
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     isSelectingRef.current = true;
     lastPointerXRef.current = e.clientX;
 
-    // Snappa direkt till rutans start för att undvika "random" hopp
-    const snappedStartX = Math.floor(absoluteX / CELL_WIDTH) * CELL_WIDTH;
+    // 4. Calculate the snapped X position relative to the grid start
+    const snappedStartX = dayIndex * CELL_WIDTH;
     startXRef.current = snappedStartX;
 
     setSelection({
@@ -411,7 +410,7 @@ export const Timeline = () => {
       rowId,
       startX: snappedStartX,
       currentX: snappedStartX,
-      startIndex: Math.floor(snappedStartX / CELL_WIDTH),
+      startIndex: dayIndex,
     });
 
     startAutoScroll();
@@ -421,21 +420,15 @@ export const Timeline = () => {
     if (!isSelectingRef.current) return;
     lastPointerXRef.current = e.clientX;
 
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const absoluteX = e.clientX - rect.left + container.scrollLeft;
+    // Get the row's position again to stay accurate
+    const rect = e.currentTarget.getBoundingClientRect();
+    const xInGrid = e.clientX - rect.left;
 
     if (selectionBoxRef.current) {
-      // Use the raw, un-snapped mouse position for the visual update.
-      const currentX = absoluteX;
-
-      // Calculate left and width based on the direction of the drag.
+      const currentX = xInGrid;
       const left = Math.min(startXRef.current, currentX);
       const width = Math.abs(currentX - startXRef.current);
 
-      // Update the style directly for a smooth, pixel-perfect movement.
       selectionBoxRef.current.style.left = `${left}px`;
       selectionBoxRef.current.style.width = `${width}px`;
     }
@@ -479,25 +472,26 @@ export const Timeline = () => {
     isSelectingRef.current = false;
     stopAutoScroll();
 
-    const rowId = selection.rowId; // Capture the row ID immediately
-    const container = scrollContainerRef.current;
-    if (!container || !rowId) return;
+    const rowId = selection.rowId;
+    const rect = e.currentTarget.getBoundingClientRect();
 
-    const rect = container.getBoundingClientRect();
-    const finalAbsoluteX = e.clientX - rect.left + container.scrollLeft;
-    const snappedFinalX = Math.floor(finalAbsoluteX / CELL_WIDTH) * CELL_WIDTH;
+    // Calculate final position relative to grid
+    const xInGrid = e.clientX - rect.left;
+    const snappedFinalX = Math.floor(xInGrid / CELL_WIDTH) * CELL_WIDTH;
 
     const minX = Math.min(startXRef.current, snappedFinalX);
     const maxX = Math.max(startXRef.current, snappedFinalX);
+
     const startIdx = Math.round(minX / CELL_WIDTH);
     const endIdx = Math.round(maxX / CELL_WIDTH);
 
     const duration = endIdx - startIdx + 1;
     const finalStartDate = startDate.add(startIdx, "day");
+
     if (duration > 0 && rowId) {
-      // Call the new trigger
       handleDialogAbsenceTrigger(undefined, rowId, finalStartDate, duration);
     }
+
     setSelection({
       isSelecting: false,
       rowId: null,
@@ -505,31 +499,7 @@ export const Timeline = () => {
       currentX: 0,
       startIndex: 0,
     });
-
-    if (duration > 0) {
-      // Open the global dialog
-      dialog.open("absence", {
-        title: "Registrera frånvaro",
-        mode: "create",
-        data: {
-          startDate: finalStartDate,
-          duration: duration,
-          typeId: absenceTypes[0]?.id || "vac",
-        },
-        absenceTypes,
-        blockPastDays,
-        onSave: (formData) => {
-          handleSaveLeave(formData, null, rowId);
-          dialog.close();
-        },
-        onClose: () => {
-          dialog.close();
-        },
-        today,
-      });
-    }
   };
-
   const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
     dragStartTimeRef.current = startDate;
