@@ -834,18 +834,25 @@ export const Timeline = () => {
     const dateStr = day.format("YYYY-MM-DD");
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
-  const MemoizedHeader = useMemo(
-    () => (
+
+  const MemoizedHeader = useMemo(() => {
+    // Calculate the "left" position where labels should stick.
+    // It must match the current width of your sidebar.
+    const stickyLeftOffset =
+      sidebarMode === "full" ? 200 : sidebarMode === "initials" ? 70 : 0;
+
+    return (
       <Box
         sx={{
           position: "sticky",
           top: 0,
-          zIndex: 1100, // Increased to stay above Resizing Blocks (1000)
-          bgcolor: "white", // Must have a background to hide content scrolling under
+          zIndex: 1100,
+          bgcolor: "white",
           width: daysCount * CELL_WIDTH,
           borderBottom: "1px solid #ddd",
         }}
       >
+        {/* --- 1. Months Row --- */}
         <Box
           sx={{ display: "flex", height: 40, borderBottom: "1px solid #eee" }}
         >
@@ -853,26 +860,25 @@ export const Timeline = () => {
             <Box
               key={m.key}
               sx={{
-                position: "relative",
+                position: "relative", // Needed so the sticky child stays within this block
                 width: m.days.length * CELL_WIDTH,
                 height: "100%",
                 flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.1)",
+                overflow: "hidden", // Ensures label doesn't bleed into next month
               }}
             >
               <Typography
                 variant="subtitle2"
                 sx={{
                   position: "sticky",
-                  left: 0,
-                  paddingLeft: "10px",
-                  paddingTop: "8px",
+                  left: stickyLeftOffset + 10, // Sticks to sidebar edge + 10px padding
                   fontWeight: 700,
                   color: "primary.main",
                   whiteSpace: "nowrap",
                   width: "fit-content",
                   display: "block",
-                  zIndex: 1, // Ensure text stays on top
+                  lineHeight: "40px",
                 }}
               >
                 {m.label}
@@ -894,9 +900,10 @@ export const Timeline = () => {
             <Box
               key={w.key}
               sx={{
-                position: "relative",
+                position: "relative", // This block acts as the "boundary" for the sticky label
                 width: w.days.length * CELL_WIDTH,
                 height: "100%",
+                flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.05)",
               }}
             >
@@ -904,14 +911,20 @@ export const Timeline = () => {
                 variant="caption"
                 sx={{
                   position: "sticky",
-                  left: 0,
-                  pl: "8px",
-                  lineHeight: "25px",
-                  fontWeight: 700,
+                  left: stickyLeftOffset + 8, // Sticks to sidebar edge + 8px padding
+                  fontWeight: 800,
                   color: "text.secondary",
+                  whiteSpace: "nowrap",
+                  width: "fit-content",
+                  display: "block",
+                  lineHeight: "25px",
                 }}
               >
-                {w.label}
+                {/* Added Year here as well if the user scrolls far */}
+                {w.label}{" "}
+                {w.days[0].format("YYYY") !== dayjs().format("YYYY")
+                  ? w.days[0].format("YYYY")
+                  : ""}
               </Typography>
             </Box>
           ))}
@@ -956,116 +969,115 @@ export const Timeline = () => {
           })}
         </Box>
       </Box>
-    ),
-    [days, monthBlocks, weekBlocks, holidays],
-  );
-return (
-  <Box
-    style={{ opacity: isReady ? 1 : 0 }}
-    sx={{
-      display: "flex",
-      flexDirection: "column",
-      height: "100vh",
-      overflow: "hidden", // Prevent body scroll
-    }}
-  >
-            <TimelineHeader
-          pickerDate={pickerDate}
-          isDatePickerOpen={isDatePickerOpen}
-          datePickerAnchorRef={
-            datePickerAnchorRef as React.RefObject<HTMLButtonElement>
-          }
-          groups={groups}
-          sidebarMode={sidebarMode}
-          disableDeletion={disableDeletion}
-          openConfig={openConfig}
-          onOpenDatePicker={() => setIsDatePickerOpen(true)}
-          onCloseDatePicker={() => setIsDatePickerOpen(false)}
-          onDateChange={(newDate) => jumpToDate(newDate)}
-          handleDeleteResource={handleDeleteResource}
-          handleDeleteGroup={handleDeleteGroup}
-          handleDialogGroupTrigger={handleDialogGroupTrigger}
-          handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
-          handleDialogResourceTrigger={handleDialogResourceTrigger}
-          handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
-          doseHaveAbsenceTypes={absenceTypes.length > 0}
-          onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
-          onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
-        />
-
-    {/* MAIN SCROLLER: Handles both vertical and horizontal scroll */}
+    );
+  }, [days, monthBlocks, weekBlocks, holidays, sidebarMode]); // Added sidebarMode to dependencies
+  return (
     <Box
-      ref={scrollContainerRef}
-      onScroll={handleScroll}
+      style={{ opacity: isReady ? 1 : 0 }}
       sx={{
-        flex: 1,
-        overflow: "auto", 
-        position: "relative",
-        bgcolor: "background.paper",
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        overflow: "hidden", // Prevent body scroll
       }}
     >
-      {/* 
+      <TimelineHeader
+        pickerDate={pickerDate}
+        isDatePickerOpen={isDatePickerOpen}
+        datePickerAnchorRef={
+          datePickerAnchorRef as React.RefObject<HTMLButtonElement>
+        }
+        groups={groups}
+        sidebarMode={sidebarMode}
+        disableDeletion={disableDeletion}
+        openConfig={openConfig}
+        onOpenDatePicker={() => setIsDatePickerOpen(true)}
+        onCloseDatePicker={() => setIsDatePickerOpen(false)}
+        onDateChange={(newDate) => jumpToDate(newDate)}
+        handleDeleteResource={handleDeleteResource}
+        handleDeleteGroup={handleDeleteGroup}
+        handleDialogGroupTrigger={handleDialogGroupTrigger}
+        handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
+        handleDialogResourceTrigger={handleDialogResourceTrigger}
+        handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
+        doseHaveAbsenceTypes={absenceTypes.length > 0}
+        onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
+        onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
+      />
+
+      {/* MAIN SCROLLER: Handles both vertical and horizontal scroll */}
+      <Box
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        sx={{
+          flex: 1,
+          overflow: "auto",
+          position: "relative",
+          bgcolor: "background.paper",
+        }}
+      >
+        {/* 
          FLEX CONTAINER: 
          Ensures Sidebar and Grid are side-by-side.
          width: "fit-content" is crucial so the container expands to the width of the dates.
       */}
-      <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
-        
-        <TimelineSidebar
-          groups={groups}
-          sidebarMode={sidebarMode}
-          collapsedGroups={collapsedGroups}
-          toggleGroup={toggleGroup}
-        />
+        <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
+          <TimelineSidebar
+            groups={groups}
+            sidebarMode={sidebarMode}
+            collapsedGroups={collapsedGroups}
+            toggleGroup={toggleGroup}
+          />
 
-        <Box sx={{ position: "relative" }}>
-          {/* THE STICKY DATES HEADER */}
-          {MemoizedHeader}
+          <Box sx={{ position: "relative" }}>
+            {/* THE STICKY DATES HEADER */}
+            {MemoizedHeader}
 
-          {/* THE GRID CONTENT */}
-          <TimelineDndContext
-                // 1. THE REF (Must be exactly like this for forwardRef to work)
-                ref={scrollContainerRef}
-                onGroupMouseDown={handleGroupRowMouseDown}
-                onGroupMouseMove={handleGroupRowMouseMove}
-                onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
-                // 2. DATA PROPS (Values from your state/memo)
-                days={days} // from useMemo(() => getDaysArray...)
-                daysCount={daysCount} // from useState
-                startDate={startDate} // from useState
-                groups={groups} // from useState
-                absences={absenceDetails} // from useState
-                collapsedGroups={collapsedGroups} // from useState
-                absenceTypes={absenceTypes} // from useState
-                activeLeave={activeLeave} // from useState (dnd-kit)
-                // 3. SETTINGS PROPS
-                blockPastDays={blockPastDays} // from useState
-                disabledOverlayWidth={disabledOverlayWidth} // from useMemo
-                disableDeletion={disableDeletion} // from useState
-                // 4. INTERACTION STATE & REFS
-                selection={selection} // from useState (isSelecting, rowId, startX)
-                selectionBoxRef={
-                  selectionBoxRef as React.RefObject<HTMLDivElement>
-                } // from useRef
-                // 5. EVENT HANDLERS (The functions in your Timeline component)
-                onScroll={handleScroll}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onGridPointerDown={handleGridPointerDown}
-                onGridPointerMove={handleGridPointerMove}
-                onGridPointerUp={handleGridPointerUp}
-                onLeaveEdit={handleLeaveEdit}
-                onLeaveDelete={handleLeaveDelete}
-                onLeaveResizeEnd={handleLeaveResizeEnd}
-                onTooltipOpen={() => setIsTooltipOpen(true)}
-                onTooltipClose={() => setIsTooltipOpen(false)}
-              />
+            {/* THE GRID CONTENT */}
+            <TimelineDndContext
+              // 1. THE REF (Must be exactly like this for forwardRef to work)
+              ref={scrollContainerRef}
+              onGroupMouseDown={handleGroupRowMouseDown}
+              onGroupMouseMove={handleGroupRowMouseMove}
+              onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+              // 2. DATA PROPS (Values from your state/memo)
+              days={days} // from useMemo(() => getDaysArray...)
+              daysCount={daysCount} // from useState
+              startDate={startDate} // from useState
+              groups={groups} // from useState
+              absences={absenceDetails} // from useState
+              collapsedGroups={collapsedGroups} // from useState
+              absenceTypes={absenceTypes} // from useState
+              activeLeave={activeLeave} // from useState (dnd-kit)
+              // 3. SETTINGS PROPS
+              blockPastDays={blockPastDays} // from useState
+              disabledOverlayWidth={disabledOverlayWidth} // from useMemo
+              disableDeletion={disableDeletion} // from useState
+              // 4. INTERACTION STATE & REFS
+              selection={selection} // from useState (isSelecting, rowId, startX)
+              selectionBoxRef={
+                selectionBoxRef as React.RefObject<HTMLDivElement>
+              } // from useRef
+              // 5. EVENT HANDLERS (The functions in your Timeline component)
+              onScroll={handleScroll}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onGridPointerDown={handleGridPointerDown}
+              onGridPointerMove={handleGridPointerMove}
+              onGridPointerUp={handleGridPointerUp}
+              onLeaveEdit={handleLeaveEdit}
+              onLeaveDelete={handleLeaveDelete}
+              onLeaveResizeEnd={handleLeaveResizeEnd}
+              onTooltipOpen={() => setIsTooltipOpen(true)}
+              onTooltipClose={() => setIsTooltipOpen(false)}
+            />
+          </Box>
         </Box>
       </Box>
-    </Box>
 
-    <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
-  </Box>
-)};
+      <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
+    </Box>
+  );
+};
 
 export default Timeline;
