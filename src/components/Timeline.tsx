@@ -835,14 +835,14 @@ export const Timeline = () => {
                 height: "100%",
                 flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.1)",
-                overflow: "hidden", // Ensures label doesn't bleed into next month
+   
               }}
             >
               <Typography
                 variant="subtitle2"
                 sx={{
                   position: "sticky",
-                  left: stickyLeftOffset + 10, // Sticks to sidebar edge + 10px padding
+                  left: stickyLeftOffset + 8, // Sticks to sidebar edge + 10px padding
                   fontWeight: 700,
                   color: "primary.main",
                   whiteSpace: "nowrap",
