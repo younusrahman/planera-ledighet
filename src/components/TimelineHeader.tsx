@@ -304,6 +304,13 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             Databassystem
           </MenuItem>
           <Box sx={{ flexGrow: 1 }}>
+            <Typography
+              variant="overline"
+              display="block"
+              sx={{ color: "text.secondary", fontSize: "0.75rem", textAlign: "center", mt: 1, borderTop: "1px solid rgba(0,0,0,0.1)", pt: 1, fontWeight: 700 }}
+            >
+              Sidebar
+            </Typography>
             <Button
               sx={{ fontSize: "13px", fontWeight: 700 }}
               variant="text"
