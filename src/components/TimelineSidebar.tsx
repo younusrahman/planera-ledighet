@@ -14,7 +14,7 @@ import {
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import type { Team } from "../types";
+import type { Team, TeamWithEmployees } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
 import EditIcon from "@mui/icons-material/Edit";
@@ -22,12 +22,11 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 interface TimelineSidebarProps {
-  groups: Team[];
+  groups: TeamWithEmployees[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
   toggleGroup: (teamId: string) => void;
-
 
   handleDeleteResource: (groupId: string, resId: string) => void;
   handleDeleteGroup: (groupId: string) => void;
@@ -47,7 +46,6 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   handleDeleteGroup,
   handleDialogGroupTrigger,
   handleDialogResourceTrigger,
-
 }) => {
   const theme = useTheme();
   const getInitials = (name: string) => {

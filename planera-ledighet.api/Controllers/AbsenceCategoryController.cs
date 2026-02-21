@@ -14,29 +14,24 @@ namespace planera_ledighet.api.Controllers
             _context = context;
         }
 
-        // GET: api/AbsenceCategory
-        [HttpGet("/api/AbsenceCategorys")]
-        public async Task<ActionResult<IEnumerable<DtoAbsenceCategory>>> GetAbsenceCategorys()
+        // GET: api/AbsenceCategorys
+        [HttpGet("/api/absenceCategorys")]
+        public async Task<ActionResult<IEnumerable<DtoAbsenceCategory>>> GetAbsenceCategories()
         {
-            var items = await _context.AbsenceCategorys
-                .Select(x => new DtoAbsenceCategory
-                {
-                    Id = x.Id,
-                    Label = x.Label,
-                    Color = x.Color
-                })
-                .ToListAsync();
+            var categories = await _context.AbsenceCategorys.ToListAsync();
 
-            return items;
+            return categories.Select(c => new DtoAbsenceCategory
+            {
+                Id = c.Id,
+                Label = c.Label,
+                Color = c.Color
+            }).ToList();
         }
 
         // POST: api/AbsenceCategory
         [HttpPost]
         public async Task<ActionResult<DtoAbsenceCategory>> CreateAbsenceCategory(DtoAbsenceCategory dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Label))
-                return BadRequest("Label is required.");
-
             var entity = new AbsenceCategory
             {
                 Id = Guid.NewGuid().ToString(),
@@ -47,36 +42,45 @@ namespace planera_ledighet.api.Controllers
             _context.AbsenceCategorys.Add(entity);
             await _context.SaveChangesAsync();
 
-            dto.Id = entity.Id;
-            return CreatedAtAction(nameof(GetAbsenceCategorys), new { id = entity.Id }, dto);
+            return Ok(new DtoAbsenceCategory
+            {
+                Id = entity.Id,
+                Label = entity.Label,
+                Color = entity.Color
+            });
         }
 
         // PUT: api/AbsenceCategory/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateType(string id, DtoAbsenceCategory dto)
+        public async Task<ActionResult<DtoAbsenceCategory>> UpdateAbsenceCategory(string id, DtoAbsenceCategory dto)
         {
+            if (id != dto.Id)
+                return BadRequest("ID mismatch");
+
             var entity = await _context.AbsenceCategorys.FindAsync(id);
             if (entity == null)
-                return NotFound($"No absence type with ID {id}");
+                return NotFound($"Absence category with ID {id} not found.");
 
             entity.Label = dto.Label;
             entity.Color = dto.Color;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            return Ok(new DtoAbsenceCategory
+            {
+                Id = entity.Id,
+                Label = entity.Label,
+                Color = entity.Color
+            });
         }
 
         // DELETE: api/AbsenceCategory/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteType(string id)
+        public async Task<IActionResult> DeleteAbsenceCategory(string id)
         {
             var entity = await _context.AbsenceCategorys.FindAsync(id);
             if (entity == null)
                 return NotFound();
-
-            // Optional: block delete if referenced
-            if (await _context.Absences.AnyAsync(l => l.AbsenceCategoryId == id))
-                return BadRequest("Cannot delete: AbsenceCategory is in use.");
 
             _context.AbsenceCategorys.Remove(entity);
             await _context.SaveChangesAsync();

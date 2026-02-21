@@ -31,7 +31,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
-import type { Employee, Team } from "../types";
+import type { Employee, Team, TeamWithEmployees } from "../types";
 import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
 import { Storage as DatabaseIcon } from "@mui/icons-material";
 // ---------------------------------------------------------
@@ -39,7 +39,7 @@ import { Storage as DatabaseIcon } from "@mui/icons-material";
 // ---------------------------------------------------------
 interface TimelineHeaderProps {
   openConfig: () => void;
-  groups: Team[];
+  groups: TeamWithEmployees[];
   pickerDate: Dayjs;
   isDatePickerOpen: boolean;
   datePickerAnchorRef: React.RefObject<HTMLButtonElement>;

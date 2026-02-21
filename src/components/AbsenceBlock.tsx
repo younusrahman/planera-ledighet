@@ -336,7 +336,7 @@ export const AbsenceBlock = ({
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
-          {absenceDetails.name}
+          {resourceName}
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -477,7 +477,7 @@ export const AbsenceBlock = ({
         fontWeight="bold"
         sx={{ flex: 1, textAlign: "center" }}
       >
-        {absenceDetails.name}
+        {resourceName}
       </Typography>
       {!isDragging && !isPast && (
         <Box

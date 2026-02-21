@@ -1,18 +1,11 @@
-// src/hooks/useData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Employee, Team, AbsenceCategory } from "../../types";
+import type { Team, Employee, AbsenceCategory } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { absence } from "../stores/absenceDataStore";
 
 // --------------------------------------------------
 // QUERIES
 // --------------------------------------------------
-
-export const useAbsenceCategories = () =>
-  useQuery({
-    queryKey: ["absenceCategories"],
-    queryFn: () => apiRequest<AbsenceCategory[]>("/AbsenceCategorys"),
-  });
 
 export const useTeams = () =>
   useQuery({
@@ -26,6 +19,12 @@ export const useEmployees = () =>
     queryFn: () => apiRequest<Employee[]>("/employees"),
   });
 
+export const useAbsenceCategories = () =>
+  useQuery({
+    queryKey: ["absenceCategories"],
+    queryFn: () => apiRequest<AbsenceCategory[]>("/AbsenceCategorys"),
+  });
+
 // --------------------------------------------------
 // TEAM MUTATIONS
 // --------------------------------------------------
@@ -34,27 +33,38 @@ export const useTeamMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newTeam: { name: string }) =>
-      apiRequest<Team>("/team", {
+    mutationFn: (data: { name: string }) =>
+      apiRequest<Team>("/Team", {
         method: "POST",
-        body: JSON.stringify(newTeam),
+        body: JSON.stringify(data),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<Team[]>(["teams"], (old) =>
+        old ? [...old, created] : [created],
+      );
+    },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
-      apiRequest<Team>(`/team/${id}`, {
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      apiRequest<Team>(`/Team/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ id, ...data }),
+        body: JSON.stringify({ id, name }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Team[]>(["teams"], (old) =>
+        old?.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+      );
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest<void>(`/team/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+    mutationFn: (id: string) => apiRequest(`/Team/${id}`, { method: "DELETE" }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Team[]>(["teams"], (old) =>
+        old?.filter((t) => t.id !== id),
+      );
+    },
   });
 
   return { createMutation, updateMutation, deleteMutation };
@@ -63,37 +73,12 @@ export const useTeamMutations = () => {
 export const useTeamMutation = () => {
   const { createMutation, updateMutation, deleteMutation } = useTeamMutations();
 
-  const createTeam = async (name: string) => {
-    try {
-      await createMutation.mutateAsync({ name });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const updateTeam = async (id: string, name: string) => {
-    try {
-      await updateMutation.mutateAsync({ id, data: { name } });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const deleteTeam = async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   return {
-    createTeam,
-    updateTeam,
-    deleteTeam,
+    createTeam: (name: string) => createMutation.mutateAsync({ name }),
+    updateTeam: (id: string, name: string) =>
+      updateMutation.mutateAsync({ id, name }),
+    deleteTeam: (id: string) => deleteMutation.mutateAsync(id),
+
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
@@ -108,36 +93,48 @@ export const useEmployeeMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newEmployee: { name: string; teamId: string }) =>
+    mutationFn: (data: { name: string; teamId: string }) =>
       apiRequest<Employee>("/Employee", {
         method: "POST",
-        body: JSON.stringify(newEmployee),
+        body: JSON.stringify(data),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<Employee[]>(["employees"], (old) =>
+        old ? [...old, created] : [created],
+      );
+    },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: { name: string; teamId: string };
-    }) =>
+  const updateMutation = useMutation<
+    Employee, // TData
+    Error, // TError
+    { id: string; name: string; teamId: string } // TVariables
+  >({
+    mutationFn: ({ id, name, teamId }) =>
       apiRequest<Employee>(`/Employee/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ id, ...data }),
+        body: JSON.stringify({ id, name, teamId }),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["teams"] });
-      absence.loadAll(); // Absence uses Zustand only
+
+    onSuccess: (updated) => {
+      // 1. Update employees cache
+      queryClient.setQueryData<Employee[]>(["employees"], (old) =>
+        old?.map((e) => (e.id === updated.id ? updated : e)),
+      );
+
+      // 2. No need to update absences — employee name is not stored there
+      //    Timeline will re-render automatically because employees changed.
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<void>(`/Employee/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
+      apiRequest(`/Employee/${id}`, { method: "DELETE" }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<Employee[]>(["employees"], (old) =>
+        old?.filter((e) => e.id !== id),
+      );
+    },
   });
 
   return { createMutation, updateMutation, deleteMutation };
@@ -147,37 +144,13 @@ export const useEmployeeMutation = () => {
   const { createMutation, updateMutation, deleteMutation } =
     useEmployeeMutations();
 
-  const createEmployee = async (name: string, teamId: string) => {
-    try {
-      await createMutation.mutateAsync({ name, teamId });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const updateEmployee = async (id: string, name: string, teamId: string) => {
-    try {
-      await updateMutation.mutateAsync({ id, data: { name, teamId } });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const deleteEmployee = async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   return {
-    createEmployee,
-    updateEmployee,
-    deleteEmployee,
+    createEmployee: (name: string, teamId: string) =>
+      createMutation.mutateAsync({ name, teamId }),
+    updateEmployee: (id: string, name: string, teamId: string) =>
+      updateMutation.mutateAsync({ id, name, teamId }),
+    deleteEmployee: (id: string) => deleteMutation.mutateAsync(id),
+
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
@@ -192,38 +165,53 @@ export const useAbsenceCategoryMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newType: { label: string; color: string }) =>
+    mutationFn: (data: { label: string; color: string }) =>
       apiRequest<AbsenceCategory>("/AbsenceCategory", {
         method: "POST",
-        body: JSON.stringify(newType),
+        body: JSON.stringify(data),
       }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["absenceCategories"] }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<AbsenceCategory[]>(
+        ["absenceCategories"],
+        (old) => (old ? [...old, created] : [created]),
+      );
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({
       id,
-      data,
+      label,
+      color,
     }: {
       id: string;
-      data: { label: string; color: string };
+      label: string;
+      color: string;
     }) =>
       apiRequest<AbsenceCategory>(`/AbsenceCategory/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ id, ...data }),
+        body: JSON.stringify({ id, label, color }),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["absenceCategories"] });
-      absence.loadAll(); // Absence uses Zustand only
+    onSuccess: (updated) => {
+      queryClient.setQueryData<AbsenceCategory[]>(
+        ["absenceCategories"],
+        (old) =>
+          old?.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
+      );
+
+      absence.loadAll();
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<void>(`/AbsenceCategory/${id}`, { method: "DELETE" }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["absenceCategories"] }),
+      apiRequest(`/AbsenceCategory/${id}`, { method: "DELETE" }),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<AbsenceCategory[]>(
+        ["absenceCategories"],
+        (old) => old?.filter((c) => c.id !== id),
+      );
+    },
   });
 
   return { createMutation, updateMutation, deleteMutation };
@@ -233,41 +221,13 @@ export const useAbsenceCategoryMutation = () => {
   const { createMutation, updateMutation, deleteMutation } =
     useAbsenceCategoryMutations();
 
-  const createAbsenceCategory = async (label: string, color: string) => {
-    try {
-      await createMutation.mutateAsync({ label, color });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const updateAbsenceCategory = async (
-    id: string,
-    label: string,
-    color: string,
-  ) => {
-    try {
-      await updateMutation.mutateAsync({ id, data: { label, color } });
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const deleteAbsenceCategory = async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   return {
-    createAbsenceCategory,
-    updateAbsenceCategory,
-    deleteAbsenceCategory,
+    createAbsenceCategory: (label: string, color: string) =>
+      createMutation.mutateAsync({ label, color }),
+    updateAbsenceCategory: (id: string, label: string, color: string) =>
+      updateMutation.mutateAsync({ id, label, color }),
+    deleteAbsenceCategory: (id: string) => deleteMutation.mutateAsync(id),
+
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

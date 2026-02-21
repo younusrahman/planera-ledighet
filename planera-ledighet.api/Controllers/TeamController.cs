@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace planera_ledighet.api.Controllers
@@ -8,7 +7,6 @@ namespace planera_ledighet.api.Controllers
     [ApiController]
     public class TeamController : ControllerBase
     {
-
         private readonly AppDbContext _context;
 
         public TeamController(AppDbContext context)
@@ -16,24 +14,16 @@ namespace planera_ledighet.api.Controllers
             _context = context;
         }
 
-        // GET: api/Team
+        // GET: api/teams
         [HttpGet("/api/teams")]
         public async Task<ActionResult<IEnumerable<DtoTeam>>> GetTeams()
         {
-            var groups = await _context.Teams
-                .Include(g => g.Employees)
-                .ToListAsync();
+            var teams = await _context.Teams.ToListAsync();
 
-            return groups.Select(g => new DtoTeam
+            return teams.Select(t => new DtoTeam
             {
-                Id = g.Id,
-                Name = g.Name,
-                Employees = g.Employees.Select(r => new DtoEmployee
-                {
-                    Id = r.Id,
-                    Name = r.Name,
-                    TeamId = r.TeamId
-                }).ToList()
+                Id = t.Id,
+                Name = t.Name
             }).ToList();
         }
 
@@ -50,15 +40,18 @@ namespace planera_ledighet.api.Controllers
             _context.Teams.Add(entity);
             await _context.SaveChangesAsync();
 
-            dto.Id = entity.Id;
-            dto.Employees = new List<DtoEmployee>();
+            var createdDto = new DtoTeam
+            {
+                Id = entity.Id,
+                Name = entity.Name
+            };
 
-            return Ok(dto);
+            return Ok(createdDto);
         }
 
         // PUT: api/Team/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTeam(string id, DtoTeam dto)
+        public async Task<ActionResult<DtoTeam>> UpdateTeam(string id, DtoTeam dto)
         {
             if (id != dto.Id)
                 return BadRequest("ID mismatch");
@@ -70,7 +63,14 @@ namespace planera_ledighet.api.Controllers
             entity.Name = dto.Name;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            var updatedDto = new DtoTeam
+            {
+                Id = entity.Id,
+                Name = entity.Name
+            };
+
+            return Ok(updatedDto);
         }
 
         // DELETE: api/Team/{id}
@@ -81,8 +81,8 @@ namespace planera_ledighet.api.Controllers
             if (entity == null)
                 return NotFound();
 
-            if (await _context.Employees.AnyAsync(r => r.TeamId == id))
-                return BadRequest("Cannot delete group: it still has resources.");
+            if (await _context.Employees.AnyAsync(e => e.TeamId == id))
+                return BadRequest("Cannot delete team: it still has employees.");
 
             _context.Teams.Remove(entity);
             await _context.SaveChangesAsync();

@@ -4,40 +4,38 @@ namespace planera_ledighet.api
 {
     public class DtoAbsenceCategory
     {
-        [Key]
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Label { get; set; } = string.Empty;
-        public string Color { get; set; } = string.Empty;
-
+        public string Id { get; set; }
+        public string Label { get; set; }
+        public string Color { get; set; }
     }
+
 
     public class DtoTeam
     {
-        [Key]
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Name { get; set; } = string.Empty;
-        public List<DtoEmployee> Employees { get; set; } = new();
+        public string Id { get; set; }
+        public string Name { get; set; }
     }
 
     public class DtoEmployee
     {
-        [Key]
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Name { get; set; } = string.Empty;
-        public string TeamId { get; set; } = string.Empty;
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string TeamId { get; set; }
     }
+
+
 
     public class DtoAbsence
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Name { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }
         public int DurationDays { get; set; }
         public string Color { get; set; } = string.Empty;
         public string EmployeeId { get; set; } = string.Empty;
         public string AbsenceCategoryId { get; set; } = string.Empty;
     }
+
     public class DbDeleteStatus
     {
         public bool DbDeleted { get; set; }

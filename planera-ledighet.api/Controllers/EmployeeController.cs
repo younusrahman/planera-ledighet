@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-
 namespace planera_ledighet.api.Controllers
 {
     [Route("api/[controller]")]
@@ -19,17 +18,17 @@ namespace planera_ledighet.api.Controllers
         [HttpGet("/api/employees")]
         public async Task<ActionResult<IEnumerable<DtoEmployee>>> GetEmployees()
         {
-            var items = await _context.Employees.ToListAsync();
+            var employees = await _context.Employees.ToListAsync();
 
-            return items.Select(r => new DtoEmployee
+            return employees.Select(e => new DtoEmployee
             {
-                Id = r.Id,
-                Name = r.Name,
-                TeamId = r.TeamId
+                Id = e.Id,
+                Name = e.Name,
+                TeamId = e.TeamId
             }).ToList();
         }
 
-        // POST: api/employee
+        // POST: api/Employee
         [HttpPost]
         public async Task<ActionResult<DtoEmployee>> CreateEmployee(DtoEmployee dto)
         {
@@ -43,29 +42,39 @@ namespace planera_ledighet.api.Controllers
             _context.Employees.Add(entity);
             await _context.SaveChangesAsync();
 
-            dto.Id = entity.Id;
-            return Ok(dto);
+            return Ok(new DtoEmployee
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                TeamId = entity.TeamId
+            });
         }
 
-        // PUT: api/employee/{id}
+        // PUT: api/Employee/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateEmployee(string id, DtoEmployee dto)
+        public async Task<ActionResult<DtoEmployee>> UpdateEmployee(string id, DtoEmployee dto)
         {
             if (id != dto.Id)
                 return BadRequest("ID mismatch");
 
             var entity = await _context.Employees.FindAsync(id);
             if (entity == null)
-                return NotFound();
+                return NotFound($"Employee with ID {id} not found.");
 
             entity.Name = dto.Name;
             entity.TeamId = dto.TeamId;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            return Ok(new DtoEmployee
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                TeamId = entity.TeamId
+            });
         }
 
-        // DELETE: api/employee/{id}
+        // DELETE: api/Employee/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteEmployee(string id)
         {

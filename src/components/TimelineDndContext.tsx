@@ -12,7 +12,7 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Employee, Absence, Team } from "../types";
+import type { Employee, Absence, Team, TeamWithEmployees } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
@@ -22,7 +22,7 @@ interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
-  groups: Team[];
+  groups: TeamWithEmployees[];
   absences: Absence[];
   collapsedGroups: string[];
   absenceTypes: any[];
@@ -129,14 +129,6 @@ export const TimelineDndContext = forwardRef<
       return (
         leaveStart.isBefore(timelineEndDate) && leaveEnd.isAfter(startDate)
       );
-    });
-
-    console.log("👁️ Visible Absences:", {
-      total: absences.length,
-      visible: filtered.length,
-      startDate: startDate.format("YYYY-MM-DD"),
-      endDate: timelineEndDate.format("YYYY-MM-DD"),
-      filtered,
     });
 
     return filtered;

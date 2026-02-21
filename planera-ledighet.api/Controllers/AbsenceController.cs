@@ -28,7 +28,6 @@ namespace planera_ledighet.api.Controllers
             return items.Select(l => new DtoAbsence
             {
                 Id = l.Id,
-                Name = l.Employee.Name,
                 StartDate = l.StartDate,
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,
@@ -52,7 +51,6 @@ namespace planera_ledighet.api.Controllers
             return new DtoAbsence
             {
                 Id = l.Id,
-                Name = l.Employee.Name,
                 StartDate = l.StartDate,
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,

@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
-import type { Employee, Absence, Team } from "../types";
+import type { Employee, Absence, Team, TeamWithEmployees } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
@@ -25,6 +25,7 @@ import {
   useAbsenceCategoryMutation,
   useTeams,
   useAbsenceCategories,
+  useEmployees,
 } from "../services/hooks/useData";
 import { absence } from "../services/stores/absenceDataStore";
 import TimelineFooter from "./TimelineFooter";
@@ -41,7 +42,6 @@ export const Timeline = () => {
   }, []); // Load leaves on mount
   const absenceDetails = absence.useItems();
   const sidebarMode = useSidebarMode();
-  const { toggleSidebar } = useUIActions();
 
   // TanStack Query Mutation Hooks
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
@@ -57,16 +57,14 @@ export const Timeline = () => {
   } = useAbsenceCategoryMutation();
   const { data: groups = [] } = useTeams();
   const { data: absenceTypes = [] } = useAbsenceCategories();
+  const { data: employees } = useEmployees();
 
-  // Debug: Log data
-  useEffect(() => {
-    console.log("📊 Timeline Data:", {
-      absenceTypes: absenceTypes.length,
-      groups: groups.length,
-      leaves: absenceDetails.length,
-      leavesData: absenceDetails,
-    });
-  }, [absenceTypes, groups, absenceDetails]);
+  const teamsWithEmployees: TeamWithEmployees[] = useMemo(() => {
+    return groups.map((team) => ({
+      ...team,
+      employees: employees?.filter((e) => e.teamId === team.id) ?? [],
+    }));
+  }, [groups, employees]);
 
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -450,7 +448,6 @@ export const Timeline = () => {
     const entry: Absence = {
       id: leaveIdToUpdate || "l-" + Date.now(),
       employeeId: targetRowId,
-      name: type.label,
       startDate: formData.startDate.format("YYYY-MM-DD"),
       durationDays: formData.duration,
       color: type.color,
@@ -961,7 +958,7 @@ export const Timeline = () => {
         datePickerAnchorRef={
           datePickerAnchorRef as React.RefObject<HTMLButtonElement>
         }
-        groups={groups}
+        groups={teamsWithEmployees}
         sidebarMode={sidebarMode}
         disableDeletion={disableDeletion}
         openConfig={openConfig}
@@ -993,7 +990,7 @@ export const Timeline = () => {
         <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
           {/* SIDEBAR (GLASSMORPHISM) */}
           <TimelineSidebar
-            groups={groups}
+            groups={teamsWithEmployees}
             sidebarMode={sidebarMode}
             collapsedGroups={collapsedGroups}
             disableDeletion={disableDeletion}
@@ -1017,7 +1014,7 @@ export const Timeline = () => {
               days={days} // from useMemo(() => getDaysArray...)
               daysCount={daysCount} // from useState
               startDate={startDate} // from useState
-              groups={groups} // from useState
+              groups={teamsWithEmployees} // from useState
               absences={absenceDetails} // from useState
               collapsedGroups={collapsedGroups} // from useState
               absenceTypes={absenceTypes} // from useState
