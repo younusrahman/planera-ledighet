@@ -14,7 +14,7 @@ export const useAbsenceTypes = () =>
 export const useGroups = () =>
   useQuery({
     queryKey: ["groups"],
-    queryFn: () => apiRequest<Employee[]>("/Group"),
+    queryFn: () => apiRequest<Team[]>("/Group"),
   });
 
 export const useAbsences = () =>

@@ -12,6 +12,7 @@ export interface Absence {
 export interface Team {
   id: string;
   name: string;
+  resources: Employee[];
 }
 
 export interface Employee {

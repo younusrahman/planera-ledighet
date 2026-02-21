@@ -12,7 +12,7 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Employee, Absence } from "../types";
+import type { Employee, Absence, Team } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
@@ -22,7 +22,7 @@ interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
-  groups: Employee[];
+  groups: Team[];
   absences: Absence[];
   collapsedGroups: string[];
   absenceTypes: any[];
