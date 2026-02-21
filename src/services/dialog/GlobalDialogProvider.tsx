@@ -58,7 +58,7 @@ export function GlobalDialogProvider() {
       }}
     >
       <DialogContent sx={{ p: 3 }}>
-        <Component {...props} onClose={close} />
+        <Component {...(props as any)} onClose={close}  />
       </DialogContent>
     </Dialog>
   );

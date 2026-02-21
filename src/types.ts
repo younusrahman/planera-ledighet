@@ -1,26 +1,26 @@
-// src/types.ts
 export interface Absence {
   id: string;
   name: string;
-  startDate: string; // ISO string
+  startDate: string;
   durationDays: number;
   color: string;
-  rowId: string;
-  absenceTypeId: string; // <--- MAKE SURE THIS IS SENT
+  employeeId: string;
+  absenceCategoryId: string;
 }
 
 export interface Team {
   id: string;
   name: string;
-  resources: Employee[];
+  employees: Employee[];
 }
 
 export interface Employee {
   id: string;
   name: string;
-  resources?: Team[];
+  teamId: string;
 }
-export interface AbsenceType {
+
+export interface AbsenceCategory {
   id: string;
   color: string;
   label: string;

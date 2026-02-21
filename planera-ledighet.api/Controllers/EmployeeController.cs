@@ -1,78 +1,79 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+
 namespace planera_ledighet.api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ResourceController : ControllerBase
+    public class EmployeeController : ControllerBase
     {
         private readonly AppDbContext _context;
 
-        public ResourceController(AppDbContext context)
+        public EmployeeController(AppDbContext context)
         {
             _context = context;
         }
 
-        // GET: api/resource
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<DtoResource>>> GetResources()
+        // GET: api/employees
+        [HttpGet("/api/employees")]
+        public async Task<ActionResult<IEnumerable<DtoEmployee>>> GetEmployees()
         {
-            var items = await _context.Resources.ToListAsync();
+            var items = await _context.Employees.ToListAsync();
 
-            return items.Select(r => new DtoResource
+            return items.Select(r => new DtoEmployee
             {
                 Id = r.Id,
                 Name = r.Name,
-                GroupId = r.GroupId
+                TeamId = r.TeamId
             }).ToList();
         }
 
-        // POST: api/resource
+        // POST: api/employee
         [HttpPost]
-        public async Task<ActionResult<DtoResource>> CreateResource(DtoResource dto)
+        public async Task<ActionResult<DtoEmployee>> CreateEmployee(DtoEmployee dto)
         {
-            var entity = new Resource
+            var entity = new Employee
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = dto.Name,
-                GroupId = dto.GroupId
+                TeamId = dto.TeamId
             };
 
-            _context.Resources.Add(entity);
+            _context.Employees.Add(entity);
             await _context.SaveChangesAsync();
 
             dto.Id = entity.Id;
             return Ok(dto);
         }
 
-        // PUT: api/resource/{id}
+        // PUT: api/employee/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateResource(string id, DtoResource dto)
+        public async Task<IActionResult> UpdateEmployee(string id, DtoEmployee dto)
         {
             if (id != dto.Id)
                 return BadRequest("ID mismatch");
 
-            var entity = await _context.Resources.FindAsync(id);
+            var entity = await _context.Employees.FindAsync(id);
             if (entity == null)
                 return NotFound();
 
             entity.Name = dto.Name;
-            entity.GroupId = dto.GroupId;
+            entity.TeamId = dto.TeamId;
 
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // DELETE: api/resource/{id}
+        // DELETE: api/employee/{id}
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteResource(string id)
+        public async Task<IActionResult> DeleteEmployee(string id)
         {
-            var entity = await _context.Resources.FindAsync(id);
+            var entity = await _context.Employees.FindAsync(id);
             if (entity == null)
                 return NotFound();
 
-            _context.Resources.Remove(entity);
+            _context.Employees.Remove(entity);
             await _context.SaveChangesAsync();
 
             return NoContent();

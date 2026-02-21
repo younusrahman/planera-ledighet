@@ -1,32 +1,27 @@
 // src/hooks/useData.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AbsenceType, Employee, Absence, Team } from "../../types";
+import type { Employee, Absence, Team, AbsenceCategory } from "../../types";
 import { apiRequest } from "../apiInstance";
+import { absence } from "../stores/absenceStore";
 
 // --- QUERIES ---
 
-export const useAbsenceTypes = () =>
+export const useAbsenceCategories = () =>
   useQuery({
-    queryKey: ["absenceTypes"],
-    queryFn: () => apiRequest<AbsenceType[]>("/AbsenceType"),
+    queryKey: ["absenceCategories"],
+    queryFn: () => apiRequest<AbsenceCategory[]>("/AbsenceCategorys"),
   });
 
-export const useGroups = () =>
+export const useTeams = () =>
   useQuery({
-    queryKey: ["groups"],
-    queryFn: () => apiRequest<Team[]>("/Group"),
+    queryKey: ["teams"],
+    queryFn: () => apiRequest<Team[]>("/teams"),
   });
 
-export const useAbsences = () =>
+export const useEmployees = () =>
   useQuery({
-    queryKey: ["absences"],
-    queryFn: () => apiRequest<Absence[]>("/absence"),
-  });
-
-export const useResources = () =>
-  useQuery({
-    queryKey: ["resources"],
-    queryFn: () => apiRequest<Absence[]>("/resource"),
+    queryKey: ["employees"],
+    queryFn: () => apiRequest<Employee[]>("/employees"),
   });
 
 // --- MUTATIONS ---
@@ -98,7 +93,6 @@ export const useAbsenceMutations = () => {
         );
       }
 
-      // Return a context object with the snapshotted value
       return { previousAbsences };
     },
     onError: (_err, _variables, context) => {
@@ -186,75 +180,74 @@ export const useAbsenceBlockMutation = () => {
 };
 
 // 2. GROUP MUTATIONS
-export const useGroupMutations = () => {
+export const useTeamMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newGroup: { name: string }) =>
-      apiRequest<Employee>("/Group", {
+    mutationFn: (newTeam: { name: string }) =>
+      apiRequest<Employee>("/team", {
         method: "POST",
-        body: JSON.stringify(newGroup),
+        body: JSON.stringify(newTeam),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name: string } }) =>
-      apiRequest<Employee>(`/Group/${id}`, {
+      apiRequest<Employee>(`/team/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<void>(`/Group/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+      apiRequest<void>(`/team/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
 
   return { createMutation, updateMutation, deleteMutation };
 };
 
 // Simplified hook for components to use TanStack Query with Groups
-export const useGroupMutation = () => {
-  const { createMutation, updateMutation, deleteMutation } =
-    useGroupMutations();
+export const useTeamMutation = () => {
+  const { createMutation, updateMutation, deleteMutation } = useTeamMutations();
 
-  const createGroup = async (name: string) => {
+  const createTeam = async (name: string) => {
     try {
       await createMutation.mutateAsync({ name });
       return true;
     } catch (error) {
-      console.error("Failed to create group:", error);
+      console.error("Failed to create team:", error);
       return false;
     }
   };
 
-  const updateGroup = async (id: string, name: string) => {
+  const updateTeam = async (id: string, name: string) => {
     try {
       await updateMutation.mutateAsync({ id, data: { name } });
       return true;
     } catch (error) {
-      console.error("Failed to update group:", error);
+      console.error("Failed to update team:", error);
       return false;
     }
   };
 
-  const deleteGroup = async (id: string) => {
+  const deleteTeam = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id);
       return true;
     } catch (error) {
-      console.error("Failed to delete group:", error);
+      console.error("Failed to delete team:", error);
       return false;
     }
   };
 
   return {
-    createGroup,
-    updateGroup,
-    deleteGroup,
+    createTeam: createTeam,
+    updateTeam: updateTeam,
+    deleteTeam: deleteTeam,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
@@ -262,17 +255,16 @@ export const useGroupMutation = () => {
 };
 
 // 3. RESOURCE (ANSTÄLLD) MUTATIONS
-export const useResourceMutations = () => {
+export const useEmployeeMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
-    mutationFn: (newResource: { name: string; groupId: string }) =>
-      apiRequest<Team>("/Resource", {
+    mutationFn: (newEmployee: { name: string; teamId: string }) =>
+      apiRequest<Employee>("/Employee", {
         method: "POST",
-        body: JSON.stringify(newResource),
+        body: JSON.stringify(newEmployee),
       }),
-    // Invalidate groups because resources are nested inside Group.resources
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
 
   const updateMutation = useMutation({
@@ -281,63 +273,67 @@ export const useResourceMutations = () => {
       data,
     }: {
       id: string;
-      data: { name: string; groupId: string };
+      data: { name: string; teamId: string };
     }) =>
-      apiRequest<Team>(`/Resource/${id}`, {
+      apiRequest<Team>(`/Employee/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teams"] });
+      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      absence.loadAll();
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<void>(`/Resource/${id}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["groups"] }),
+      apiRequest<void>(`/Employee/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teams"] }),
   });
 
   return { createMutation, updateMutation, deleteMutation };
 };
 
 // Simplified hook for components to use TanStack Query with Resources
-export const useResourceMutation = () => {
+export const useEmployeeMutation = () => {
   const { createMutation, updateMutation, deleteMutation } =
-    useResourceMutations();
+    useEmployeeMutations();
 
-  const createResource = async (name: string, groupId: string) => {
+  const createEmployee = async (name: string, teamId: string) => {
     try {
-      await createMutation.mutateAsync({ name, groupId });
+      await createMutation.mutateAsync({ name, teamId: teamId });
       return true;
     } catch (error) {
-      console.error("Failed to create resource:", error);
+      console.error("Failed to create employee:", error);
       return false;
     }
   };
 
-  const updateResource = async (id: string, name: string, groupId: string) => {
+  const updateEmployee = async (id: string, name: string, teamId: string) => {
     try {
-      await updateMutation.mutateAsync({ id, data: { name, groupId } });
+      await updateMutation.mutateAsync({ id, data: { name, teamId: teamId } });
       return true;
     } catch (error) {
-      console.error("Failed to update resource:", error);
+      console.error("Failed to update employee:", error);
       return false;
     }
   };
 
-  const deleteResource = async (id: string) => {
+  const deleteEmployee = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id);
       return true;
     } catch (error) {
-      console.error("Failed to delete resource:", error);
+      console.error("Failed to delete employee:", error);
       return false;
     }
   };
 
   return {
-    createResource,
-    updateResource,
-    deleteResource,
+    createEmployee: createEmployee,
+    updateEmployee: updateEmployee,
+    deleteEmployee: deleteEmployee,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
@@ -345,17 +341,17 @@ export const useResourceMutation = () => {
 };
 
 // 4. ABSENCE TYPE MUTATIONS
-export const useAbsenceTypeMutations = () => {
+export const useAbsenceCategoryMutations = () => {
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({
     mutationFn: (newType: { label: string; color: string }) =>
-      apiRequest<AbsenceType>("/AbsenceType", {
+      apiRequest<AbsenceCategory>("/AbsenceCategory", {
         method: "POST",
         body: JSON.stringify(newType),
       }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["absenceTypes"] }),
+      queryClient.invalidateQueries({ queryKey: ["absenceCategories"] }),
   });
 
   const updateMutation = useMutation({
@@ -366,43 +362,43 @@ export const useAbsenceTypeMutations = () => {
       id: string;
       data: { label: string; color: string };
     }) =>
-      apiRequest<AbsenceType>(`/AbsenceType/${id}`, {
+      apiRequest<AbsenceCategory>(`/AbsenceCategory/${id}`, {
         method: "PUT",
         body: JSON.stringify({ id, ...data }),
       }),
     onSuccess: () => {
-      // Refresh types AND absences because existing blocks might need to update their color/label
-      queryClient.invalidateQueries({ queryKey: ["absenceTypes"] });
-      queryClient.invalidateQueries({ queryKey: ["absences"] });
+      (queryClient.invalidateQueries({ queryKey: ["absenceCategories"] }),
+        queryClient.invalidateQueries({ queryKey: ["absences"] }));
+      absence.loadAll();
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest<void>(`/AbsenceType/${id}`, { method: "DELETE" }),
+      apiRequest<void>(`/AbsenceCategory/${id}`, { method: "DELETE" }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["absenceTypes"] }),
+      queryClient.invalidateQueries({ queryKey: ["absenceCategories"] }),
   });
 
   return { createMutation, updateMutation, deleteMutation };
 };
 
-// Simplified hook for components to use TanStack Query with AbsenceTypes
-export const useAbsenceTypeMutation = () => {
+// Simplified hook for components to use TanStack Query with AbsenceCategories
+export const useAbsenceCategoryMutation = () => {
   const { createMutation, updateMutation, deleteMutation } =
-    useAbsenceTypeMutations();
+    useAbsenceCategoryMutations();
 
-  const createAbsenceType = async (label: string, color: string) => {
+  const createAbsenceCategory = async (label: string, color: string) => {
     try {
       await createMutation.mutateAsync({ label, color });
       return true;
     } catch (error) {
-      console.error("Failed to create absence type:", error);
+      console.error("Failed to create absence category:", error);
       return false;
     }
   };
 
-  const updateAbsenceType = async (
+  const updateAbsenceCategory = async (
     id: string,
     label: string,
     color: string,
@@ -411,25 +407,25 @@ export const useAbsenceTypeMutation = () => {
       await updateMutation.mutateAsync({ id, data: { label, color } });
       return true;
     } catch (error) {
-      console.error("Failed to update absence type:", error);
+      console.error("Failed to update absence category:", error);
       return false;
     }
   };
 
-  const deleteAbsenceType = async (id: string) => {
+  const deleteAbsenceCategory = async (id: string) => {
     try {
       await deleteMutation.mutateAsync(id);
       return true;
     } catch (error) {
-      console.error("Failed to delete absence type:", error);
+      console.error("Failed to delete absence category:", error);
       return false;
     }
   };
 
   return {
-    createAbsenceType,
-    updateAbsenceType,
-    deleteAbsenceType,
+    createAbsenceCategory: createAbsenceCategory,
+    updateAbsenceCategory: updateAbsenceCategory,
+    deleteAbsenceCategory: deleteAbsenceCategory,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

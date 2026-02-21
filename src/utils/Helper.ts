@@ -26,7 +26,7 @@ export const checkCollision = (
   items: Absence[],
   targetItem: {
     id: string;
-    rowId: string;
+    employeeId: string;
     startDate: string;
     durationDays: number;
   },
@@ -36,7 +36,7 @@ export const checkCollision = (
 
   return items.some((item) => {
     // Skip self and items in other rows
-    if (item.id === targetItem.id || item.rowId !== targetItem.rowId) {
+    if (item.id === targetItem.id || item.employeeId !== targetItem.employeeId) {
       return false;
     }
 

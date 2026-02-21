@@ -2,7 +2,7 @@
 
 namespace planera_ledighet.api
 {
-    public class DtoAbsenceType
+    public class DtoAbsenceCategory
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -11,23 +11,23 @@ namespace planera_ledighet.api
 
     }
 
-    public class DtoGroup
+    public class DtoTeam
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
-        public List<DtoResource> Resources { get; set; } = new();
+        public List<DtoEmployee> Employees { get; set; } = new();
     }
 
-    public class DtoResource
+    public class DtoEmployee
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
-        public string GroupId { get; set; } = string.Empty;
+        public string TeamId { get; set; } = string.Empty;
     }
 
-    public class DtoLeaveItem
+    public class DtoAbsence
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -35,8 +35,8 @@ namespace planera_ledighet.api
         public DateTime StartDate { get; set; }
         public int DurationDays { get; set; }
         public string Color { get; set; } = string.Empty;
-        public string RowId { get; set; } = string.Empty;
-        public string AbsenceTypeId { get; set; } = string.Empty;
+        public string EmployeeId { get; set; } = string.Empty;
+        public string AbsenceCategoryId { get; set; } = string.Empty;
     }
     public class DbDeleteStatus
     {

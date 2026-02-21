@@ -19,13 +19,12 @@ import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
 import IconButton from "@mui/material/IconButton";
-import { KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
 import {
-  useGroupMutation,
-  useResourceMutation,
-  useAbsenceTypeMutation,
-  useGroups,
-  useAbsenceTypes,
+  useTeamMutation,
+  useEmployeeMutation,
+  useAbsenceCategoryMutation,
+  useTeams,
+  useAbsenceCategories,
 } from "../services/hooks/useData";
 import { absence } from "../services/stores/absenceStore";
 import TimelineFooter from "./TimelineFooter";
@@ -45,13 +44,19 @@ export const Timeline = () => {
   const { toggleSidebar } = useUIActions();
 
   // TanStack Query Mutation Hooks
-  const { createGroup, updateGroup, deleteGroup } = useGroupMutation();
-  const { createResource, updateResource, deleteResource } =
-    useResourceMutation();
-  const { createAbsenceType, updateAbsenceType, deleteAbsenceType } =
-    useAbsenceTypeMutation();
-  const { data: groups = [] } = useGroups();
-  const { data: absenceTypes = [] } = useAbsenceTypes();
+  const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
+  const {
+    createEmployee: createResource,
+    updateEmployee: updateResource,
+    deleteEmployee: deleteResource,
+  } = useEmployeeMutation();
+  const {
+    createAbsenceCategory: createAbsenceType,
+    updateAbsenceCategory: updateAbsenceType,
+    deleteAbsenceCategory: deleteAbsenceType,
+  } = useAbsenceCategoryMutation();
+  const { data: groups = [] } = useTeams();
+  const { data: absenceTypes = [] } = useAbsenceCategories();
 
   // Debug: Log data
   useEffect(() => {
@@ -210,7 +215,7 @@ export const Timeline = () => {
 
   const handleDeleteGroup = async (selectedGroupId: string) => {
     if (selectedGroupId) {
-      await deleteGroup(selectedGroupId);
+      await deleteTeam(selectedGroupId);
     }
   };
 
@@ -231,20 +236,20 @@ export const Timeline = () => {
     if (!name.trim()) return;
 
     if (idToUpdate) {
-      await updateGroup(idToUpdate, name);
+      await updateTeam(idToUpdate, name);
     } else {
-      await createGroup(name);
+      await createTeam(name);
     }
   };
   const handleSaveResource = async (
     name: string,
     targetGroupId: string,
-    rowIdToUpdate: string | null,
+    empIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
 
-    if (rowIdToUpdate) {
-      await updateResource(rowIdToUpdate, name, targetGroupId);
+    if (empIdToUpdate) {
+      await updateResource(empIdToUpdate, name, targetGroupId);
     } else {
       await createResource(name, targetGroupId);
     }
@@ -444,12 +449,12 @@ export const Timeline = () => {
 
     const entry: Absence = {
       id: leaveIdToUpdate || "l-" + Date.now(),
-      rowId: targetRowId,
+      employeeId: targetRowId,
       name: type.label,
       startDate: formData.startDate.format("YYYY-MM-DD"),
       durationDays: formData.duration,
       color: type.color,
-      absenceTypeId: type.id, // <--- MAKE SURE THIS IS SENT
+      absenceCategoryId: type.id, // <--- MAKE SURE THIS IS SENT
     };
 
     // Validation: Collision
@@ -629,7 +634,7 @@ export const Timeline = () => {
       onDelete: isEditing
         ? async () => {
             if (groupToEdit?.id) {
-              await deleteGroup(groupToEdit.id);
+              await deleteTeam(groupToEdit.id);
 
               dialog.close();
             }
@@ -684,7 +689,7 @@ export const Timeline = () => {
     const isEditing = !!leaveToEdit;
 
     // If editing, we use the leave's rowId. If creating, we use the rowId passed from the grid.
-    const targetRowId = isEditing ? leaveToEdit.rowId : rowId;
+    const targetRowId = isEditing ? leaveToEdit.employeeId : rowId;
 
     dialog.open("absence", {
       title: isEditing ? "Redigera frånvaro" : "Registrera frånvaro",
@@ -985,11 +990,6 @@ export const Timeline = () => {
           bgcolor: "background.paper",
         }}
       >
-        {/* 
-         FLEX CONTAINER: 
-         Ensures Sidebar and Grid are side-by-side.
-         width: "fit-content" is crucial so the container expands to the width of the dates.
-      */}
         <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
           {/* SIDEBAR (GLASSMORPHISM) */}
           <TimelineSidebar
@@ -998,16 +998,10 @@ export const Timeline = () => {
             collapsedGroups={collapsedGroups}
             disableDeletion={disableDeletion}
             toggleGroup={toggleGroup}
-            toggleSidebar={toggleSidebar}
-            openConfig={openConfig}
             handleDeleteResource={handleDeleteResource}
             handleDeleteGroup={handleDeleteGroup}
             handleDialogGroupTrigger={handleDialogGroupTrigger}
-            handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
             handleDialogResourceTrigger={handleDialogResourceTrigger}
-            handleDialogDatabaseSystemTrigger={
-              handleDialogDatabaseSystemTrigger
-            }
           />
 
           <Box sx={{ position: "relative" }}>

@@ -1,6 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Reflection.Emit;
 
 namespace planera_ledighet.api
 {
@@ -8,27 +6,27 @@ namespace planera_ledighet.api
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<AbsenceType> AbsenceTypes { get; set; }
-        public DbSet<Group> Groups { get; set; }
-        public DbSet<Resource> Resources { get; set; }
-        public DbSet<LeaveItem> LeaveItems { get; set; }
+        public DbSet<AbsenceCategory> AbsenceCategorys { get; set; }
+        public DbSet<Team> Teams { get; set; }
+        public DbSet<Employee> Employees { get; set; }
+        public DbSet<Absence> Absences { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<LeaveItem>()
-                .HasOne(li => li.Resource)
-                .WithMany(r => r.LeaveItems)
-                .HasForeignKey(li => li.ResourceId);
+            modelBuilder.Entity<Absence>()
+                .HasOne(a => a.Employee)
+                .WithMany(e => e.Absences)
+                .HasForeignKey(a => a.EmployeeId);
 
-            modelBuilder.Entity<LeaveItem>()
-                .HasOne(li => li.AbsenceType)
-                .WithMany(a => a.LeaveItems)
-                .HasForeignKey(li => li.AbsenceTypeId);
+            modelBuilder.Entity<Absence>()
+                .HasOne(a => a.AbsenceCategory)
+                .WithMany(c => c.Absences)
+                .HasForeignKey(a => a.AbsenceCategoryId);
 
-            modelBuilder.Entity<Resource>()
-                .HasOne(r => r.Group)
-                .WithMany(g => g.Resources)
-                .HasForeignKey(r => r.GroupId);
+            modelBuilder.Entity<Employee>()
+                .HasOne(e => e.Team)
+                .WithMany(t => t.Employees)
+                .HasForeignKey(e => e.TeamId);
         }
     }
 }

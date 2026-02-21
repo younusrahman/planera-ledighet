@@ -3,55 +3,50 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace planera_ledighet.api
 {
-    public class AbsenceType
+    public class AbsenceCategory
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Label { get; set; } = string.Empty;
         public string Color { get; set; } = string.Empty;
-
-        public List<LeaveItem> LeaveItems { get; set; } = new();
+        public List<Absence> Absences { get; set; } = new();
     }
 
-    public class Group
+    public class Team
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
 
-        public List<Resource> Resources { get; set; } = new();
+        public List<Employee> Employees { get; set; } = new();
     }
 
-    public class Resource
+    public class Employee
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
 
-        // Foreign key to Group
-        public string GroupId { get; set; } = string.Empty;
-        public Group Group { get; set; }
+        public string TeamId { get; set; } = string.Empty;
+        public Team Team { get; set; }
 
-        public List<LeaveItem> LeaveItems { get; set; } = new();
+        public List<Absence> Absences { get; set; } = new();
     }
 
-    public class LeaveItem
+    public class Absence
     {
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
-        public string ResourceId { get; set; } = string.Empty;
-        public Resource Resource { get; set; }
+        public string EmployeeId { get; set; } = string.Empty;
+        public Employee Employee { get; set; }
 
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public int DurationDays { get; set; }
-
-        public string RowId { get; set; } = string.Empty;
-
-        // Foreign key to AbsenceType
-        public string AbsenceTypeId { get; set; } = string.Empty;
-        public AbsenceType AbsenceType { get; set; }
+        public string AbsenceCategoryId { get; set; } = string.Empty;
+        public AbsenceCategory AbsenceCategory { get; set; }
     }
+
 
 }

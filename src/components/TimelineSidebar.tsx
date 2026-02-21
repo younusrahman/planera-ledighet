@@ -14,7 +14,7 @@ import {
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import type { Employee, Team } from "../types";
+import type { Team } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
 import EditIcon from "@mui/icons-material/Edit";
@@ -26,14 +26,12 @@ interface TimelineSidebarProps {
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
   disableDeletion: boolean;
-  toggleGroup: (groupId: string) => void;
-  toggleSidebar: () => void;
-  openConfig: () => void;
+  toggleGroup: (teamId: string) => void;
+
+
   handleDeleteResource: (groupId: string, resId: string) => void;
   handleDeleteGroup: (groupId: string) => void;
   handleDialogGroupTrigger: (group?: Team) => void;
-  handleDialogAbsenceTypeTrigger: () => void;
-  handleDialogDatabaseSystemTrigger: () => void;
   handleDialogResourceTrigger: (
     resourceToEdit?: { id: string; name: string },
     currentGroupId?: string,
@@ -45,14 +43,11 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   collapsedGroups,
   disableDeletion,
   toggleGroup,
-  toggleSidebar,
-  openConfig,
   handleDeleteResource,
   handleDeleteGroup,
   handleDialogGroupTrigger,
-  handleDialogAbsenceTypeTrigger,
   handleDialogResourceTrigger,
-  handleDialogDatabaseSystemTrigger,
+
 }) => {
   const theme = useTheme();
   const getInitials = (name: string) => {
@@ -246,7 +241,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
 
                   {/* Anställda-rader */}
                   <Collapse in={!isCollapsed}>
-                    {(group.resources || []).map((res) => {
+                    {(group.employees || []).map((res) => {
                       const resRow = (
                         <Box
                           key={res.id}
@@ -338,7 +333,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
         <MenuItem
           onClick={() => {
             const group = groups.find((g) => g.id === selectedGroupId);
-            const res = (group?.resources || []).find(
+            const res = (group?.employees || []).find(
               (r) => r.id === selectedResourceId,
             );
             if (res) handleDialogResourceTrigger(res, selectedGroupId!);

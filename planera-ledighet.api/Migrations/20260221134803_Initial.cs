@@ -6,13 +6,13 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace planera_ledighet.api.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "AbsenceTypes",
+                name: "AbsenceCategorys",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
@@ -21,11 +21,11 @@ namespace planera_ledighet.api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AbsenceTypes", x => x.Id);
+                    table.PrimaryKey("PK_AbsenceCategorys", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Groups",
+                name: "Teams",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
@@ -33,87 +33,86 @@ namespace planera_ledighet.api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Groups", x => x.Id);
+                    table.PrimaryKey("PK_Teams", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Resources",
+                name: "Employees",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", nullable: false),
-                    GroupId = table.Column<string>(type: "TEXT", nullable: false)
+                    TeamId = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Resources", x => x.Id);
+                    table.PrimaryKey("PK_Employees", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Resources_Groups_GroupId",
-                        column: x => x.GroupId,
-                        principalTable: "Groups",
+                        name: "FK_Employees_Teams_TeamId",
+                        column: x => x.TeamId,
+                        principalTable: "Teams",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "LeaveItems",
+                name: "Absences",
                 columns: table => new
                 {
                     Id = table.Column<string>(type: "TEXT", nullable: false),
-                    ResourceId = table.Column<string>(type: "TEXT", nullable: false),
+                    EmployeeId = table.Column<string>(type: "TEXT", nullable: false),
                     StartDate = table.Column<DateTime>(type: "TEXT", nullable: false),
                     EndDate = table.Column<DateTime>(type: "TEXT", nullable: false),
                     DurationDays = table.Column<int>(type: "INTEGER", nullable: false),
-                    RowId = table.Column<string>(type: "TEXT", nullable: false),
-                    AbsenceTypeId = table.Column<string>(type: "TEXT", nullable: false)
+                    AbsenceCategoryId = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_LeaveItems", x => x.Id);
+                    table.PrimaryKey("PK_Absences", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_LeaveItems_AbsenceTypes_AbsenceTypeId",
-                        column: x => x.AbsenceTypeId,
-                        principalTable: "AbsenceTypes",
+                        name: "FK_Absences_AbsenceCategorys_AbsenceCategoryId",
+                        column: x => x.AbsenceCategoryId,
+                        principalTable: "AbsenceCategorys",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_LeaveItems_Resources_ResourceId",
-                        column: x => x.ResourceId,
-                        principalTable: "Resources",
+                        name: "FK_Absences_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_LeaveItems_AbsenceTypeId",
-                table: "LeaveItems",
-                column: "AbsenceTypeId");
+                name: "IX_Absences_AbsenceCategoryId",
+                table: "Absences",
+                column: "AbsenceCategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_LeaveItems_ResourceId",
-                table: "LeaveItems",
-                column: "ResourceId");
+                name: "IX_Absences_EmployeeId",
+                table: "Absences",
+                column: "EmployeeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Resources_GroupId",
-                table: "Resources",
-                column: "GroupId");
+                name: "IX_Employees_TeamId",
+                table: "Employees",
+                column: "TeamId");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "LeaveItems");
+                name: "Absences");
 
             migrationBuilder.DropTable(
-                name: "AbsenceTypes");
+                name: "AbsenceCategorys");
 
             migrationBuilder.DropTable(
-                name: "Resources");
+                name: "Employees");
 
             migrationBuilder.DropTable(
-                name: "Groups");
+                name: "Teams");
         }
     }
 }

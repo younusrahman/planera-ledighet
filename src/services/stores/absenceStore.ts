@@ -115,15 +115,15 @@ async function loadAll() {
     useAbsenceStore.setState({ loading: true, error: null });
 
     const data = await queryClient.fetchQuery({
-      queryKey: ["leaves"],
-      queryFn: () => apiRequest<Absence[]>("/leaves"),
+      queryKey: ["absences"],
+      queryFn: () => apiRequest<Absence[]>("/absences"),
       staleTime: 1000 * 60 * 5,
     });
 
     actions.setAll(data);
   } catch (e: any) {
     useAbsenceStore.setState({ error: "Failed to load data" });
-    toast("leaves: load failed", "error");
+    toast("absence: load failed", "error");
     throw e;
   } finally {
     useAbsenceStore.setState({ loading: false });
@@ -135,7 +135,7 @@ async function createOne(body: Absence) {
 
   try {
     const newItem = await runMutation(() =>
-      apiRequest<Absence>("/leaves", {
+      apiRequest<Absence>("/absence", {
         method: "POST",
         body: JSON.stringify(body),
       }),
@@ -143,14 +143,14 @@ async function createOne(body: Absence) {
 
     actions.add(newItem);
 
-    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["absences"], (old) =>
       old ? [...old, newItem] : [newItem],
     );
 
-    toast("leaves: created", "success");
+    toast("absence: created", "success");
     return newItem;
   } catch (e: any) {
-    toast("leaves: create failed", "error");
+    toast("absence: create failed", "error");
     throw e;
   }
 }
@@ -163,7 +163,7 @@ async function updateOne(id: Id, body: Absence) {
 
   try {
     const updated = await runMutation(() =>
-      apiRequest<Absence>(`/leaves/${id}`, {
+      apiRequest<Absence>(`/absence/${id}`, {
         method: "PUT",
         body: JSON.stringify(body),
       }),
@@ -171,15 +171,15 @@ async function updateOne(id: Id, body: Absence) {
 
     actions.update(updated);
 
-    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["absence"], (old) =>
       old ? old.map((i) => (i.id === id ? updated : i)) : [updated],
     );
 
-    toast("leaves: updated", "success");
+    toast("absence: updated", "success");
     return updated;
   } catch (e: any) {
     if (prev) actions.update(prev);
-    toast("leaves: update failed", "error");
+    toast("absence: update failed", "error");
     throw e;
   }
 }
@@ -192,19 +192,19 @@ async function removeOne(id: Id) {
 
   try {
     await runMutation(() =>
-      apiRequest<void>(`/leaves/${id}`, {
+      apiRequest<void>(`/absence/${id}`, {
         method: "DELETE",
       }),
     );
 
-    queryClient.setQueryData<Absence[]>(["leaves"], (old) =>
+    queryClient.setQueryData<Absence[]>(["absences"], (old) =>
       old ? old.filter((i) => i.id !== id) : [],
     );
 
-    toast("leaves: deleted", "success");
+    toast("absence: deleted", "success");
   } catch (e: any) {
     if (prev) actions.add(prev);
-    toast("leaves: delete failed", "error");
+    toast("absence: delete failed", "error");
     throw e;
   }
 }

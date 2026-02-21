@@ -1,13 +1,13 @@
 import React from "react";
 import { Box, Paper, Typography, Chip, alpha, useTheme } from "@mui/material";
-import { useAbsenceTypes } from "../services/hooks/useData";
+import { useAbsenceCategories } from "../services/hooks/useData";
 interface TimelineFooterProps {
   onAbsenceTypeClick: (type: any) => void;
 }
 export default function TimelineFooter({
   onAbsenceTypeClick,
 }: TimelineFooterProps) {
-  const { data: absenceTypes = [] } = useAbsenceTypes();
+  const { data: absenceTypes = [] } = useAbsenceCategories();
   const theme = useTheme();
   return (
     <Box

@@ -347,7 +347,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
           <MenuItem
             onClick={() => {
               const group = groups.find((g) => g.id === selectedGroupId);
-              const res = (group?.resources || []).find(
+              const res = (group?.employees || []).find(
                 (r) => r.id === selectedResourceId,
               );
               if (res) handleDialogResourceTrigger(res, selectedGroupId!);

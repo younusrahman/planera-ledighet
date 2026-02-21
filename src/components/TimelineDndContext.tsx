@@ -159,7 +159,7 @@ export const TimelineDndContext = forwardRef<
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        width: "100%", 
+        width: "100%",
         position: "relative",
       }}
     >
@@ -487,7 +487,7 @@ export const TimelineDndContext = forwardRef<
                         />
 
                         <Collapse in={!isCollapsed}>
-                          {(group.resources || []).map((res) => (
+                          {(group.employees || []).map((res) => (
                             <Box
                               key={res.id}
                               onPointerDown={(e) =>
@@ -529,7 +529,7 @@ export const TimelineDndContext = forwardRef<
 
                               {/* Absence Blocks */}
                               {visibleAbsences
-                                .filter((l) => l.rowId === res.id)
+                                .filter((l) => l.employeeId === res.id)
                                 .map((l) => (
                                   <AbsenceBlock
                                     key={l.id}
