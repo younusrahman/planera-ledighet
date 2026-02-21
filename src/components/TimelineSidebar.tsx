@@ -168,13 +168,20 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                           }}
                         />
                       )}
-                      <Typography
-                        variant="subtitle1"
-                        noWrap
-                        sx={{ fontWeight: 700 }}
+                      <ProTooltip
+                        key={group.id}
+                        title={group.name}
+                        placement="right"
+                        arrow
                       >
-                        {isInitials ? getInitials(group.name) : group.name}
-                      </Typography>
+                        <Typography
+                          variant="subtitle1"
+                          noWrap
+                          sx={{ fontWeight: 700 }}
+                        >
+                          {isInitials ? getInitials(group.name) : group.name}
+                        </Typography>
+                      </ProTooltip>
                     </Box>
                     {isFull && (
                       <IconButton
@@ -226,15 +233,10 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                                 color: "text.secondary",
                               }}
                             />
-                            <ProTooltip
-                              title={res.name}
-                              placement="right"
-                              arrow
-                            >
-                              <span>
-                                {isInitials ? getInitials(res.name) : res.name}
-                              </span>
-                            </ProTooltip>
+
+                            <span>
+                              {isInitials ? getInitials(res.name) : res.name}
+                            </span>
                           </Typography>
 
                           {isFull && (

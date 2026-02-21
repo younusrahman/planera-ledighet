@@ -19,10 +19,6 @@ const useSnackbarStore = create<SnackbarStore>((set) => ({
   hide: () => set({ isOpen: false }),
 }));
 
-/**
- * UNIVERSAL TOAST FUNCTION
- * Call this from anywhere: .ts files, .tsx components, or inside hooks.
- */
 export const toast = (message: string, severity: AlertColor = "info") => {
   useSnackbarStore.getState().show(message, severity);
 };
@@ -36,7 +32,7 @@ export const GlobalSnackbar = () => {
       open={isOpen}
       autoHideDuration={5000}
       onClose={hide}
-      anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
     >
       <Alert
         onClose={hide}
