@@ -11,7 +11,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
 import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
-import type { Employee, Absence } from "../types";
+import type { Employee, Absence, Team } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
@@ -614,7 +614,7 @@ export const Timeline = () => {
     });
   };
 
-  const handleDialogGroupTrigger = (groupToEdit?: Employee) => {
+  const handleDialogGroupTrigger = (groupToEdit?: Team) => {
     const isEditing = !!groupToEdit;
 
     dialog.open("group", {
@@ -730,7 +730,7 @@ export const Timeline = () => {
       title: isEditing ? "Redigera anställd" : "Lägg till anställd",
       initialName: isEditing ? resourceToEdit.name : "",
       initialGroupId: currentGroupId, // The group they currently belong to
-      groups, // Pass the list of groups so the user can change it
+      groups,
 
       onSave: (name, targetGroupId) => {
         // Pass the specific resource ID if editing, or null if creating
@@ -835,7 +835,6 @@ export const Timeline = () => {
                 height: "100%",
                 flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.1)",
-   
               }}
             >
               <Typography
@@ -992,11 +991,23 @@ export const Timeline = () => {
          width: "fit-content" is crucial so the container expands to the width of the dates.
       */}
         <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
+          {/* SIDEBAR (GLASSMORPHISM) */}
           <TimelineSidebar
             groups={groups}
             sidebarMode={sidebarMode}
             collapsedGroups={collapsedGroups}
+            disableDeletion={disableDeletion}
             toggleGroup={toggleGroup}
+            toggleSidebar={toggleSidebar}
+            openConfig={openConfig}
+            handleDeleteResource={handleDeleteResource}
+            handleDeleteGroup={handleDeleteGroup}
+            handleDialogGroupTrigger={handleDialogGroupTrigger}
+            handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
+            handleDialogResourceTrigger={handleDialogResourceTrigger}
+            handleDialogDatabaseSystemTrigger={
+              handleDialogDatabaseSystemTrigger
+            }
           />
 
           <Box sx={{ position: "relative" }}>
@@ -1005,12 +1016,10 @@ export const Timeline = () => {
 
             {/* THE GRID CONTENT */}
             <TimelineDndContext
-              // 1. THE REF (Must be exactly like this for forwardRef to work)
               ref={scrollContainerRef}
               onGroupMouseDown={handleGroupRowMouseDown}
               onGroupMouseMove={handleGroupRowMouseMove}
               onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
-              // 2. DATA PROPS (Values from your state/memo)
               days={days} // from useMemo(() => getDaysArray...)
               daysCount={daysCount} // from useState
               startDate={startDate} // from useState

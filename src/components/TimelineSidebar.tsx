@@ -7,25 +7,52 @@ import {
   alpha,
   Paper,
   useTheme,
+  Grow,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
-import type { Employee } from "../types";
+import type { Employee, Team } from "../types";
 import { ROW_HEIGHT } from "../utils";
 import { ProTooltip } from "./ProTooltip";
+import EditIcon from "@mui/icons-material/Edit";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
+
 interface TimelineSidebarProps {
-  groups: Employee[];
+  groups: Team[];
   sidebarMode: "full" | "initials" | "hidden";
   collapsedGroups: string[];
+  disableDeletion: boolean;
   toggleGroup: (groupId: string) => void;
+  toggleSidebar: () => void;
+  openConfig: () => void;
+  handleDeleteResource: (groupId: string, resId: string) => void;
+  handleDeleteGroup: (groupId: string) => void;
+  handleDialogGroupTrigger: (group?: Team) => void;
+  handleDialogAbsenceTypeTrigger: () => void;
+  handleDialogDatabaseSystemTrigger: () => void;
+  handleDialogResourceTrigger: (
+    resourceToEdit?: { id: string; name: string },
+    currentGroupId?: string,
+  ) => void;
 }
-
 export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   groups,
   sidebarMode,
   collapsedGroups,
+  disableDeletion,
   toggleGroup,
+  toggleSidebar,
+  openConfig,
+  handleDeleteResource,
+  handleDeleteGroup,
+  handleDialogGroupTrigger,
+  handleDialogAbsenceTypeTrigger,
+  handleDialogResourceTrigger,
+  handleDialogDatabaseSystemTrigger,
 }) => {
   const theme = useTheme();
   const getInitials = (name: string) => {
@@ -34,7 +61,25 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
   };
+  const [groupMenuAnchor, setGroupMenuAnchor] = useState<null | HTMLElement>(
+    null,
+  );
+  const [resourceMenuAnchor, setResourceMenuAnchor] =
+    useState<null | HTMLElement>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
+    null,
+  );
+  const [mainMenuAnchor, setMainMenuAnchor] = useState<null | HTMLElement>(
+    null,
+  );
+  const closeMenus = () => {
+    setMainMenuAnchor(null);
+    setGroupMenuAnchor(null);
+    setResourceMenuAnchor(null);
+  };
 
+  console.log({ groups });
   return (
     <Box
       sx={{
@@ -190,6 +235,8 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                         sx={{ opacity: 0 }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          setSelectedGroupId(group.id);
+                          setGroupMenuAnchor(e.currentTarget);
                         }}
                       >
                         <MoreVertIcon fontSize="small" />
@@ -250,6 +297,9 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setSelectedGroupId(group.id);
+                                setSelectedResourceId(res.id);
+                                setResourceMenuAnchor(e.currentTarget);
                               }}
                             >
                               <MoreVertIcon fontSize="small" />
@@ -278,6 +328,75 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
           </Box>
         )}
       </Box>
+      {/* Resursmeny (Anställd) */}
+      <Menu
+        anchorEl={resourceMenuAnchor}
+        open={Boolean(resourceMenuAnchor)}
+        onClose={closeMenus}
+        slots={{ transition: Grow }}
+      >
+        <MenuItem
+          onClick={() => {
+            const group = groups.find((g) => g.id === selectedGroupId);
+            const res = (group?.resources || []).find(
+              (r) => r.id === selectedResourceId,
+            );
+            if (res) handleDialogResourceTrigger(res, selectedGroupId!);
+            closeMenus();
+          }}
+        >
+          <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
+        </MenuItem>
+        {!disableDeletion && (
+          <MenuItem
+            onClick={() => {
+              if (selectedGroupId && selectedResourceId)
+                handleDeleteResource(selectedGroupId, selectedResourceId);
+              closeMenus();
+            }}
+            sx={{ color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Gruppmeny */}
+      <Menu
+        anchorEl={groupMenuAnchor}
+        open={Boolean(groupMenuAnchor)}
+        onClose={closeMenus}
+        slots={{ transition: Grow }}
+      >
+        <MenuItem
+          onClick={() => {
+            handleDialogResourceTrigger(undefined, selectedGroupId!);
+            closeMenus();
+          }}
+        >
+          <AddIcon fontSize="small" sx={{ mr: 1.5 }} /> Lägg till anställd
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const group = groups.find((g) => g.id === selectedGroupId);
+            if (group) handleDialogGroupTrigger(group);
+            closeMenus();
+          }}
+        >
+          <EditIcon fontSize="small" sx={{ mr: 1.5 }} /> Redigera
+        </MenuItem>
+        {!disableDeletion && (
+          <MenuItem
+            onClick={() => {
+              if (selectedGroupId) handleDeleteGroup(selectedGroupId);
+              closeMenus();
+            }}
+            sx={{ color: "error.main" }}
+          >
+            <DeleteIcon fontSize="small" sx={{ mr: 1.5 }} /> Ta bort
+          </MenuItem>
+        )}
+      </Menu>
     </Box>
   );
 };
