@@ -5,7 +5,6 @@ import { useShallow } from "zustand/react/shallow";
 import { apiRequest } from "../apiInstance";
 import type { Absence } from "../../types";
 import { toast } from "./globalSnackbar";
-import { queryClient } from "../../App";
 
 type Id = string;
 
@@ -74,7 +73,7 @@ const useAbsenceStore = create<State & { actions: Actions }>((set) => ({
 }));
 
 // --------------------------------------------------
-// SELECTORS (same API as before)
+// SELECTORS
 // --------------------------------------------------
 const useIds = () => useAbsenceStore(useShallow((s) => s.ids));
 
@@ -96,32 +95,16 @@ const useDerived = <R>(selectorFn: (items: Absence[]) => R) =>
   useAbsenceStore(useShallow((s) => selectorFn(s.ids.map((id) => s.byId[id]))));
 
 // --------------------------------------------------
-// MUTATION HELPER (TanStack Query v5)
-// --------------------------------------------------
-async function runMutation<T>(mutationFn: () => Promise<T>) {
-  const mutation = queryClient.getMutationCache().build(queryClient, {
-    mutationFn,
-  });
-  return mutation.execute(undefined);
-}
-
-// --------------------------------------------------
-// CRUD SERVICE (TanStack Query v5)
+// CRUD SERVICE (Zustand + apiRequest only)
 // --------------------------------------------------
 async function loadAll() {
   const { actions } = useAbsenceStore.getState();
+  useAbsenceStore.setState({ loading: true, error: null });
 
   try {
-    useAbsenceStore.setState({ loading: true, error: null });
-
-    const data = await queryClient.fetchQuery({
-      queryKey: ["absences"],
-      queryFn: () => apiRequest<Absence[]>("/absences"),
-      staleTime: 1000 * 60 * 5,
-    });
-
+    const data = await apiRequest<Absence[]>("/absences");
     actions.setAll(data);
-  } catch (e: any) {
+  } catch (e) {
     useAbsenceStore.setState({ error: "Failed to load data" });
     toast("absence: load failed", "error");
     throw e;
@@ -130,54 +113,42 @@ async function loadAll() {
   }
 }
 
-async function createOne(body: Absence) {
+async function createOne(body: Omit<Absence, "id">) {
   const { actions } = useAbsenceStore.getState();
 
   try {
-    const newItem = await runMutation(() =>
-      apiRequest<Absence>("/absence", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
-    );
+    const newItem = await apiRequest<Absence>("/absence", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
 
     actions.add(newItem);
-
-    queryClient.setQueryData<Absence[]>(["absences"], (old) =>
-      old ? [...old, newItem] : [newItem],
-    );
-
     toast("absence: created", "success");
     return newItem;
-  } catch (e: any) {
+  } catch (e) {
     toast("absence: create failed", "error");
     throw e;
   }
 }
 
-async function updateOne(id: Id, body: Absence) {
+async function updateOne(id: Id, body: Partial<Absence>) {
   const { byId, actions } = useAbsenceStore.getState();
   const prev = byId[id];
 
-  if (prev) actions.update({ ...prev, ...(body as any) });
+  // optimistic update
+  if (prev) actions.update({ ...prev, ...body });
 
   try {
-    const updated = await runMutation(() =>
-      apiRequest<Absence>(`/absence/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(body),
-      }),
-    );
+    const updated = await apiRequest<Absence>(`/absence/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
 
     actions.update(updated);
-
-    queryClient.setQueryData<Absence[]>(["absence"], (old) =>
-      old ? old.map((i) => (i.id === id ? updated : i)) : [updated],
-    );
-
     toast("absence: updated", "success");
     return updated;
-  } catch (e: any) {
+  } catch (e) {
+    // rollback
     if (prev) actions.update(prev);
     toast("absence: update failed", "error");
     throw e;
@@ -188,21 +159,14 @@ async function removeOne(id: Id) {
   const { byId, actions } = useAbsenceStore.getState();
   const prev = byId[id];
 
+  // optimistic remove
   if (prev) actions.remove(id);
 
   try {
-    await runMutation(() =>
-      apiRequest<void>(`/absence/${id}`, {
-        method: "DELETE",
-      }),
-    );
-
-    queryClient.setQueryData<Absence[]>(["absences"], (old) =>
-      old ? old.filter((i) => i.id !== id) : [],
-    );
-
+    await apiRequest(`/absence/${id}`, { method: "DELETE" });
     toast("absence: deleted", "success");
-  } catch (e: any) {
+  } catch (e) {
+    // rollback
     if (prev) actions.add(prev);
     toast("absence: delete failed", "error");
     throw e;
@@ -210,7 +174,7 @@ async function removeOne(id: Id) {
 }
 
 // --------------------------------------------------
-// EXPORT (same API as before)
+// EXPORT
 // --------------------------------------------------
 export const absence = {
   useStore: useAbsenceStore,

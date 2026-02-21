@@ -26,7 +26,7 @@ import {
   useTeams,
   useAbsenceCategories,
 } from "../services/hooks/useData";
-import { absence } from "../services/stores/absenceStore";
+import { absence } from "../services/stores/absenceDataStore";
 import TimelineFooter from "./TimelineFooter";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
