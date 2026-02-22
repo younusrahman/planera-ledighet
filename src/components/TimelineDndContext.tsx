@@ -12,9 +12,8 @@ import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 import { AbsenceBlock } from "./AbsenceBlock";
 import { PastDaysOverlay } from "./PastDaysOverlay";
-import type { Employee, Absence, Team, TeamWithEmployees } from "../types";
+import type { Absence, TeamWithEmployees } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
-import { ProTooltip } from "./ProTooltip";
 import { ArrowRightAlt } from "@mui/icons-material";
 
 interface TimelineDndContextProps {
@@ -22,11 +21,11 @@ interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
-  groups: TeamWithEmployees[];
+  teams: TeamWithEmployees[];
   absences: Absence[];
-  collapsedGroups: string[];
+  collapsedTeams: string[];
   absenceTypes: any[];
-  activeLeave: Absence | null;
+  activeAbsenceBlock: Absence | null;
 
   // Settings
   blockPastDays: boolean;
@@ -70,11 +69,11 @@ export const TimelineDndContext = forwardRef<
     days,
     daysCount,
     startDate,
-    groups,
+    teams,
     absences,
-    collapsedGroups,
+    collapsedTeams,
     absenceTypes,
-    activeLeave,
+    activeAbsenceBlock,
     blockPastDays,
     disabledOverlayWidth,
     disableDeletion,
@@ -135,7 +134,7 @@ export const TimelineDndContext = forwardRef<
   }, [absences, startDate, daysCount]);
   // --- Grid Visual Constants ---
 
-  const noGroups = !groups || groups.length === 0;
+  const noGroups = !teams || teams.length === 0;
   const noAbsenceTypes = !absenceTypes || absenceTypes.length === 0;
   const showWatermark = noGroups || noAbsenceTypes;
   return (
@@ -457,10 +456,10 @@ export const TimelineDndContext = forwardRef<
                 modifiers={[restrictToHorizontalAxis]}
               >
                 <Box sx={{ position: "relative", width: "100%", flex: 1 }}>
-                  {groups.map((group) => {
-                    const isCollapsed = collapsedGroups.includes(group.id);
+                  {teams.map((team) => {
+                    const isCollapsed = collapsedTeams.includes(team.id);
                     return (
-                      <Box key={group.id}>
+                      <Box key={team.id}>
                         {/* Group Separator Row */}
                         <Box
                           onMouseDown={onGroupMouseDown}
@@ -479,11 +478,11 @@ export const TimelineDndContext = forwardRef<
                         />
 
                         <Collapse in={!isCollapsed}>
-                          {(group.employees || []).map((res) => (
+                          {(team.employees || []).map((emp) => (
                             <Box
-                              key={res.id}
+                              key={emp.id}
                               onPointerDown={(e) =>
-                                onGridPointerDown(e, res.id)
+                                onGridPointerDown(e, emp.id)
                               }
                               onPointerMove={onGridPointerMove}
                               onPointerUp={onGridPointerUp}
@@ -499,7 +498,7 @@ export const TimelineDndContext = forwardRef<
                             >
                               {/* Selection Box Ghost */}
                               {selection.isSelecting &&
-                                selection.rowId === res.id && (
+                                selection.rowId === emp.id && (
                                   <Box
                                     ref={selectionBoxRef}
                                     style={{
@@ -521,12 +520,12 @@ export const TimelineDndContext = forwardRef<
 
                               {/* Absence Blocks */}
                               {visibleAbsences
-                                .filter((l) => l.employeeId === res.id)
+                                .filter((l) => l.employeeId === emp.id)
                                 .map((l) => (
                                   <AbsenceBlock
                                     key={l.id}
                                     absenceDetails={l}
-                                    resourceName={res.name}
+                                    employeeName={emp.name}
                                     left={getDateOffset(l.startDate, startDate)}
                                     onResizeEnd={onLeaveResizeEnd}
                                     onEdit={onLeaveEdit}
@@ -535,6 +534,11 @@ export const TimelineDndContext = forwardRef<
                                     onTooltipClose={onTooltipClose}
                                     isDeletionDisabled={disableDeletion}
                                     isPastDaysBlocked={blockPastDays}
+                                    absenceColor={
+                                      absenceTypes.find(
+                                        (t) => t.id === l.absenceCategoryId,
+                                      )?.color
+                                    }
                                     scrollContainerRef={
                                       ref as React.RefObject<HTMLDivElement>
                                     }
@@ -549,8 +553,17 @@ export const TimelineDndContext = forwardRef<
                 </Box>
 
                 <DragOverlay adjustScale={false}>
-                  {activeLeave && (
-                    <AbsenceBlock absenceDetails={activeLeave} isOverlay />
+                  {activeAbsenceBlock && (
+                    <AbsenceBlock
+                      absenceDetails={activeAbsenceBlock}
+                      isOverlay
+                      absenceColor={
+                        absenceTypes.find(
+                          (t) => t.id === activeAbsenceBlock.absenceCategoryId,
+                        )?.color
+                      }
+                      employeeName={activeAbsenceBlock.employeeId}
+                    />
                   )}
                 </DragOverlay>
               </DndContext>

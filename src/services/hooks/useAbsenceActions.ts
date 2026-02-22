@@ -6,6 +6,7 @@ export const useAbsenceBlockMutation = () => {
     newDuration: number,
     newStartDate?: string,
   ) => {
+
     return absence.updateOne(id, {
       durationDays: newDuration,
       ...(newStartDate ? { startDate: newStartDate } : {}),

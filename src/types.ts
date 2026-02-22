@@ -2,7 +2,6 @@ export interface Absence {
   id: string;
   startDate: string;
   durationDays: number;
-  color: string;
   employeeId: string;
   absenceCategoryId: string;
 }
@@ -25,4 +24,12 @@ export interface AbsenceCategory {
 }
 export interface TeamWithEmployees extends Team {
   employees: Employee[];
+}
+
+export interface Absence {
+  id: string;
+  startDate: string;
+  durationDays: number;
+  employeeId: string;
+  absenceCategoryId: string;
 }

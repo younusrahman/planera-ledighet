@@ -1014,11 +1014,11 @@ export const Timeline = () => {
               days={days} // from useMemo(() => getDaysArray...)
               daysCount={daysCount} // from useState
               startDate={startDate} // from useState
-              groups={teamsWithEmployees} // from useState
+              teams={teamsWithEmployees} // from useState
               absences={absenceDetails} // from useState
-              collapsedGroups={collapsedGroups} // from useState
+              collapsedTeams={collapsedGroups} // from useState
               absenceTypes={absenceTypes} // from useState
-              activeLeave={activeLeave} // from useState (dnd-kit)
+              activeAbsenceBlock={activeLeave} // from useState (dnd-kit)
               // 3. SETTINGS PROPS
               blockPastDays={blockPastDays} // from useState
               disabledOverlayWidth={disabledOverlayWidth} // from useMemo

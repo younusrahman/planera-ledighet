@@ -198,8 +198,6 @@ export const useAbsenceCategoryMutations = () => {
         (old) =>
           old?.map((c) => (c.id === updated.id ? { ...c, ...updated } : c)),
       );
-
-      absence.loadAll();
     },
   });
 

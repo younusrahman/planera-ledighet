@@ -38,7 +38,8 @@ interface Props {
   onTooltipClose?: () => void;
   isDeletionDisabled?: boolean;
   isPastDaysBlocked?: boolean;
-  resourceName?: string;
+  employeeName?: string;
+  absenceColor?: string;
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -47,7 +48,7 @@ export const AbsenceBlock = ({
   left = 0,
   isOverlay = false,
   onResizeEnd,
-  resourceName = "Namnet saknas ",
+  employeeName = "Namnet saknas ",
   scrollContainerRef,
   onEdit,
   onDelete,
@@ -55,6 +56,7 @@ export const AbsenceBlock = ({
   onTooltipClose,
   isDeletionDisabled = false,
   isPastDaysBlocked = true,
+  absenceColor = "transparent",
 }: Props) => {
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
@@ -66,7 +68,6 @@ export const AbsenceBlock = ({
       data: absenceDetails,
       disabled: isOverlay || isPast,
     });
-
   // --- STATE FROM ZUSTAND ---
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
   const visualDuration = useAbsenceBlockVisualDuration(absenceDetails.id);
@@ -285,7 +286,7 @@ export const AbsenceBlock = ({
     left: isOverlay ? 0 : `${displayLeft}px`,
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-    backgroundColor: absenceDetails.color,
+    backgroundColor: absenceColor,
     color: "white",
     padding: "4px 8px",
     borderRadius: "30px",
@@ -328,15 +329,13 @@ export const AbsenceBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
-      <Box
-        sx={{ bgcolor: absenceDetails.color, height: 6, width: "100%", mb: 1 }}
-      />
+      <Box sx={{ bgcolor: absenceColor, height: 6, width: "100%", mb: 1 }} />
       <Box>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
-          {resourceName}
+          {employeeName}
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -350,7 +349,7 @@ export const AbsenceBlock = ({
           >
             <PersonIcon fontSize="small" />
             <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {resourceName}
+              {employeeName}
             </Typography>
           </Box>
           <Box
@@ -477,7 +476,7 @@ export const AbsenceBlock = ({
         fontWeight="bold"
         sx={{ flex: 1, textAlign: "center" }}
       >
-        {resourceName}
+        {employeeName}
       </Typography>
       {!isDragging && !isPast && (
         <Box
@@ -526,7 +525,7 @@ export const AbsenceBlock = ({
           },
           arrow: {
             sx: {
-              color: absenceDetails.color,
+              color: absenceColor,
               fontSize: 12,
               "&:before": {
                 border: "1px solid",
@@ -550,7 +549,7 @@ export const AbsenceBlock = ({
               maxWidth: 320,
               borderRadius: "10px",
               border: "1px solid",
-              borderColor: `${absenceDetails.color}70`,
+              borderColor: `${absenceColor}70`,
               pointerEvents: "auto",
               fontSize: "0.875rem",
               lineHeight: 1.6,
