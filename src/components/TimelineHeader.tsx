@@ -31,8 +31,8 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
-import type { Employee, Team, TeamWithEmployees } from "../types";
-import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
+import type { Team, TeamWithEmployees } from "../types";
+import { useUIActions } from "../services/stores/uiStore";
 import { Storage as DatabaseIcon } from "@mui/icons-material";
 // ---------------------------------------------------------
 // Main Component
@@ -206,7 +206,8 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
     setGroupMenuAnchor(null);
     setResourceMenuAnchor(null);
   };
-
+  console.log("TimelineHeader rendered selectedGroupId", selectedGroupId);
+  console.log("TimelineHeader rendered selectedResourceId", selectedResourceId);
   return (
     <AppBar
       position="static"
@@ -232,7 +233,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             bottom: 0,
             bgcolor: "white",
             zIndex: 12,
-            borderTop: "1px solid rgba(0,0,0,0.1)",
+            borderTop: "1px solid rgb(1, 98, 243)",
             p: 1,
             height: 56,
             display: "flex",
@@ -307,7 +308,15 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             <Typography
               variant="overline"
               display="block"
-              sx={{ color: "text.secondary", fontSize: "0.75rem", textAlign: "center", mt: 1, borderTop: "1px solid rgba(0,0,0,0.1)", pt: 1, fontWeight: 700 }}
+              sx={{
+                color: "text.secondary",
+                fontSize: "0.75rem",
+                textAlign: "center",
+                mt: 1,
+                borderTop: "1px solid rgba(0,0,0,0.1)",
+                pt: 1,
+                fontWeight: 700,
+              }}
             >
               Sidebar
             </Typography>

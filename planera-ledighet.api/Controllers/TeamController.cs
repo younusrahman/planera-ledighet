@@ -29,12 +29,12 @@ namespace planera_ledighet.api.Controllers
 
         // POST: api/Team
         [HttpPost]
-        public async Task<ActionResult<DtoTeam>> CreateTeam(DtoTeam dto)
+        public async Task<ActionResult<DtoTeam>> CreateTeam(string name)
         {
             var entity = new Team
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = dto.Name
+                Name = name
             };
 
             _context.Teams.Add(entity);

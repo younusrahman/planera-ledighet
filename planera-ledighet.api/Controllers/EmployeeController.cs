@@ -30,18 +30,32 @@ namespace planera_ledighet.api.Controllers
 
         // POST: api/Employee
         [HttpPost]
-        public async Task<ActionResult<DtoEmployee>> CreateEmployee(DtoEmployee dto)
+        public async Task<ActionResult<DtoEmployee>> CreateEmployee(string teamId, string name)
         {
+            // Validate teamId
+            if (string.IsNullOrWhiteSpace(teamId))
+                return BadRequest("TeamId is required.");
+
+            var team = await _context.Teams.FindAsync(teamId);
+            if (team == null)
+                return BadRequest("Team does not exist.");
+
+            // Validate name
+            if (string.IsNullOrWhiteSpace(name))
+                return BadRequest("Name is required.");
+
+            // Create entity
             var entity = new Employee
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = dto.Name,
-                TeamId = dto.TeamId
+                Name = name,
+                TeamId = teamId
             };
 
             _context.Employees.Add(entity);
             await _context.SaveChangesAsync();
 
+            // Return DTO
             return Ok(new DtoEmployee
             {
                 Id = entity.Id,
@@ -49,6 +63,7 @@ namespace planera_ledighet.api.Controllers
                 TeamId = entity.TeamId
             });
         }
+
 
         // PUT: api/Employee/{id}
         [HttpPut("{id}")]

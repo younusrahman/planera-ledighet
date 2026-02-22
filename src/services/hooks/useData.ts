@@ -1,8 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Team, Employee, AbsenceCategory } from "../../types";
 import { apiRequest } from "../apiInstance";
-import { absence } from "../stores/absenceDataStore";
-
 // --------------------------------------------------
 // QUERIES
 // --------------------------------------------------
@@ -34,9 +32,8 @@ export const useTeamMutations = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string }) =>
-      apiRequest<Team>("/Team", {
+      apiRequest<Team>(`/Team?name=${encodeURIComponent(data.name)}`, {
         method: "POST",
-        body: JSON.stringify(data),
       }),
     onSuccess: (created) => {
       queryClient.setQueryData<Team[]>(["teams"], (old) =>

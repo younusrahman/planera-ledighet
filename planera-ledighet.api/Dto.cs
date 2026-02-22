@@ -4,7 +4,7 @@ namespace planera_ledighet.api
 {
     public class DtoAbsenceCategory
     {
-        public string Id { get; set; }
+        public string? Id { get; set; }
         public string Label { get; set; }
         public string Color { get; set; }
     }
@@ -18,7 +18,7 @@ namespace planera_ledighet.api
 
     public class DtoEmployee
     {
-        public string Id { get; set; }
+        public string? Id { get; set; }
         public string Name { get; set; }
         public string TeamId { get; set; }
     }

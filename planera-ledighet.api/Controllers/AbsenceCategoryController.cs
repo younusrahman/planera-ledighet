@@ -32,6 +32,8 @@ namespace planera_ledighet.api.Controllers
         [HttpPost]
         public async Task<ActionResult<DtoAbsenceCategory>> CreateAbsenceCategory(DtoAbsenceCategory dto)
         {
+            if(dto.Id is not null) BadRequest("ID should not be given.");
+
             var entity = new AbsenceCategory
             {
                 Id = Guid.NewGuid().ToString(),

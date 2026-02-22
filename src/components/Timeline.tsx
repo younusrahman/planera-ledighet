@@ -46,25 +46,25 @@ export const Timeline = () => {
   // TanStack Query Mutation Hooks
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const {
-    createEmployee: createResource,
-    updateEmployee: updateResource,
-    deleteEmployee: deleteResource,
+    createEmployee: createEmployee,
+    updateEmployee: updateEmployee,
+    deleteEmployee: deleteEmployee,
   } = useEmployeeMutation();
   const {
-    createAbsenceCategory: createAbsenceType,
-    updateAbsenceCategory: updateAbsenceType,
-    deleteAbsenceCategory: deleteAbsenceType,
+    createAbsenceCategory: createAbsenceCategory,
+    updateAbsenceCategory: updateAbsenceCategory,
+    deleteAbsenceCategory: deleteAbsenceCategory,
   } = useAbsenceCategoryMutation();
-  const { data: groups = [] } = useTeams();
+  const { data: teams = [] } = useTeams();
   const { data: absenceTypes = [] } = useAbsenceCategories();
   const { data: employees } = useEmployees();
 
   const teamsWithEmployees: TeamWithEmployees[] = useMemo(() => {
-    return groups.map((team) => ({
+    return teams.map((team) => ({
       ...team,
       employees: employees?.filter((e) => e.teamId === team.id) ?? [],
     }));
-  }, [groups, employees]);
+  }, [teams, employees]);
 
   // --- STATE ---
   const [startDate, setStartDate] = useState(
@@ -72,9 +72,7 @@ export const Timeline = () => {
   );
 
   const [daysCount, setDaysCount] = useState(150);
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
-  // const { openDialog } = useDialog();
-  // Interaction States
+  const [collapsedTeams, setCollapsedTeams] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pickerDate, setPickerDate] = useState(dayjs());
@@ -114,7 +112,7 @@ export const Timeline = () => {
   const startX = useRef(0);
   const scrollLeft = useRef(0);
   const [isReady, setIsReady] = useState(false); // Prevents the flicker
-  const handleGroupRowMouseDown = (e: React.MouseEvent) => {
+  const handleTeamRowMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
 
     isDown.current = true;
@@ -126,12 +124,12 @@ export const Timeline = () => {
     document.body.style.cursor = "grabbing";
   };
 
-  const handleGroupRowMouseLeaveOrUp = () => {
+  const handleTeamRowMouseLeaveOrUp = () => {
     isDown.current = false;
     document.body.style.cursor = "default";
   };
 
-  const handleGroupRowMouseMove = (e: React.MouseEvent) => {
+  const handleTeamRowMouseMove = (e: React.MouseEvent) => {
     if (!isDown.current || !scrollContainerRef.current) return;
     e.preventDefault();
 
@@ -156,11 +154,11 @@ export const Timeline = () => {
     [startDate, daysCount],
   );
 
-  const toggleGroup = (groupId: string) => {
-    setCollapsedGroups((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId],
+  const toggleTeam = (teamId: string) => {
+    setCollapsedTeams((prev) =>
+      prev.includes(teamId)
+        ? prev.filter((id) => id !== teamId)
+        : [...prev, teamId],
     );
   };
 
@@ -204,14 +202,14 @@ export const Timeline = () => {
       scrollRequestRef.current = null;
     }
   };
-  const handleDeleteResource = async (groupId: string, resId: string) => {
-    if (resId && groupId) {
-      await deleteResource(resId);
+  const handleDeleteEmployee = async (teamId: string, resId: string) => {
+    if (resId && teamId) {
+      await deleteEmployee(resId);
     }
   };
   // --- GROUP ACTIONS ---
 
-  const handleDeleteGroup = async (selectedGroupId: string) => {
+  const handleDeleteTeam = async (selectedGroupId: string) => {
     if (selectedGroupId) {
       await deleteTeam(selectedGroupId);
     }
@@ -225,9 +223,9 @@ export const Timeline = () => {
     if (!label.trim()) return;
 
     if (idToUpdate) {
-      await updateAbsenceType(idToUpdate, label, color);
+      await updateAbsenceCategory(idToUpdate, label, color);
     } else {
-      await createAbsenceType(label, color);
+      await createAbsenceCategory(label, color);
     }
   };
   const handleSaveGroup = async (name: string, idToUpdate?: string | null) => {
@@ -239,7 +237,7 @@ export const Timeline = () => {
       await createTeam(name);
     }
   };
-  const handleSaveResource = async (
+  const handleSaveEmployee = async (
     name: string,
     targetGroupId: string,
     empIdToUpdate: string | null,
@@ -247,9 +245,9 @@ export const Timeline = () => {
     if (!name.trim() || !targetGroupId) return;
 
     if (empIdToUpdate) {
-      await updateResource(empIdToUpdate, name, targetGroupId);
+      await updateEmployee(empIdToUpdate, name, targetGroupId);
     } else {
-      await createResource(name, targetGroupId);
+      await createEmployee(name, targetGroupId);
     }
   };
 
@@ -437,33 +435,32 @@ export const Timeline = () => {
     }
   };
   // 1. Define the Save Handler
-  const handleSaveLeave = async (
+  const handleSaveAbsence = async (
     formData: { typeId: string; startDate: Dayjs; duration: number },
-    leaveIdToUpdate: string | null,
+    absenceIdToUpdate: string | null,
     targetRowId: string | null,
   ) => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
 
     const entry: Absence = {
-      id: leaveIdToUpdate || "l-" + Date.now(),
+      id: absenceIdToUpdate || "l-" + Date.now(),
       employeeId: targetRowId,
       startDate: formData.startDate.format("YYYY-MM-DD"),
       durationDays: formData.duration,
-      color: type.color,
       absenceCategoryId: type.id, // <--- MAKE SURE THIS IS SENT
     };
 
     // Validation: Collision
-    const otherLeaves = absenceDetails.filter((l) => l.id !== leaveIdToUpdate);
-    if (checkCollision(otherLeaves, entry)) {
+    const otherAbsences = absenceDetails.filter((l) => l.id !== absenceIdToUpdate);
+    if (checkCollision(otherAbsences, entry)) {
       toast("Krockar med annan frånvaro!", "error");
       return;
     }
 
-    if (leaveIdToUpdate) {
+    if (absenceIdToUpdate) {
       // UPDATE Logic
-      await absence.updateOne(leaveIdToUpdate, entry);
+      await absence.updateOne(absenceIdToUpdate, entry);
     } else {
       // CREATE Logic
       await absence.createOne(entry);
@@ -548,7 +545,7 @@ export const Timeline = () => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;
 
-    await deleteAbsenceType(id);
+    await deleteAbsenceCategory(id);
     // Also refresh leaves in case they used this type
     await absence.loadAll();
     setSelectedTypeId(null);
@@ -697,7 +694,7 @@ export const Timeline = () => {
             startDate: dayjs(leaveToEdit.startDate),
             duration: leaveToEdit.durationDays,
             typeId:
-              absenceTypes.find((t) => t.color === leaveToEdit.color)?.id ||
+              absenceTypes.find((t) => t.id === leaveToEdit.absenceCategoryId)?.id||
               "vac",
           }
         : {
@@ -712,7 +709,7 @@ export const Timeline = () => {
 
       onSave: (formData) => {
         // formData comes from the AbsenceForm (typeId, startDate, duration)
-        handleSaveLeave(
+        handleSaveAbsence(
           formData,
           isEditing ? leaveToEdit.id : null,
           targetRowId ? targetRowId : null,
@@ -722,24 +719,24 @@ export const Timeline = () => {
       onClose: () => dialog.close(),
     });
   };
-  const handleDialogResourceTrigger = (
-    resourceToEdit?: { id: string; name: string },
+  const handleDialogEmployeeTrigger = (
+    employeeToEdit?: { id: string; name: string },
     currentGroupId?: string,
   ) => {
-    const isEditing = !!resourceToEdit;
+    const isEditing = !!employeeToEdit;
 
     dialog.open("resource", {
       title: isEditing ? "Redigera anställd" : "Lägg till anställd",
-      initialName: isEditing ? resourceToEdit.name : "",
+      initialName: isEditing ? employeeToEdit.name : "",
       initialGroupId: currentGroupId, // The group they currently belong to
-      groups,
+      groups: teams,
 
       onSave: (name, targetGroupId) => {
-        // Pass the specific resource ID if editing, or null if creating
-        handleSaveResource(
+        // Pass the specific employee ID if editing, or null if creating
+        handleSaveEmployee(
           name,
           targetGroupId,
-          isEditing ? resourceToEdit.id : null,
+          isEditing ? employeeToEdit.id : null,
         );
         dialog.close();
       },
@@ -965,11 +962,11 @@ export const Timeline = () => {
         onOpenDatePicker={() => setIsDatePickerOpen(true)}
         onCloseDatePicker={() => setIsDatePickerOpen(false)}
         onDateChange={(newDate) => jumpToDate(newDate)}
-        handleDeleteResource={handleDeleteResource}
-        handleDeleteGroup={handleDeleteGroup}
+        handleDeleteResource={handleDeleteEmployee}
+        handleDeleteGroup={handleDeleteTeam}
         handleDialogGroupTrigger={handleDialogGroupTrigger}
         handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
-        handleDialogResourceTrigger={handleDialogResourceTrigger}
+        handleDialogResourceTrigger={handleDialogEmployeeTrigger}
         handleDialogDatabaseSystemTrigger={handleDialogDatabaseSystemTrigger}
         doseHaveAbsenceTypes={absenceTypes.length > 0}
         onPrevMonth={() => jumpToDate(pickerDate.subtract(1, "month"))}
@@ -992,13 +989,13 @@ export const Timeline = () => {
           <TimelineSidebar
             groups={teamsWithEmployees}
             sidebarMode={sidebarMode}
-            collapsedGroups={collapsedGroups}
+            collapsedGroups={collapsedTeams}
             disableDeletion={disableDeletion}
-            toggleGroup={toggleGroup}
-            handleDeleteResource={handleDeleteResource}
-            handleDeleteGroup={handleDeleteGroup}
+            toggleGroup={toggleTeam}
+            handleDeleteResource={handleDeleteEmployee}
+            handleDeleteGroup={handleDeleteTeam}
             handleDialogGroupTrigger={handleDialogGroupTrigger}
-            handleDialogResourceTrigger={handleDialogResourceTrigger}
+            handleDialogResourceTrigger={handleDialogEmployeeTrigger}
           />
 
           <Box sx={{ position: "relative" }}>
@@ -1008,15 +1005,15 @@ export const Timeline = () => {
             {/* THE GRID CONTENT */}
             <TimelineDndContext
               ref={scrollContainerRef}
-              onGroupMouseDown={handleGroupRowMouseDown}
-              onGroupMouseMove={handleGroupRowMouseMove}
-              onGroupMouseUp={handleGroupRowMouseLeaveOrUp}
+              onTeamMouseDown={handleTeamRowMouseDown}
+              onTeamMouseMove={handleTeamRowMouseMove}
+              onTeamMouseUp={handleTeamRowMouseLeaveOrUp}
               days={days} // from useMemo(() => getDaysArray...)
               daysCount={daysCount} // from useState
               startDate={startDate} // from useState
               teams={teamsWithEmployees} // from useState
               absences={absenceDetails} // from useState
-              collapsedTeams={collapsedGroups} // from useState
+              collapsedTeams={collapsedTeams} // from useState
               absenceTypes={absenceTypes} // from useState
               activeAbsenceBlock={activeLeave} // from useState (dnd-kit)
               // 3. SETTINGS PROPS
@@ -1035,9 +1032,9 @@ export const Timeline = () => {
               onGridPointerDown={handleGridPointerDown}
               onGridPointerMove={handleGridPointerMove}
               onGridPointerUp={handleGridPointerUp}
-              onLeaveEdit={handleLeaveEdit}
-              onLeaveDelete={handleLeaveDelete}
-              onLeaveResizeEnd={handleLeaveResizeEnd}
+              onAbsenceBlockEdit={handleLeaveEdit}
+              onAbsenceBlockDelete={handleLeaveDelete}
+              onAbsenceBlockResizeEnd={handleLeaveResizeEnd}
               onTooltipOpen={() => setIsTooltipOpen(true)}
               onTooltipClose={() => setIsTooltipOpen(false)}
             />

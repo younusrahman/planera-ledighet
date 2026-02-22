@@ -39,9 +39,9 @@ interface TimelineDndContextProps {
     startX: number;
   };
   selectionBoxRef: React.RefObject<HTMLDivElement>;
-  onGroupMouseDown: (e: React.MouseEvent) => void;
-  onGroupMouseMove: (e: React.MouseEvent) => void;
-  onGroupMouseUp: () => void;
+  onTeamMouseDown: (e: React.MouseEvent) => void;
+  onTeamMouseMove: (e: React.MouseEvent) => void;
+  onTeamMouseUp: () => void;
 
   // Handlers
   onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
@@ -50,9 +50,9 @@ interface TimelineDndContextProps {
   onGridPointerDown: (e: React.PointerEvent, rowId: string) => void;
   onGridPointerMove: (e: React.PointerEvent) => void;
   onGridPointerUp: (e: React.PointerEvent) => void;
-  onLeaveEdit: (id: string) => void;
-  onLeaveDelete: (id: string) => void;
-  onLeaveResizeEnd: (
+  onAbsenceBlockEdit: (id: string) => void;
+  onAbsenceBlockDelete: (id: string) => void;
+  onAbsenceBlockResizeEnd: (
     id: string,
     newDuration: number,
     daysShifted: number,
@@ -85,14 +85,14 @@ export const TimelineDndContext = forwardRef<
     onGridPointerDown,
     onGridPointerMove,
     onGridPointerUp,
-    onLeaveEdit,
-    onLeaveDelete,
-    onLeaveResizeEnd,
+    onAbsenceBlockEdit,
+    onAbsenceBlockDelete,
+    onAbsenceBlockResizeEnd,
     onTooltipOpen,
     onTooltipClose,
-    onGroupMouseDown,
-    onGroupMouseMove,
-    onGroupMouseUp,
+    onTeamMouseDown,
+    onTeamMouseMove,
+    onTeamMouseUp,
   } = props;
   // 1. Hämta helgdagar för de år som visas
   const holidays = useMemo(() => {
@@ -462,10 +462,10 @@ export const TimelineDndContext = forwardRef<
                       <Box key={team.id}>
                         {/* Group Separator Row */}
                         <Box
-                          onMouseDown={onGroupMouseDown}
-                          onMouseMove={onGroupMouseMove}
-                          onMouseUp={onGroupMouseUp}
-                          onMouseLeave={onGroupMouseUp}
+                          onMouseDown={onTeamMouseDown}
+                          onMouseMove={onTeamMouseMove}
+                          onMouseUp={onTeamMouseUp}
+                          onMouseLeave={onTeamMouseUp}
                           sx={{
                             height: 40,
                             bgcolor: alpha("#000", 0.04),
@@ -527,9 +527,9 @@ export const TimelineDndContext = forwardRef<
                                     absenceDetails={l}
                                     employeeName={emp.name}
                                     left={getDateOffset(l.startDate, startDate)}
-                                    onResizeEnd={onLeaveResizeEnd}
-                                    onEdit={onLeaveEdit}
-                                    onDelete={onLeaveDelete}
+                                    onResizeEnd={onAbsenceBlockResizeEnd}
+                                    onEdit={onAbsenceBlockEdit}
+                                    onDelete={onAbsenceBlockDelete}
                                     onTooltipOpen={onTooltipOpen}
                                     onTooltipClose={onTooltipClose}
                                     isDeletionDisabled={disableDeletion}
