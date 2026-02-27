@@ -46,7 +46,14 @@ namespace planera_ledighet.api
         public int DurationDays { get; set; }
         public string AbsenceCategoryId { get; set; } = string.Empty;
         public AbsenceCategory AbsenceCategory { get; set; }
+        public AbsenceStatus Status { get; set; } = AbsenceStatus.Pending;
+        public string? RejectionReason { get; set; }
     }
 
-
+    public enum AbsenceStatus
+    {
+        Pending = 0,
+        Approved = 1,
+        Rejected = 2
+    }
 }

@@ -7,16 +7,16 @@ import {
   IconButton,
   Divider,
   Tooltip,
+  alpha,
 } from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import EditSquareIcon from "@mui/icons-material/EditSquare";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
 import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import PersonIcon from "@mui/icons-material/Person";
-import type { Absence } from "../types";
+import { AbsenceStatus, type Absence } from "../types";
 import {
   useAbsenceBlockIsResizing,
   useAbsenceBlockVisualDuration,
@@ -24,7 +24,9 @@ import {
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
 } from "../services/stores/absenceUIStore";
-
+import ThumbUpIcon from "@mui/icons-material/ThumbUp";
+import ThumbDownIcon from "@mui/icons-material/ThumbDown";
+import DeleteIcon from "@mui/icons-material/Delete";
 interface Props {
   absenceDetails: Absence;
   left?: number;
@@ -39,6 +41,10 @@ interface Props {
   isPastDaysBlocked?: boolean;
   employeeName?: string;
   absenceColor?: string;
+  status?: AbsenceStatus;
+  rejectionReason?: string;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string, reason: string) => void;
 }
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
@@ -56,16 +62,21 @@ export const AbsenceBlock = ({
   isDeletionDisabled = false,
   isPastDaysBlocked = true,
   absenceColor = "transparent",
+  onApprove,
+  onReject,
 }: Props) => {
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
   const isFactuallyPast = dayjs(absenceDetails.startDate).isBefore(today);
 
+  const currentStatus = absenceDetails.status;
+  const isLocked = currentStatus === AbsenceStatus.Approved;
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: absenceDetails.id,
       data: absenceDetails,
-      disabled: isOverlay || isPast,
+      disabled: isOverlay || isPast || isLocked,
     });
   // --- STATE FROM ZUSTAND ---
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
@@ -89,6 +100,7 @@ export const AbsenceBlock = ({
   const requestRef = useRef<number>(0);
   const prevLeftRef = useRef(left);
 
+  const isPlaceholder = isDragging && !isOverlay;
   // Initialize block state on mount
   useEffect(() => {
     setBlock(absenceDetails.id, {
@@ -167,6 +179,7 @@ export const AbsenceBlock = ({
   };
 
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
+    if (isLocked) return;
     e.preventDefault();
     e.stopPropagation();
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
@@ -267,6 +280,7 @@ export const AbsenceBlock = ({
       onTooltipClose?.();
     }, 300);
   };
+  const isApproved = absenceDetails.status === AbsenceStatus.Approved;
 
   // --- STYLES ---
   const displayDuration = isResizing
@@ -275,24 +289,53 @@ export const AbsenceBlock = ({
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
   const blockHeight = ROW_HEIGHT - 10;
-
+  const shinyVariables = {
+    "--clr": isPlaceholder ? alpha(absenceColor, 0.3) : absenceColor,
+    "--text": isApproved ? "rgba(255, 255, 255, 0.7)" : "white",
+    "--gradoffset": "45%",
+    "--gradgap": "30%",
+  };
   const style: React.CSSProperties = {
     position: isOverlay ? "relative" : "absolute",
     left: isOverlay ? 0 : `${displayLeft}px`,
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-    backgroundColor: absenceColor,
-    color: "white",
-    padding: "4px 8px",
+
+    // Shiny Button Base
+    backgroundColor: isPlaceholder ? alpha(absenceColor, 0.3) : absenceColor,
+    backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.2) var(--gradgap), transparent calc(100% - var(--gradgap)))`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "center var(--gradoffset)",
+    backgroundSize: "100% 200%",
+
+    // Shadows from CSS
+    boxShadow: isPlaceholder
+      ? "none"
+      : `0 0.25em 0.3em -0.2em ${alpha(absenceColor, 0.46)}, 0 0.25em 0.75em ${alpha(absenceColor, 0.3)}`,
+
+    // Existing logic
+    border: isPlaceholder ? `3px dotted ${absenceColor}` : "none",
+    opacity: isPlaceholder
+      ? 0.6
+      : currentStatus === AbsenceStatus.Pending
+        ? 1
+        : 0.7,
+    color: "var(--text)",
     borderRadius: "30px",
     display: "flex",
     alignItems: "center",
     zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
-    cursor: isPast ? "not-allowed" : isOverlay ? "grabbing" : "grab",
-    opacity: !isOverlay && isDragging ? 0 : 1,
-    boxShadow: isResizing ? "0 8px 16px rgba(0,0,0,0.2)" : "none",
+    cursor: isDragging
+      ? "grabbing"
+      : isLocked
+        ? "default"
+        : isPast
+          ? "not-allowed"
+          : "ew-resize",
+    transition: "background-color 0.2s, border 0.2s",
+    overflow: "hidden",
+    ...(shinyVariables as React.CSSProperties),
   };
-
   const handleStyle = {
     position: "absolute" as const,
     top: 0,
@@ -304,8 +347,9 @@ export const AbsenceBlock = ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    "&:hover": { backgroundColor: "rgba(0,0,0,0.1)" },
+    "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
   };
+
   const handleBar = (
     <Box
       sx={{
@@ -324,15 +368,20 @@ export const AbsenceBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Top Color Strip */}
       <Box sx={{ bgcolor: absenceColor, height: 6, width: "100%", mb: 1 }} />
-      <Box>
+
+      <Box sx={{ p: 0.5 }}>
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
         >
           {employeeName}
         </Typography>
+
         <Divider sx={{ my: 1 }} />
+
+        {/* --- INFO SECTION --- */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Box
             sx={{
@@ -377,67 +426,164 @@ export const AbsenceBlock = ({
             </Typography>
           </Box>
         </Box>
-        {isFactuallyPast && (
-          <Typography
-            color="warning"
-            variant="h4"
+
+        {/* --- STATUS TEXT SECTION --- */}
+        {/* 1. Show Rejected block */}
+        {absenceDetails.status === AbsenceStatus.Rejected && (
+          <Box
             sx={{
-              fontSize: "0.85rem",
               mt: 2,
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
+              p: 1,
+              bgcolor: "rgba(244, 67, 54, 0.08)",
+              borderRadius: 1,
+              borderLeft: "3px solid #f44336",
             }}
           >
-            Den valda perioden har redan påbörjats eller passerat.
+            <Typography
+              color="error"
+              variant="caption"
+              sx={{ fontWeight: "bold", display: "block" }}
+            >
+              AVVISAD:
+            </Typography>
+            <Typography variant="caption" sx={{ fontStyle: "italic" }}>
+              {absenceDetails.rejectionReason || "Ingen kommentar"}
+            </Typography>
+          </Box>
+        )}
+
+        {/* 2. Show Approved text */}
+        {absenceDetails.status === AbsenceStatus.Approved && (
+          <Typography
+            color="success.main"
+            variant="caption"
+            sx={{ mt: 2, display: "block", fontWeight: "bold" }}
+          >
+            ✓ Godkänd och låst
           </Typography>
         )}
-        <Box
-          sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
-        >
-          {!isPast && (
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.(absenceDetails.id);
-              }}
-              sx={{
-                border: "1px solid",
-                borderColor: "primary.main",
-                color: "primary.main",
-                "&:hover": { bgcolor: "primary.main", color: "#fff" },
-              }}
+
+        {/* 3. Show Pending text - Simplified to avoid "no overlap" error */}
+        {/* We check if it is NOT approved and NOT rejected. This covers 0 and null/undefined. */}
+        {absenceDetails.status !== AbsenceStatus.Approved &&
+          absenceDetails.status !== AbsenceStatus.Rejected && (
+            <Typography
+              color="warning.main"
+              variant="caption"
+              sx={{ textAlign: "center", display: "block", mt: 2 }}
             >
-              <EditOutlinedIcon fontSize="small" />
-            </IconButton>
+              Väntar på beslut
+            </Typography>
           )}
-          {!(isPast && isDeletionDisabled) && (
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                // Delete via TanStack Query
-                // deleteAbsence(absenceDetails.id);
-                // Also call the callback
-                onDelete?.(absenceDetails.id);
-              }}
-              sx={{
-                border: "1px solid",
-                borderColor: "rgba(211, 47, 47, 0.3)",
-                "&:hover": { bgcolor: "error.main", color: "#fff" },
-              }}
-            >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
+
+        {/* --- ACTION BUTTONS (Aligned & Same Size) --- */}
+        <Box
+          sx={{
+            mt: 2,
+            pt: 1.5,
+            borderTop: "1px solid #eee",
+            display: "flex",
+            justifyContent: "center", // Aligns all buttons together in the center
+            gap: 1.5, // Equal spacing between all buttons
+          }}
+        >
+          {/* Approve & Reject Buttons (Only if not approved) */}
+          {absenceDetails.status !== AbsenceStatus.Approved && (
+            <>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApprove?.(absenceDetails.id);
+                }}
+                title="Godkänn"
+                sx={{
+                  width: 28, // Reduced from 36
+                  height: 28, // Reduced from 36
+                  p: 2, // Removed padding
+                  color: "success.main",
+                  border: "1px solid",
+                  borderColor: "success.light",
+                  "&:hover": { bgcolor: "success.main", color: "white" },
+                }}
+              >
+                <ThumbUpIcon fontSize="small" />
+              </IconButton>
+
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const reason = window.prompt("Ange anledning till avslag:");
+                  if (reason) onReject?.(absenceDetails.id, reason);
+                }}
+                title="Neka"
+                sx={{
+                  width: 28, // Reduced from 36
+                  height: 28, // Reduced from 36
+                  p: 2, // Removed padding
+                  color: "error.main",
+                  border: "1px solid",
+                  borderColor: "error.light",
+                  "&:hover": { bgcolor: "error.main", color: "white" },
+                }}
+              >
+                <ThumbDownIcon fontSize="small" />
+              </IconButton>
+            </>
+          )}
+
+          {/* Edit & Delete Buttons (Only if not approved and not past) */}
+          {absenceDetails.status !== AbsenceStatus.Approved && !isPast && (
+            <>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit?.(absenceDetails.id);
+                }}
+                title="Redigera"
+                sx={{
+                  width: 28, // Reduced from 36
+                  height: 28, // Reduced from 36
+                  p: 2, // Removed padding to fit the smaller size
+                  border: "1px solid",
+                  borderColor: "primary.light",
+                  "&:hover": { bgcolor: "primary.main", color: "white" },
+                }}
+              >
+                {/* Use a fixed pixel size for the icon to keep it crisp */}
+                <EditSquareIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+
+              {!isDeletionDisabled && (
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete?.(absenceDetails.id);
+                  }}
+                  title="Radera"
+                  sx={{
+                    width: 28, // Reduced from 36
+                    height: 28, // Reduced from 36
+                    p: 2, // Removed padding
+                    border: "1px solid",
+                    borderColor: "rgb(211, 47, 47)",
+                    "&:hover": { bgcolor: "error.main", color: "white" },
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              )}
+            </>
           )}
         </Box>
       </Box>
     </Box>
   );
-
   const blockContent = (
     <Paper
       ref={(el) => {
@@ -447,7 +593,7 @@ export const AbsenceBlock = ({
       style={style}
       {...listeners}
       {...attributes}
-      elevation={2}
+      elevation={0}
       onPointerDown={(e) => {
         e.stopPropagation();
         listeners?.onPointerDown?.(e);
@@ -455,8 +601,50 @@ export const AbsenceBlock = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onMouseMove={handleMouseMove}
+      sx={{
+        // Glossy inner layers via pseudo-elements
+        "&::before": {
+          content: '""',
+          inset: 0,
+          position: "absolute",
+          borderRadius: "inherit",
+          pointerEvents: "none",
+          backgroundImage: `radial-gradient(ellipse, rgba(255,255,255,0.5) 20%, transparent 50%, transparent 200%), 
+                            linear-gradient(90deg, rgba(0,0,0,0.1) -10%, transparent 30%, transparent 70%, rgba(0,0,0,0.1) 110%)`,
+          boxShadow: `inset 0 0.25em 0.75em rgba(0, 0, 0, 0.3), 
+                      inset 0 -0.05em 0.2em rgba(255, 255, 255, 0.2)`,
+          backgroundBlendMode: "overlay",
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "200% 80%, cover",
+          backgroundPosition: "center 220%",
+          mixBlendMode: "overlay",
+        },
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          pointerEvents: "none",
+          borderRadius: "inherit",
+          background: `linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1) 40%, transparent 80%)`,
+          top: "0.075em",
+          left: "0.75em",
+          right: "0.75em",
+          bottom: "1.4em",
+          mixBlendMode: "screen",
+          filter: "blur(1px)",
+        },
+        "&:hover": {
+          backgroundPosition: "center calc(var(--gradoffset) - 0.75em)",
+          boxShadow: `0 -0.2em 0.5em ${alpha(absenceColor, 0.3)}, 
+                      0 0.25em 0.5em ${alpha(absenceColor, 0.25)}, 
+                      inset 0 -2px 2px rgba(255, 255, 255, 0.2)`,
+        },
+        "&:active": {
+          scale: "0.98",
+          transition: "all 0.2s ease",
+        },
+      }}
     >
-      {!isDragging && !isPast && (
+      {!isDragging && !isPast && !isLocked && (
         <Box
           onPointerDown={(e) => initResize(e, "left")}
           sx={{ ...handleStyle, left: 0 }}
@@ -468,11 +656,17 @@ export const AbsenceBlock = ({
         variant="caption"
         noWrap
         fontWeight="bold"
-        sx={{ flex: 1, textAlign: "center" }}
+        sx={{
+          flex: 1,
+          textAlign: "center",
+          zIndex: 2,
+          textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+          px: 1,
+        }}
       >
         {employeeName}
       </Typography>
-      {!isDragging && !isPast && (
+      {!isDragging && !isPast && !isLocked && (
         <Box
           onPointerDown={(e) => initResize(e, "right")}
           sx={{ ...handleStyle, right: 0 }}

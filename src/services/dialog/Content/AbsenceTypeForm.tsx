@@ -17,14 +17,14 @@ import CheckIcon from "@mui/icons-material/Check";
 import PaletteIcon from "@mui/icons-material/Palette";
 import EditIcon from "@mui/icons-material/Edit";
 import LockIcon from "@mui/icons-material/Lock";
-import { ProTooltip } from "../ProTooltip";
+import { ProTooltip } from "../../../components/ProTooltip";
 
-const PREDEFINED_COLORS = [
+export const PREDEFINED_COLORS = [
   "#1976d2",
   "#0288d1",
   "#7b1fa2",
   "#512da8",
-  "#2e7d32",
+  "#1e21ed",
   "#00796b",
   "#689f38",
   "#d32f2f",
@@ -83,7 +83,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     const currentLabel = label.trim().toLowerCase();
     if (!currentLabel) return false;
     return absenceTypes.some(
-      (t) => t.id !== typeId && t.label.toLowerCase().trim() === currentLabel
+      (t) => t.id !== typeId && t.label.toLowerCase().trim() === currentLabel,
     );
   }, [label, absenceTypes, typeId]);
 
@@ -91,7 +91,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
   const isColorTakenByOther = useMemo(() => {
     const currentColor = color.toLowerCase();
     return absenceTypes.some(
-      (t) => t.id !== typeId && t.color.toLowerCase() === currentColor
+      (t) => t.id !== typeId && t.color.toLowerCase() === currentColor,
     );
   }, [color, absenceTypes, typeId]);
 
@@ -168,8 +168,8 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
               touched && !isLabelValid
                 ? "Namn krävs"
                 : isLabelTaken
-                ? "Detta namn används redan"
-                : " "
+                  ? "Detta namn används redan"
+                  : " "
             }
           />
         </Box>
@@ -196,7 +196,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
               const isSelected = color.toLowerCase() === c.toLowerCase();
               const otherUser = absenceTypes.find(
                 (t) =>
-                  t.id !== typeId && t.color.toLowerCase() === c.toLowerCase()
+                  t.id !== typeId && t.color.toLowerCase() === c.toLowerCase(),
               );
 
               return (
@@ -264,8 +264,8 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
               {isSaving
                 ? "Sparar..."
                 : isEditMode
-                ? "Spara ändringar"
-                : "Skapa"}
+                  ? "Spara ändringar"
+                  : "Skapa"}
             </Button>
           </Box>
         </DialogActions>

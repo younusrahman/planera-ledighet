@@ -3,63 +3,46 @@ import { useDialogStore } from "./dialogStore";
 import { dialogRegistry } from "./DialogRegistry";
 
 export function GlobalDialogProvider() {
-  const { id, props, close } = useDialogStore();
+  const { stack, close } = useDialogStore();
 
-  if (!id || !props) return null;
-
-  const Component = dialogRegistry[id].component;
+  if (stack.length === 0) return null;
 
   return (
-    <Dialog
-      open
-      onClose={close}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 3,
-          background: "rgba(255, 255, 255, 0.98)",
-          backdropFilter: "blur(10px)",
-          boxShadow: `
-            0 8px 32px rgba(0, 0, 0, 0.1),
-            0 1px 2px rgba(255, 255, 255, 0.5) inset,
-            0 -1px 1px rgba(0, 0, 0, 0.05) inset
-          `,
-          border: "1px solid",
-          borderColor: "rgba(255, 255, 255, 0.3)",
-          overflow: "hidden",
-          position: "relative",
-          "&::after": {
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            borderRadius: "inherit",
-            padding: "1px",
-            background:
-              "linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1))",
-            WebkitMask:
-              "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-            WebkitMaskComposite: "xor",
-            maskComposite: "exclude",
-            pointerEvents: "none",
-          },
-        },
-      }}
-      TransitionComponent={Fade}
-      transitionDuration={250}
-      sx={{
-        "& .MuiDialog-container": {
-          backdropFilter: "blur(2px)",
-          backgroundColor: "rgba(0, 0, 0, 0.12)",
-        },
-        "& .MuiBackdrop-root": {
-          backgroundColor: "transparent",
-        },
-      }}
-    >
-      <DialogContent sx={{ p: 3 }}>
-        <Component {...(props as any)} onClose={close}  />
-      </DialogContent>
-    </Dialog>
+    <>
+      {stack.map((item, index) => {
+        // FIX: Här mappar vi item.id som en giltig nyckel i dialogRegistry
+        const registration =
+          dialogRegistry[item.id as keyof typeof dialogRegistry];
+
+        if (!registration) return null;
+        const Component = registration.component;
+
+        return (
+          <Dialog
+            key={`${item.id}-${index}`}
+            open={true}
+            onClose={close}
+            maxWidth={item.maxWidth}
+            fullWidth
+            // Säkerställer att nya dialoger hamnar ovanpå gamla
+            style={{ zIndex: 1300 + index }}
+            TransitionComponent={Fade}
+            PaperProps={{
+              sx: {
+                borderRadius: 3,
+                background: "rgba(255, 255, 255, 0.98)",
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+              },
+            }}
+          >
+            <DialogContent sx={{ p: 3 }}>
+              {/* props as any används för att Component kan ha olika props-typer */}
+              <Component {...(item.props as any)} onClose={close} />
+            </DialogContent>
+          </Dialog>
+        );
+      })}
+    </>
   );
 }

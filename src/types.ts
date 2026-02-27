@@ -1,9 +1,14 @@
+export const AbsenceStatus = { Pending: 0, Approved: 1, Rejected: 2 } as const;
+export type AbsenceStatus = (typeof AbsenceStatus)[keyof typeof AbsenceStatus];
+
 export interface Absence {
   id: string;
   startDate: string;
   durationDays: number;
   employeeId: string;
   absenceCategoryId: string;
+  status: AbsenceStatus; // Now matches backend
+  rejectionReason?: string;
 }
 
 export interface Team {
@@ -26,10 +31,66 @@ export interface TeamWithEmployees extends Team {
   employees: Employee[];
 }
 
-export interface Absence {
-  id: string;
-  startDate: string;
-  durationDays: number;
-  employeeId: string;
-  absenceCategoryId: string;
+
+
+
+
+export interface AbsencePerTeam {
+  teamName: string;
+  count: number;
 }
+
+export interface AbsencePerCategory {
+  label: string; // kategori
+  color: string;
+  count: number;
+  team: string; // lägg till detta
+}
+
+export interface AbsencePerTeamCategory {
+  teamName: string;
+  categories: AbsencePerCategory[];
+}
+
+export interface HolidayAbsence {
+  holiday: string;
+  count: number;
+  group: string;
+}
+
+export interface SemesterAbsence {
+  semester: string;
+  count: number;
+}
+
+export interface QuarterAbsence {
+  quarter: string;
+  count: number;
+}
+
+export interface MonthAbsence {
+  month: string;
+  count: number;
+}
+
+export interface OverlapAbsence {
+  date: string;
+  count: number;
+}
+
+export interface TeamAvailability {
+  teamName: string;
+  available: number;
+  absent: number;
+}
+
+export interface EmployeeRanking {
+  employeeName: string;
+  daysAbsent: number;
+}
+
+export type ChangeAbsenceStatusPayload = {
+  id: string;
+  status: AbsenceStatus;
+  rejectionReason?: string | null;
+};

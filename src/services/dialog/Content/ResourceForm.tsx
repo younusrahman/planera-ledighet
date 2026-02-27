@@ -88,7 +88,7 @@ const ResourceForm: React.FC<ResourceFormProps> = ({
   };
 
   return (
-    <Box >
+    <Box>
       <DialogTitle
         component="div"
         sx={{
@@ -223,6 +223,7 @@ const ResourceForm: React.FC<ResourceFormProps> = ({
               </InputAdornment>
             }
             MenuProps={{
+              sx: { zIndex: 3000 },
               PaperProps: {
                 sx: {
                   borderRadius: 1,

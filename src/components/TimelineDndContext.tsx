@@ -59,6 +59,8 @@ interface TimelineDndContextProps {
   ) => void;
   onTooltipOpen: () => void;
   onTooltipClose: () => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string, reason: string) => void;
 }
 
 export const TimelineDndContext = forwardRef<
@@ -93,6 +95,8 @@ export const TimelineDndContext = forwardRef<
     onTeamMouseDown,
     onTeamMouseMove,
     onTeamMouseUp,
+    onApprove,
+    onReject,
   } = props;
   // 1. Hämta helgdagar för de år som visas
   const holidays = useMemo(() => {
@@ -534,6 +538,8 @@ export const TimelineDndContext = forwardRef<
                                     onTooltipClose={onTooltipClose}
                                     isDeletionDisabled={disableDeletion}
                                     isPastDaysBlocked={blockPastDays}
+                                    onApprove={onApprove}
+                                    onReject={onReject}
                                     absenceColor={
                                       absenceTypes.find(
                                         (t) => t.id === l.absenceCategoryId,
@@ -562,7 +568,7 @@ export const TimelineDndContext = forwardRef<
                           (t) => t.id === activeAbsenceBlock.absenceCategoryId,
                         )?.color
                       }
-                      employeeName={activeAbsenceBlock.employeeId}
+                      employeeName={"Dragging ..."}
                     />
                   )}
                 </DragOverlay>

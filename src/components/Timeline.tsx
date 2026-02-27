@@ -10,15 +10,19 @@ import { Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { CELL_WIDTH } from "../utils";
-import { useSidebarMode, useUIActions } from "../services/stores/uiStore";
-import type { Employee, Absence, Team, TeamWithEmployees } from "../types";
+import { useSidebarMode } from "../services/stores/uiStore";
+import {
+  AbsenceStatus,
+  type Absence,
+  type Team,
+  type TeamWithEmployees,
+} from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
 import { TimelineHeader } from "./TimelineHeader";
 import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
-import IconButton from "@mui/material/IconButton";
 import {
   useTeamMutation,
   useEmployeeMutation,
@@ -26,6 +30,7 @@ import {
   useTeams,
   useAbsenceCategories,
   useEmployees,
+  useAbsenceStatusMutation,
 } from "../services/hooks/useData";
 import { absence } from "../services/stores/absenceDataStore";
 import TimelineFooter from "./TimelineFooter";
@@ -35,16 +40,8 @@ import { ProTooltip } from "./ProTooltip";
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
-  // 1. Hämta ENDAST från Store/API
-  useEffect(() => {
-    // Load leaves on mount
-    absence.loadAll();
-  }, []); // Load leaves on mount
-  const absenceDetails = absence.useItems();
-  const sidebarMode = useSidebarMode();
-
-  // TanStack Query Mutation Hooks
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
+  const changeAbsenceStatus = useAbsenceStatusMutation();
   const {
     createEmployee: createEmployee,
     updateEmployee: updateEmployee,
@@ -58,6 +55,8 @@ export const Timeline = () => {
   const { data: teams = [] } = useTeams();
   const { data: absenceTypes = [] } = useAbsenceCategories();
   const { data: employees } = useEmployees();
+  const absenceDetails = absence.useItems();
+  const sidebarMode = useSidebarMode();
 
   const teamsWithEmployees: TeamWithEmployees[] = useMemo(() => {
     return teams.map((team) => ({
@@ -243,7 +242,7 @@ export const Timeline = () => {
     empIdToUpdate: string | null,
   ) => {
     if (!name.trim() || !targetGroupId) return;
-
+    console.log("Saving Employee:", { name, targetGroupId, empIdToUpdate });
     if (empIdToUpdate) {
       await updateEmployee(empIdToUpdate, name, targetGroupId);
     } else {
@@ -442,6 +441,7 @@ export const Timeline = () => {
   ) => {
     const type = absenceTypes.find((t) => t.id === formData.typeId);
     if (!type || !targetRowId) return;
+    const existingItem = absenceDetails.find((a) => a.id === absenceIdToUpdate);
 
     const entry: Absence = {
       id: absenceIdToUpdate || "l-" + Date.now(),
@@ -449,10 +449,20 @@ export const Timeline = () => {
       startDate: formData.startDate.format("YYYY-MM-DD"),
       durationDays: formData.duration,
       absenceCategoryId: type.id, // <--- MAKE SURE THIS IS SENT
+      status:
+        existingItem?.status === AbsenceStatus.Rejected
+          ? AbsenceStatus.Pending
+          : existingItem?.status || AbsenceStatus.Pending,
+      rejectionReason:
+        existingItem?.status === AbsenceStatus.Rejected
+          ? undefined
+          : existingItem?.rejectionReason,
     };
 
     // Validation: Collision
-    const otherAbsences = absenceDetails.filter((l) => l.id !== absenceIdToUpdate);
+    const otherAbsences = absenceDetails.filter(
+      (l) => l.id !== absenceIdToUpdate,
+    );
     if (checkCollision(otherAbsences, entry)) {
       toast("Krockar med annan frånvaro!", "error");
       return;
@@ -531,8 +541,19 @@ export const Timeline = () => {
           return;
         }
 
-        const updatedItem = { ...item, startDate: newStartDate };
-
+        const updatedItem = {
+          ...item,
+          startDate: newStartDate,
+          // AUTOMATIC RESET LOGIC:
+          status:
+            item.status === AbsenceStatus.Rejected
+              ? AbsenceStatus.Pending
+              : item.status,
+          rejectionReason:
+            item.status === AbsenceStatus.Rejected
+              ? undefined
+              : item.rejectionReason,
+        };
         // --- COLLISION CHECK & API CALL ---
         if (!checkCollision(absenceDetails, updatedItem)) {
           // REPLACE setLeaves with API Call
@@ -575,6 +596,14 @@ export const Timeline = () => {
       ...item,
       durationDays: newDuration,
       startDate: newStartDate,
+      status:
+        item.status === AbsenceStatus.Rejected
+          ? AbsenceStatus.Pending
+          : item.status,
+      rejectionReason:
+        item.status === AbsenceStatus.Rejected
+          ? undefined
+          : item.rejectionReason,
     };
 
     // --- COLLISION CHECK & API CALL ---
@@ -606,11 +635,17 @@ export const Timeline = () => {
       title: "Konfiguration",
       blockPastDays,
       disableDeletion,
-      onUpdate: (key, value) => {
+      onUpdate: (key: string, value: boolean) => {
         if (key === "blockPastDays") setBlockPastDays(value);
         if (key === "disableDeletion") setDisableDeletion(value);
       },
     });
+  };
+  const openAnalyticsDashboard = () => {
+    dialog.open("analytics", { title: "Analytics Dashboard" }, "lg");
+  };
+  const openDataManagement = () => {
+    dialog.open("dataManagementDashboard", { title: "Data Management" }, "xl");
   };
 
   const handleDialogGroupTrigger = (groupToEdit?: Team) => {
@@ -620,7 +655,7 @@ export const Timeline = () => {
       title: isEditing ? "Redigera grupp" : "Skapa ny grupp",
       isEditMode: isEditing, // Nu klagar inte TS längre!
       initialName: isEditing ? groupToEdit.name : "",
-      onSave: (name) => {
+      onSave: (name: string) => {
         handleSaveGroup(name, isEditing ? groupToEdit.id : null);
         dialog.close();
       },
@@ -654,7 +689,7 @@ export const Timeline = () => {
       initialColor: isEditing ? typeToEdit.color : undefined,
       absenceTypes: absenceTypes, // Skicka med hela listan från API/Store
 
-      onSave: (label, color) => {
+      onSave: (label: string, color: string) => {
         // Pass the specific ID if editing, or null if creating
         handleSaveAbsenceType(label, color, isEditing ? typeToEdit.id : null);
         dialog.close();
@@ -694,8 +729,8 @@ export const Timeline = () => {
             startDate: dayjs(leaveToEdit.startDate),
             duration: leaveToEdit.durationDays,
             typeId:
-              absenceTypes.find((t) => t.id === leaveToEdit.absenceCategoryId)?.id||
-              "vac",
+              absenceTypes.find((t) => t.id === leaveToEdit.absenceCategoryId)
+                ?.id || "vac",
           }
         : {
             // CREATE MODE INITIAL DATA (from grid selection)
@@ -707,7 +742,11 @@ export const Timeline = () => {
       blockPastDays,
       today,
 
-      onSave: (formData) => {
+      onSave: (formData: {
+        typeId: string;
+        startDate: Dayjs;
+        duration: number;
+      }) => {
         // formData comes from the AbsenceForm (typeId, startDate, duration)
         handleSaveAbsence(
           formData,
@@ -731,7 +770,7 @@ export const Timeline = () => {
       initialGroupId: currentGroupId, // The group they currently belong to
       groups: teams,
 
-      onSave: (name, targetGroupId) => {
+      onSave: (name: string, targetGroupId: string) => {
         // Pass the specific employee ID if editing, or null if creating
         handleSaveEmployee(
           name,
@@ -753,6 +792,18 @@ export const Timeline = () => {
 
         dialog.close();
       },
+    });
+  };
+
+  const handleApprove = async (id: string) => {
+    await changeAbsenceStatus.mutate({ id, status: AbsenceStatus.Approved });
+  };
+
+  const handleReject = async (id: string, reason: string) => {
+    await changeAbsenceStatus.mutate({
+      id,
+      status: AbsenceStatus.Rejected,
+      rejectionReason: reason,
     });
   };
   // _______________________________________________________________
@@ -959,6 +1010,8 @@ export const Timeline = () => {
         sidebarMode={sidebarMode}
         disableDeletion={disableDeletion}
         openConfig={openConfig}
+        openDataManagement={openDataManagement}
+        openAnalyticsDashboard={openAnalyticsDashboard}
         onOpenDatePicker={() => setIsDatePickerOpen(true)}
         onCloseDatePicker={() => setIsDatePickerOpen(false)}
         onDateChange={(newDate) => jumpToDate(newDate)}
@@ -1037,6 +1090,8 @@ export const Timeline = () => {
               onAbsenceBlockResizeEnd={handleLeaveResizeEnd}
               onTooltipOpen={() => setIsTooltipOpen(true)}
               onTooltipClose={() => setIsTooltipOpen(false)}
+              onApprove={handleApprove}
+              onReject={handleReject}
             />
           </Box>
         </Box>

@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Team, Employee, AbsenceCategory } from "../../types";
+import {
+  type Team,
+  type Employee,
+  type AbsenceCategory,
+  type ChangeAbsenceStatusPayload,
+  AbsenceStatus,
+} from "../../types";
 import { apiRequest } from "../apiInstance";
+import { absence } from "../stores/absenceDataStore";
+import { useAbsenceBlockStore } from "../stores/absenceUIStore";
+
 // --------------------------------------------------
 // QUERIES
 // --------------------------------------------------
@@ -91,10 +100,10 @@ export const useEmployeeMutations = () => {
 
   const createMutation = useMutation({
     mutationFn: (data: { name: string; teamId: string }) =>
-      apiRequest<Employee>("/Employee", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
+      apiRequest<Employee>(
+        `/Employee?teamId=${data.teamId}&name=${data.name}`,
+        { method: "POST" },
+      ),
     onSuccess: (created) => {
       queryClient.setQueryData<Employee[]>(["employees"], (old) =>
         old ? [...old, created] : [created],
@@ -283,4 +292,44 @@ export const useDatabaseMutations = () => {
     deleteBackupMutation,
     uploadMutation,
   };
+};
+
+// --------------------------------------------------
+// Absence status MUTATIONS
+// --------------------------------------------------
+
+export const useAbsenceStatusMutation = () => {
+  const queryClient = useQueryClient();
+  const { update } = absence.useActions();
+  const { resetBlock } = useAbsenceBlockStore.getState();
+
+  return useMutation({
+    mutationFn: (data: ChangeAbsenceStatusPayload) =>
+      apiRequest<void>("/Absence/change-absence-status", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    onSuccess: (_, variables) => {
+      const existingItem = absence.useStore.getState().byId[variables.id];
+
+      if (existingItem) {
+        // Logic to fix the "Type null is not assignable" error:
+        update({
+          ...existingItem,
+          status: variables.status,
+
+          // Use the Nullish Coalescing operator (??) to convert null to undefined
+          rejectionReason:
+            variables.status === AbsenceStatus.Rejected
+              ? (variables.rejectionReason ?? undefined)
+              : undefined, // Clear the reason if the status is no longer 'Rejected'
+        });
+
+        resetBlock(variables.id, existingItem.durationDays || 0);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["absenceStatus"] });
+    },
+  });
 };

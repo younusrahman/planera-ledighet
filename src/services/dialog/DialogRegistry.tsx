@@ -1,16 +1,20 @@
 // src/utils/DialogRegistry.tsx
-import AbsenceForm, {
-  type AbsenceFormProps,
-} from "../../components/forms/AbsenceForm";
-import type { AbsenceTypeFormProps } from "../../components/forms/AbsenceTypeForm";
-import AbsenceTypeForm from "../../components/forms/AbsenceTypeForm";
-import type { ConfigFormProps } from "../../components/forms/ConfigForm";
-import ConfigForm from "../../components/forms/ConfigForm";
-import { DatabaseMaintenanceForm, type DatabaseMaintenanceProps } from "../../components/forms/DatabaseMaintenanceForm";
-import type { GroupFormProps } from "../../components/forms/GroupForm";
-import GroupForm from "../../components/forms/GroupForm";
-import type { ResourceFormProps } from "../../components/forms/ResourceForm";
-import ResourceForm from "../../components/forms/ResourceForm";
+import AbsenceForm, { type AbsenceFormProps } from "./Content/AbsenceForm";
+import type { AbsenceTypeFormProps } from "./Content/AbsenceTypeForm";
+import AbsenceTypeForm from "./Content/AbsenceTypeForm";
+import { AnalyticsForm } from "./Content/AnalyticsForm";
+import type { ConfigFormProps } from "./Content/ConfigForm";
+import ConfigForm from "./Content/ConfigForm";
+import {
+  DatabaseMaintenanceForm,
+  type DatabaseMaintenanceProps,
+} from "./Content/DatabaseMaintenanceForm";
+import type { GroupFormProps } from "./Content/GroupForm";
+import GroupForm from "./Content/GroupForm";
+import DataManagementDashboard from "./Content/DataManagementDashboard";
+import type { ResourceFormProps } from "./Content/ResourceForm";
+import ResourceForm from "./Content/ResourceForm";
+
 // 1. All dialog content
 export const dialogRegistry = {
   absenceType: {
@@ -29,6 +33,12 @@ export const dialogRegistry = {
   databaseSystem: {
     component: DatabaseMaintenanceForm,
   },
+  analytics: {
+    component: AnalyticsForm,
+  },
+  dataManagementDashboard: {
+    component: DataManagementDashboard,
+  },
 } satisfies {
   [K in DialogId]: {
     component: React.ComponentType<DialogPropsMap[K]>;
@@ -42,7 +52,9 @@ export type DialogId =
   | "group"
   | "resource"
   | "absence"
-  | "databaseSystem";
+  | "databaseSystem"
+  | "analytics"
+  | "dataManagementDashboard";
 
 // 3. Map each dialog ID → its props
 export interface DialogPropsMap {
@@ -52,4 +64,6 @@ export interface DialogPropsMap {
   resource: ResourceFormProps;
   absence: AbsenceFormProps;
   databaseSystem: DatabaseMaintenanceProps;
+  analytics: {};
+  dataManagementDashboard: {};
 }

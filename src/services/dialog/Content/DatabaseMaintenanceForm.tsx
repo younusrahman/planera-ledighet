@@ -30,10 +30,10 @@ import {
   FileOpen as BrowseIcon,
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
-import { toast } from "../../services/stores/globalSnackbar";
-import { BASE_URL } from "../../services/apiInstance";
-import { ProTooltip } from "../ProTooltip";
-import { useBackups, useDatabaseMutations } from "../../services/hooks/useData";
+import { toast } from "../../stores/globalSnackbar";
+import { BASE_URL } from "../../apiInstance";
+import { ProTooltip } from "../../../components/ProTooltip";
+import { useBackups, useDatabaseMutations } from "../../hooks/useData";
 export interface DatabaseMaintenanceProps {
   title: string;
   onClose: () => void; // This matches what GlobalDialogProvider passes

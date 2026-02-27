@@ -1,23 +1,31 @@
 import { create } from "zustand";
-import type { DialogId, DialogPropsMap } from "./DialogRegistry";
 
-interface DialogState<K extends DialogId = DialogId> {
-  id: K | null;
-  props: DialogPropsMap[K] | null;
-  open: <T extends DialogId>(id: T, props: DialogPropsMap[T]) => void;
+interface DialogInstance {
+  id: string;
+  props: any;
+  maxWidth?: "xs" | "sm" | "md" | "lg" | "xl";
+}
+
+interface DialogState {
+  stack: DialogInstance[];
+  open: (id: string, props: any, maxWidth?: any) => void;
   close: () => void;
 }
 
 export const useDialogStore = create<DialogState>((set) => ({
-  id: null,
-  props: null,
-  open: (id, props) => set({ id, props }),
-  close: () => set({ id: null, props: null }),
+  stack: [],
+  open: (id, props, maxWidth = "sm") =>
+    set((state) => ({
+      stack: [...state.stack, { id, props, maxWidth }],
+    })),
+  close: () =>
+    set((state) => ({
+      stack: state.stack.slice(0, -1), // Removes only the top dialog
+    })),
 }));
 
-// For .ts files
 export const dialog = {
-  open: <T extends DialogId>(id: T, props: DialogPropsMap[T]) =>
-    useDialogStore.getState().open(id, props),
+  open: (id: string, props: any, maxWidth?: any) =>
+    useDialogStore.getState().open(id, props, maxWidth),
   close: () => useDialogStore.getState().close(),
 };

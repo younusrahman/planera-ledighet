@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using planera_ledighet.api;
+using planera_ledighet.api.AbsenceAnalytics;
 using planera_ledighet.api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,7 @@ builder.Services.AddCors(options => { options.AddPolicy("AllowFrontend", policy 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddSingleton<AbsenceAnalyticsServices.FixedHolidays>();
 var app = builder.Build();
 
 // Run migrations automatically

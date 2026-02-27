@@ -32,7 +32,10 @@ namespace planera_ledighet.api.Controllers
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,
                 EmployeeId = l.EmployeeId,
-                AbsenceCategoryId = l.AbsenceCategoryId
+                AbsenceCategoryId = l.AbsenceCategoryId,
+                Status= l.Status,
+                RejectionReason = l.RejectionReason
+
             }).ToList();
         }
 
@@ -55,7 +58,9 @@ namespace planera_ledighet.api.Controllers
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,
                 EmployeeId = l.EmployeeId,
-                AbsenceCategoryId = l.AbsenceCategoryId
+                AbsenceCategoryId = l.AbsenceCategoryId,
+                Status = l.Status,
+                RejectionReason = l.RejectionReason
             };
         }
 
@@ -63,17 +68,23 @@ namespace planera_ledighet.api.Controllers
         [HttpPost]
         public async Task<ActionResult<DtoAbsence>> CreateAbsence(DtoAbsence dto)
         {
-            if (string.IsNullOrEmpty(dto.Id))
-                dto.Id = "l-" + Guid.NewGuid().ToString().Substring(0, 8);
+
+            // target ID is null here because we are creating
+            var (_, overlap) = await Helper.GetAbsenceState(_context.Absences, null, dto.EmployeeId, dto.StartDate, dto.DurationDays);
+
+            if (overlap != null)
+                return Conflict(new { message = "Det finns redan en bokning här." });
 
             var entity = new Absence
             {
                 Id = dto.Id,
-                EmployeeId = dto.EmployeeId, // your frontend uses EmployeeId as resource row
+                EmployeeId = dto.EmployeeId,
                 StartDate = dto.StartDate,
                 DurationDays = dto.DurationDays,
                 EndDate = dto.StartDate.AddDays(dto.DurationDays),
-                AbsenceCategoryId = dto.AbsenceCategoryId
+                AbsenceCategoryId = dto.AbsenceCategoryId,
+                Status = dto.Status ,
+                RejectionReason = dto.RejectionReason
             };
 
             _context.Absences.Add(entity);
@@ -86,18 +97,35 @@ namespace planera_ledighet.api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateAbsence(string id, DtoAbsence dto)
         {
-            if (id != dto.Id)
-                return BadRequest();
+            if (id != dto.Id) return BadRequest();
 
-            var entity = await _context.Absences.FindAsync(id);
-            if (entity == null)
-                return NotFound();
+            // Perform the single check
+            var (target, overlap) = await Helper.GetAbsenceState(_context.Absences, id, dto.EmployeeId, dto.StartDate, dto.DurationDays);
 
-            entity.StartDate = dto.StartDate;
-            entity.DurationDays = dto.DurationDays;
-            entity.EndDate = dto.StartDate.AddDays(dto.DurationDays);
-            entity.EmployeeId = dto.EmployeeId;
-            entity.AbsenceCategoryId = dto.AbsenceCategoryId;
+            // 1. Check if the source record even exists (404)
+            if (target == null)
+                return NotFound(new { message = "Frånvaron hittades inte." });
+
+            // 2. Check if the new move/resize krockar with another block (409)
+            if (overlap != null)
+                return Conflict(new
+                {
+                    message = $"Krockar med {overlap.AbsenceCategory?.Label ?? "annan frånvaro"}.",
+                    overlapId = overlap.Id
+                });
+
+            // 3. Update the found target
+            if (target.Status == AbsenceStatus.Rejected)
+            {
+                target.Status = AbsenceStatus.Pending;
+                target.RejectionReason = null;
+            }
+
+            target.StartDate = dto.StartDate;
+            target.DurationDays = dto.DurationDays;
+            target.EndDate = dto.StartDate.AddDays(dto.DurationDays);
+            target.EmployeeId = dto.EmployeeId;
+            target.AbsenceCategoryId = dto.AbsenceCategoryId;
 
             await _context.SaveChangesAsync();
             return NoContent();
@@ -112,6 +140,35 @@ namespace planera_ledighet.api.Controllers
                 return NotFound();
 
             _context.Absences.Remove(entity);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // POST: api/Absence/{id}
+        [HttpPost("change-absence-status")]
+        public async Task<IActionResult> ChangeAbsenceStatus(ChangeAbsenceStatusDto dto )
+        {
+            var entity = await _context.Absences.FindAsync(dto.Id);
+            if (entity == null)
+                return NotFound();
+
+            switch (dto.Status)
+            {
+                case AbsenceStatus.Pending:
+                    entity.Status = dto.Status;
+                    break;
+                case AbsenceStatus.Approved:
+                    entity.Status = dto.Status;
+                    break;
+                case AbsenceStatus.Rejected:
+                    entity.Status = dto.Status;
+                    entity.RejectionReason = dto.RejectionReason;
+                    break;
+                default:
+                    break;
+            }
+
             await _context.SaveChangesAsync();
 
             return NoContent();

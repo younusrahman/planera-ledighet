@@ -34,6 +34,9 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import type { Team, TeamWithEmployees } from "../types";
 import { useUIActions } from "../services/stores/uiStore";
 import { Storage as DatabaseIcon } from "@mui/icons-material";
+import PieChartIcon from "@mui/icons-material/PieChart";
+import StorageIcon from "@mui/icons-material/Storage";
+import BackupTableIcon from '@mui/icons-material/BackupTable';
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
@@ -54,6 +57,8 @@ interface TimelineHeaderProps {
   handleDialogGroupTrigger: (group?: Team) => void;
   handleDialogAbsenceTypeTrigger: () => void;
   handleDialogDatabaseSystemTrigger: () => void;
+  openAnalyticsDashboard: () => void;
+  openDataManagement: () => void;
   handleDialogResourceTrigger: (
     resourceToEdit?: { id: string; name: string },
     currentGroupId?: string,
@@ -66,7 +71,7 @@ interface TimelineHeaderProps {
 // ---------------------------------------------------------
 const HolidayContext = createContext({
   holidays: [] as { name: string; date: Dayjs }[],
-  onSelectHoliday: (d: Dayjs) => {},
+  onSelectHoliday: (_d: Dayjs) => {},
   onClose: () => {}, // <--- LÄGG TILL DENNA RAD
 });
 
@@ -182,7 +187,9 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   handleDialogAbsenceTypeTrigger,
   handleDialogResourceTrigger,
   handleDialogDatabaseSystemTrigger,
+  openAnalyticsDashboard,
   openConfig,
+  openDataManagement,
   doseHaveAbsenceTypes,
   disableDeletion,
 }) => {
@@ -206,8 +213,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
     setGroupMenuAnchor(null);
     setResourceMenuAnchor(null);
   };
-  console.log("TimelineHeader rendered selectedGroupId", selectedGroupId);
-  console.log("TimelineHeader rendered selectedResourceId", selectedResourceId);
+
   return (
     <AppBar
       position="static"
@@ -290,6 +296,22 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
           <MenuItem
             onClick={() => {
               closeMenus();
+              openDataManagement();
+            }}
+          >
+            <BackupTableIcon fontSize="small" sx={{ mr: 1.5 }} /> Data Management
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenus();
+              openAnalyticsDashboard();
+            }}
+          >
+            <PieChartIcon fontSize="small" sx={{ mr: 1.5 }} /> Analytics
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenus();
               openConfig();
             }}
           >
@@ -318,7 +340,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                 fontWeight: 700,
               }}
             >
-              Sidebar
+              Sidebar mode
             </Typography>
             <Button
               sx={{ fontSize: "13px", fontWeight: 700 }}

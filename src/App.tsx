@@ -6,6 +6,7 @@ import "dayjs/locale/sv";
 import { GlobalSnackbar } from "./services/stores/globalSnackbar";
 import { GlobalDialogProvider } from "./services/dialog/GlobalDialogProvider";
 import { Timeline } from "./components/Timeline";
+import { absence } from "./services/stores/absenceDataStore";
 
 const theme = createTheme({
   palette: {
@@ -17,6 +18,7 @@ const theme = createTheme({
 export const queryClient = new QueryClient();
 
 function App() {
+  absence.loadAll();
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
