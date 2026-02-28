@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useEffect,
   useLayoutEffect,
+  use,
 } from "react";
 import { Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
@@ -57,7 +58,9 @@ export const Timeline = () => {
   const { data: employees } = useEmployees();
   const absenceDetails = absence.useItems();
   const sidebarMode = useSidebarMode();
-
+  useEffect(() => {
+    absence.loadAll();
+  }, []);
   const teamsWithEmployees: TeamWithEmployees[] = useMemo(() => {
     return teams.map((team) => ({
       ...team,

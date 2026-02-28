@@ -17,4 +17,4 @@ dayjs.updateLocale("sv", {
 
 // CONSTANTS
 export const CELL_WIDTH = 45;
-export const ROW_HEIGHT = 35;
+export const ROW_HEIGHT = 28;

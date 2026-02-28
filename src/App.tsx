@@ -18,7 +18,6 @@ const theme = createTheme({
 export const queryClient = new QueryClient();
 
 function App() {
-  absence.loadAll();
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>

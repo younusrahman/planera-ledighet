@@ -27,6 +27,7 @@ import {
 import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import DeleteIcon from "@mui/icons-material/Delete";
+import LockIcon from "@mui/icons-material/Lock";
 interface Props {
   absenceDetails: Absence;
   left?: number;
@@ -442,9 +443,9 @@ export const AbsenceBlock = ({
             <Typography
               color="error"
               variant="caption"
-              sx={{ fontWeight: "bold", display: "block" }}
+              sx={{ fontWeight: "bold", display: "block", textAlign: "center" }}
             >
-              AVVISAD:
+              Avvisad 
             </Typography>
             <Typography variant="caption" sx={{ fontStyle: "italic" }}>
               {absenceDetails.rejectionReason || "Ingen kommentar"}
@@ -457,9 +458,14 @@ export const AbsenceBlock = ({
           <Typography
             color="success.main"
             variant="caption"
-            sx={{ mt: 2, display: "block", fontWeight: "bold" }}
+            sx={{
+              mt: 2,
+              display: "block",
+              fontWeight: "bold",
+              textAlign: "center",
+            }}
           >
-            ✓ Godkänd och låst
+            ✓ Godkänd
           </Typography>
         )}
 
@@ -488,7 +494,7 @@ export const AbsenceBlock = ({
           }}
         >
           {/* Approve & Reject Buttons (Only if not approved) */}
-          {absenceDetails.status !== AbsenceStatus.Approved && (
+          {absenceDetails.status !== AbsenceStatus.Approved ? (
             <>
               <IconButton
                 size="small"
@@ -531,6 +537,8 @@ export const AbsenceBlock = ({
                 <ThumbDownIcon fontSize="small" />
               </IconButton>
             </>
+          ) : (
+            <LockIcon color="action" sx={{ fontSize: 20, color: "green" }} />
           )}
 
           {/* Edit & Delete Buttons (Only if not approved and not past) */}

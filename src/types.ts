@@ -7,7 +7,7 @@ export interface Absence {
   durationDays: number;
   employeeId: string;
   absenceCategoryId: string;
-  status: AbsenceStatus; // Now matches backend
+  status: AbsenceStatus;
   rejectionReason?: string;
 }
 
