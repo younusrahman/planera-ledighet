@@ -83,23 +83,9 @@ export const AbsenceBlock = ({
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: absenceDetails.id,
-      data: {
-        ...absenceDetails,
-        initialLeft: left,
-        initialWidth: absenceDetails.durationDays * CELL_WIDTH,
-      },
+      data: absenceDetails,
       disabled: isOverlay || isPast || isLocked,
     });
-
-  // Trigger immediate hide when drag starts
-  useEffect(() => {
-    if (isDragging && !isOverlay) {
-      setIsPreDrag(true);
-      onDragStart?.();
-    } else if (!isDragging) {
-      setIsPreDrag(false);
-    }
-  }, [isDragging, isOverlay, onDragStart]);
 
   // --- STATE FROM ZUSTAND ---
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
@@ -122,6 +108,17 @@ export const AbsenceBlock = ({
   const requestRef = useRef<number>(0);
   const prevLeftRef = useRef(left);
 
+  // Trigger immediate hide when drag starts
+  useEffect(() => {
+    if (isDragging && !isOverlay) {
+      // Force close tooltip
+      setBlock(absenceDetails.id, { isTooltipOpen: false });
+      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+      onTooltipClose?.();
+    }
+  }, [isDragging, isOverlay, absenceDetails.id, setBlock, onTooltipClose]);
+
   // Initialize block state
   useEffect(() => {
     setBlock(absenceDetails.id, {
@@ -131,6 +128,20 @@ export const AbsenceBlock = ({
       isTooltipOpen: false,
     });
   }, []);
+  useEffect(() => {
+    const handleScroll = () => {
+      // Force tooltip to update position when container scrolls
+      if (popperRef.current && blockRef.current) {
+        popperRef.current.update();
+      }
+    };
+
+    const container = scrollContainerRef?.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
+    }
+  }, [scrollContainerRef]);
 
   useLayoutEffect(() => {
     const jump = left - prevLeftRef.current;
@@ -263,12 +274,15 @@ export const AbsenceBlock = ({
   }, []);
 
   const handleMouseMove = (event: React.MouseEvent) => {
+    // Update position ref immediately
     positionRef.current = { x: event.clientX, y: event.clientY };
-    if (popperRef.current != null) {
+
+    // Update popper position in real-time
+    if (popperRef.current) {
       popperRef.current.update();
     }
 
-    if (!isTooltipOpen) {
+    if (!isTooltipOpen && !isDragging) {
       if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
       openTimeoutRef.current = window.setTimeout(() => {
         setBlock(absenceDetails.id, { isTooltipOpen: true });
@@ -278,7 +292,8 @@ export const AbsenceBlock = ({
   };
 
   const handleMouseEnter = () => {
-    if (isDragging || isResizing || isOverlay || isPreDrag) return;
+    // Don't show tooltip if dragging or just finished dragging
+    if (isDragging || isResizing || isOverlay) return;
 
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
 
@@ -287,7 +302,6 @@ export const AbsenceBlock = ({
       onTooltipOpen?.();
     }, TOOLTIP_DELAY);
   };
-
   const handleMouseLeave = () => {
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
 
@@ -696,7 +710,7 @@ export const AbsenceBlock = ({
     </Paper>
   );
 
-  if (isOverlay) return blockContent;
+  if (isOverlay || isDragging || isResizing) return blockContent;
 
   return (
     <>
