@@ -68,7 +68,6 @@ export const AbsenceBlock = ({
 }: Props) => {
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
-  const isFactuallyPast = dayjs(absenceDetails.startDate).isBefore(today);
 
   const currentStatus = absenceDetails.status;
   const isLocked = currentStatus === AbsenceStatus.Approved;

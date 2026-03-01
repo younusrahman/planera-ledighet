@@ -5,7 +5,6 @@ import React, {
   useMemo,
   useEffect,
   useLayoutEffect,
-  use,
 } from "react";
 import { Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
@@ -58,6 +57,7 @@ export const Timeline = () => {
   const { data: employees } = useEmployees();
   const absenceDetails = absence.useItems();
   const sidebarMode = useSidebarMode();
+  const [filteredCategoryIds, setFilteredCategoryIds] = useState<string[]>([]);
   useEffect(() => {
     absence.loadAll();
   }, []);
@@ -161,6 +161,25 @@ export const Timeline = () => {
       prev.includes(teamId)
         ? prev.filter((id) => id !== teamId)
         : [...prev, teamId],
+    );
+  };
+  // 2. Initialize: Select all categories by default when they load
+  useEffect(() => {
+    if (absenceTypes.length > 0 && filteredCategoryIds.length === 0) {
+      setFilteredCategoryIds(absenceTypes.map((t) => t.id));
+    }
+  }, [absenceTypes]);
+
+  // 3. The Filter Logic
+  const visibleAbsences = useMemo(() => {
+    return absenceDetails.filter((abs) =>
+      filteredCategoryIds.includes(abs.absenceCategoryId),
+    );
+  }, [absenceDetails, filteredCategoryIds]);
+
+  const handleToggleFilter = (id: string) => {
+    setFilteredCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
   };
 
@@ -450,6 +469,9 @@ export const Timeline = () => {
       id: absenceIdToUpdate || "l-" + Date.now(),
       employeeId: targetRowId,
       startDate: formData.startDate.format("YYYY-MM-DD"),
+      endDate: formData.startDate
+        .add(formData.duration - 1, "day")
+        .format("YYYY-MM-DD"),
       durationDays: formData.duration,
       absenceCategoryId: type.id, // <--- MAKE SURE THIS IS SENT
       status:
@@ -648,7 +670,17 @@ export const Timeline = () => {
     dialog.open("analytics", { title: "Analytics Dashboard" }, "lg");
   };
   const openDataManagement = () => {
-    dialog.open("dataManagementDashboard", { title: "Data Management" }, "xl");
+    dialog.open(
+      "dataManagementDashboard",
+      {
+        title: "Data Management",
+        absences: absenceDetails,
+        employees: employees,
+        categories: absenceTypes,
+        teams: teams,
+      },
+      "xl",
+    );
   };
 
   const handleDialogGroupTrigger = (groupToEdit?: Team) => {
@@ -1068,7 +1100,7 @@ export const Timeline = () => {
               daysCount={daysCount} // from useState
               startDate={startDate} // from useState
               teams={teamsWithEmployees} // from useState
-              absences={absenceDetails} // from useState
+              absences={visibleAbsences} // from useState (filtered)
               collapsedTeams={collapsedTeams} // from useState
               absenceTypes={absenceTypes} // from useState
               activeAbsenceBlock={activeLeave} // from useState (dnd-kit)
@@ -1100,7 +1132,11 @@ export const Timeline = () => {
         </Box>
       </Box>
 
-      <TimelineFooter onAbsenceTypeClick={handleDialogAbsenceTypeTrigger} />
+      <TimelineFooter
+        onAbsenceTypeClick={handleDialogAbsenceTypeTrigger}
+        selectedIds={filteredCategoryIds}
+        onToggle={handleToggleFilter}
+      />
     </Box>
   );
 };

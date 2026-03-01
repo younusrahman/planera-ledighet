@@ -7,17 +7,11 @@ import {
   DialogActions,
   DialogTitle,
   useTheme,
-  alpha,
   Alert,
-  Fade,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ColorLensIcon from "@mui/icons-material/ColorLens";
 import CheckIcon from "@mui/icons-material/Check";
-import PaletteIcon from "@mui/icons-material/Palette";
-import EditIcon from "@mui/icons-material/Edit";
-import LockIcon from "@mui/icons-material/Lock";
-import { ProTooltip } from "../../../components/ProTooltip";
 
 export const PREDEFINED_COLORS = [
   "#1976d2",
@@ -43,7 +37,6 @@ export const PREDEFINED_COLORS = [
 ];
 
 export interface AbsenceTypeFormProps {
-  title?: string;
   initialLabel?: string;
   initialColor?: string;
   typeId?: string; // ID på den post vi redigerar
@@ -55,7 +48,6 @@ export interface AbsenceTypeFormProps {
 }
 
 const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
-  title = "Frånvarotyp",
   initialLabel = "",
   initialColor = "",
   typeId,
@@ -78,16 +70,16 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     setTouched(false);
   }, [initialLabel, initialColor, typeId]);
 
-  // KOLL 1: Är namnet upptaget av någon ANNAN?
+  // Kontrollera om namnet är upptaget (exkludera den vi redigerar)
   const isLabelTaken = useMemo(() => {
     const currentLabel = label.trim().toLowerCase();
-    if (!currentLabel) return false;
+    if (currentLabel.length === 0) return false;
     return absenceTypes.some(
       (t) => t.id !== typeId && t.label.toLowerCase().trim() === currentLabel,
     );
   }, [label, absenceTypes, typeId]);
 
-  // KOLL 2: Är färgen upptagen av någon ANNAN?
+  // Kontrollera om färgen är upptagen (exkludera den vi redigerar)
   const isColorTakenByOther = useMemo(() => {
     const currentColor = color.toLowerCase();
     return absenceTypes.some(
@@ -95,27 +87,27 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     );
   }, [color, absenceTypes, typeId]);
 
-  // KOLL 3: Har användaren ändrat något?
+  // Kontrollera om ändringar gjorts (viktigt för redigering)
   const hasChanges = useMemo(() => {
-    if (!isEditMode) return label.trim().length > 0;
     return (
       label.trim() !== initialLabel.trim() ||
       color.toLowerCase() !== initialColor.toLowerCase()
     );
-  }, [label, color, initialLabel, initialColor, isEditMode]);
+  }, [label, color, initialLabel, initialColor]);
 
-  const isLabelValid = label.trim().length > 0;
+  // Validera längd (Minst 3 tecken)
+  const isLabelValid = label.trim().length >= 3;
 
-  // Spara-knappen aktiveras ENDAST om:
-  // 1. Namnet inte är tomt
-  // 2. Namnet inte är en dubblett
-  // 3. Färgen inte är en dubblett
-  // 4. Något har ändrats (vid redigering)
+  // Spara-knappen aktiveras om:
+  // 1. Namnet är giltigt (3+ tecken)
+  // 2. Namnet inte är upptaget
+  // 3. Färgen inte är upptagen
+  // 4. Om vi redigerar: något måste ha ändrats. Om ny: alltid true.
   const canSave =
     isLabelValid &&
     !isLabelTaken &&
     !isColorTakenByOther &&
-    hasChanges &&
+    (!isEditMode || hasChanges) &&
     !isSaving;
 
   const handleSave = async () => {
@@ -155,7 +147,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            Namn på frånvarotyp
+            Namn på frånvarotyp (minst 3 tecken)
           </Typography>
           <TextField
             fullWidth
@@ -163,10 +155,10 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
             disabled={isSaving}
             onChange={(e) => setLabel(e.target.value)}
             onBlur={() => setTouched(true)}
-            error={touched && (isLabelTaken || !isLabelValid)}
+            error={touched && (!isLabelValid || isLabelTaken)}
             helperText={
               touched && !isLabelValid
-                ? "Namn krävs"
+                ? "Minst 3 tecken krävs"
                 : isLabelTaken
                   ? "Detta namn används redan"
                   : " "
@@ -180,94 +172,71 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
           </Typography>
 
           {isColorTakenByOther && (
-            <Alert severity="error" sx={{ mb: 2, py: 0 }}>
-              Denna färg används redan av en annan typ.
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Denna färg används redan. Välj en annan färg-cirkel.
             </Alert>
           )}
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(40px, 1fr))",
-              gap: 1.5,
-            }}
-          >
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
             {PREDEFINED_COLORS.map((c) => {
               const isSelected = color.toLowerCase() === c.toLowerCase();
-              const otherUser = absenceTypes.find(
+              const isUsedByOther = absenceTypes.some(
                 (t) =>
                   t.id !== typeId && t.color.toLowerCase() === c.toLowerCase(),
               );
 
               return (
-                <ProTooltip
+                <Box
                   key={c}
-                  title={otherUser ? `Används av: ${otherUser.label}` : c}
-                  color={c}
+                  onClick={() => !isUsedByOther && setColor(c)}
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: "50%",
+                    bgcolor: c,
+                    cursor: isUsedByOther ? "not-allowed" : "pointer",
+                    opacity: isUsedByOther ? 0.3 : 1,
+                    border: isSelected
+                      ? `3px solid ${theme.palette.primary.main}`
+                      : "2px solid transparent",
+                    boxShadow: isSelected ? theme.shadows[3] : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    "&:hover": {
+                      transform: isUsedByOther ? "none" : "scale(1.1)",
+                    },
+                  }}
                 >
-                  <Box
-                    onClick={() => !otherUser && setColor(c)}
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "50%",
-                      bgcolor: c,
-                      cursor: otherUser ? "not-allowed" : "pointer",
-                      opacity: otherUser ? 0.4 : 1,
-                      outline: isSelected
-                        ? `3px solid ${theme.palette.primary.main}`
-                        : "none",
-                      outlineOffset: "2px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "transform 0.2s",
-                      "&:hover": {
-                        transform: otherUser ? "none" : "scale(1.1)",
-                      },
-                    }}
-                  >
-                    {isSelected && (
-                      <CheckIcon
-                        sx={{ fontSize: 20, color: getColorContrast(c) }}
-                      />
-                    )}
-                  </Box>
-                </ProTooltip>
+                  {isSelected && (
+                    <CheckIcon
+                      sx={{ fontSize: 20, color: getColorContrast(c) }}
+                    />
+                  )}
+                </Box>
               );
             })}
           </Box>
         </Box>
 
-        <DialogActions sx={{ px: 0, mt: 2, justifyContent: "space-between" }}>
-          <Box>
-            {isEditMode && onDelete && (
-              <Button
-                color="error"
-                onClick={onDelete}
-                startIcon={<DeleteIcon />}
-                variant="outlined"
-              >
-                Ta bort
-              </Button>
-            )}
-          </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button onClick={onClose} variant="outlined">
-              Avbryt
-            </Button>
+        <DialogActions sx={{ px: 0, mt: 2 }}>
+          {isEditMode && onDelete && (
             <Button
-              variant="contained"
-              onClick={handleSave}
-              disabled={!canSave}
+              color="error"
+              onClick={onDelete}
+              startIcon={<DeleteIcon />}
+              variant="outlined"
             >
-              {isSaving
-                ? "Sparar..."
-                : isEditMode
-                  ? "Spara ändringar"
-                  : "Skapa"}
+              Ta bort
             </Button>
-          </Box>
+          )}
+          <Box sx={{ flexGrow: 1 }} />
+          <Button onClick={onClose} variant="outlined" sx={{ mr: 1 }}>
+            Avbryt
+          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={!canSave}>
+            {isSaving ? "Sparar..." : isEditMode ? "Spara" : "Skapa"}
+          </Button>
         </DialogActions>
       </Box>
     </Box>

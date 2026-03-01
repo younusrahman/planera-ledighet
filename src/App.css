@@ -5,3 +5,47 @@
   padding: 0;
   text-align: left;
 }
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/PlayfairDisplay/static/PlayfairDisplay-Regular.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/PlayfairDisplay/static/PlayfairDisplay-Italic.ttf")
+    format("truetype");
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* MUI often uses weight 500 for buttons/labels */
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/PlayfairDisplay/static/PlayfairDisplay-Medium.ttf")
+    format("truetype");
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Playfair Display";
+  src: url("./assets/fonts/PlayfairDisplay/static/PlayfairDisplay-Bold.ttf")
+    format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+* {
+  font-family: "Playfair Display", serif !important;
+}
+
+/* Ensure the body and inputs inherit it correctly */
+body,
+input,
+button,
+select,
+textarea {
+  font-family: "Playfair Display", serif !important;
+}

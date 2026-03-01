@@ -29,6 +29,7 @@ namespace planera_ledighet.api.Controllers
             {
                 Id = l.Id,
                 StartDate = l.StartDate,
+                EndDate = l.EndDate,
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,
                 EmployeeId = l.EmployeeId,
@@ -55,6 +56,7 @@ namespace planera_ledighet.api.Controllers
             {
                 Id = l.Id,
                 StartDate = l.StartDate,
+                EndDate = l.EndDate,
                 DurationDays = l.DurationDays,
                 Color = l.AbsenceCategory.Color,
                 EmployeeId = l.EmployeeId,
@@ -81,7 +83,7 @@ namespace planera_ledighet.api.Controllers
                 EmployeeId = dto.EmployeeId,
                 StartDate = dto.StartDate,
                 DurationDays = dto.DurationDays,
-                EndDate = dto.StartDate.AddDays(dto.DurationDays),
+                EndDate = dto.EndDate,
                 AbsenceCategoryId = dto.AbsenceCategoryId,
                 Status = dto.Status ,
                 RejectionReason = dto.RejectionReason
@@ -123,7 +125,7 @@ namespace planera_ledighet.api.Controllers
 
             target.StartDate = dto.StartDate;
             target.DurationDays = dto.DurationDays;
-            target.EndDate = dto.StartDate.AddDays(dto.DurationDays);
+            target.EndDate = dto.EndDate;
             target.EmployeeId = dto.EmployeeId;
             target.AbsenceCategoryId = dto.AbsenceCategoryId;
 

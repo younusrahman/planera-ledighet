@@ -44,7 +44,7 @@ namespace planera_ledighet.api.Controllers
             if (string.IsNullOrWhiteSpace(name))
                 return BadRequest("Name is required.");
 
-            // Create entity
+            // Create emp
             var entity = new Employee
             {
                 Id = Guid.NewGuid().ToString(),
@@ -72,20 +72,21 @@ namespace planera_ledighet.api.Controllers
             if (id != dto.Id)
                 return BadRequest("ID mismatch");
 
-            var entity = await _context.Employees.FindAsync(id);
-            if (entity == null)
-                return NotFound($"Employee with ID {id} not found.");
+            var emp = await _context.Employees.FindAsync(id);
+            var team = await _context.Teams.FindAsync(dto.TeamId);
+            if (emp == null || team == null)
+                return NotFound($"Employee or team ID not found.");
 
-            entity.Name = dto.Name;
-            entity.TeamId = dto.TeamId;
+            emp.Name = dto.Name;
+            emp.TeamId = dto.TeamId;
 
             await _context.SaveChangesAsync();
 
             return Ok(new DtoEmployee
             {
-                Id = entity.Id,
-                Name = entity.Name,
-                TeamId = entity.TeamId
+                Id = emp.Id,
+                Name = emp.Name,
+                TeamId = emp.TeamId
             });
         }
 

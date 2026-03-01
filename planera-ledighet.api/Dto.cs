@@ -30,6 +30,8 @@ namespace planera_ledighet.api
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+
         public int DurationDays { get; set; }
         public string Color { get; set; } = string.Empty;
         public string EmployeeId { get; set; } = string.Empty;

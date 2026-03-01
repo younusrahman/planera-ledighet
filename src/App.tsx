@@ -6,7 +6,7 @@ import "dayjs/locale/sv";
 import { GlobalSnackbar } from "./services/stores/globalSnackbar";
 import { GlobalDialogProvider } from "./services/dialog/GlobalDialogProvider";
 import { Timeline } from "./components/Timeline";
-import { absence } from "./services/stores/absenceDataStore";
+import "./App.css";
 
 const theme = createTheme({
   palette: {

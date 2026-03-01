@@ -1,14 +1,12 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MaterialReactTable,
   useMaterialReactTable,
-  MRT_ToggleFiltersButton,
   MRT_ShowHideColumnsButton,
   MRT_ToggleDensePaddingButton,
+  MRT_ToggleFiltersButton,
   type MRT_ColumnDef,
-  type MRT_Cell,
-  type MRT_GroupingState,
-  type MRT_Row,
+  type MRT_TableOptions,
 } from "material-react-table";
 import {
   Box,
@@ -17,37 +15,29 @@ import {
   Tooltip,
   Typography,
   Paper,
-  Chip,
   MenuItem,
   Select,
   IconButton,
-  CircularProgress,
-  type SelectChangeEvent,
+  Chip,
+  Button,
 } from "@mui/material";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-
-// --- DINA IMPORTER ---
 import {
   type Team,
   type Employee,
   type AbsenceCategory,
   AbsenceStatus,
   type Absence,
-  type ChangeAbsenceStatusPayload,
 } from "../../../types";
 import {
-  useTeams,
-  useEmployees,
-  useAbsenceCategories,
   useTeamMutation,
   useEmployeeMutation,
   useAbsenceCategoryMutation,
   useAbsenceStatusMutation,
 } from "../../hooks/useData";
-import { absence } from "../../stores/absenceDataStore";
 import { dialog } from "../dialogStore";
+import { absence } from "../../stores/absenceDataStore";
 
-// --- GRÄNSSNITT ---
 interface AbsenceView extends Absence {
   employeeName: string;
   teamName: string;
@@ -55,7 +45,14 @@ interface AbsenceView extends Absence {
   color: string;
 }
 
-const PREDEFINED_COLORS = [
+interface DataManagementDashboardProps {
+  absences: Absence[];
+  employees: Employee[];
+  categories: AbsenceCategory[];
+  teams: Team[];
+}
+
+const PREDEFINED_COLORS: string[] = [
   "#1976d2",
   "#0288d1",
   "#7b1fa2",
@@ -78,26 +75,26 @@ const PREDEFINED_COLORS = [
   "#303f9f",
 ];
 
-const DataManagementDashboard = () => {
-  const [activeTab, setActiveTab] = useState("absences");
-  const [grouping, setGrouping] = useState<MRT_GroupingState>(["teamName"]);
+const DataManagementDashboard = ({
+  absences,
+  employees,
+  categories,
+  teams,
+}: DataManagementDashboardProps) => {
+  const [activeTab, setActiveTab] = useState<
+    "absences" | "employees" | "teams" | "categories"
+  >("absences");
 
-  // --- DATA QUERIES ---
-  const { data: teams = [], isLoading: isLoadingTeams } = useTeams();
-  const { data: employees = [], isLoading: isLoadingEmployees } =
-    useEmployees();
-  const { data: categories = [], isLoading: isLoadingCategories } =
-    useAbsenceCategories();
-  const absencesRaw = absence.useItems();
+  const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
+  const { createEmployee, updateEmployee, deleteEmployee } =
+    useEmployeeMutation();
+  const {
+    createAbsenceCategory,
+    updateAbsenceCategory,
+    deleteAbsenceCategory,
+  } = useAbsenceCategoryMutation();
+  useAbsenceStatusMutation();
 
-  // --- MUTATIONS ---
-  const { createTeam, updateTeam } = useTeamMutation();
-  const { createEmployee, updateEmployee } = useEmployeeMutation();
-  const { createAbsenceCategory, updateAbsenceCategory } =
-    useAbsenceCategoryMutation();
-  const { mutateAsync: updateAbsenceStatus } = useAbsenceStatusMutation();
-
-  // --- DIALOG TRIGGERS ---
   const handleAddTeam = () =>
     dialog.open("group", {
       title: "Skapa ny grupp",
@@ -105,46 +102,49 @@ const DataManagementDashboard = () => {
         createTeam(name);
         dialog.close();
       },
+      onClose: () => dialog.close(),
     });
-
   const handleAddEmployee = () =>
     dialog.open("resource", {
       title: "Lägg till anställd",
       groups: teams,
-      onSave: (name: string, tid: string) => {
-        createEmployee(name, tid);
+      onSave: (name: string, teamId: string) => {
+        createEmployee(name, teamId);
         dialog.close();
       },
+      onClose: () => dialog.close(),
     });
-
   const handleAddCategory = () =>
     dialog.open("absenceType", {
       title: "Skapa frånvarotyp",
       absenceTypes: categories,
-      onSave: (l: string, c: string) => {
-        createAbsenceCategory(l, c);
+      onSave: (label: string, color: string) => {
+        createAbsenceCategory(label, color);
         dialog.close();
       },
+      onClose: () => dialog.close(),
     });
 
-  // --- JOIN LOGIC ---
   const enrichedAbsences = useMemo<AbsenceView[]>(() => {
-    if (!absencesRaw.length) return [];
-    return absencesRaw.map((abs) => {
+    return (absences ?? []).map((abs) => {
       const emp = employees.find((e) => e.id === abs.employeeId);
       const team = teams.find((t) => t.id === emp?.teamId);
       const cat = categories.find((c) => c.id === abs.absenceCategoryId);
+      const end = new Date(abs.startDate);
+      end.setDate(end.getDate() + abs.durationDays);
+
       return {
         ...abs,
-        employeeName: emp?.name || "Okänd",
-        teamName: team?.name || "Inget Team",
-        categoryLabel: cat?.label || "Okänd Kategori",
-        color: (abs as any).color || cat?.color || "#333",
+        employeeName: emp?.name ?? "Okänd",
+        teamName: team?.name ?? "Inget team",
+        teamId: emp?.teamId ?? "",
+        categoryLabel: cat?.label ?? "Okänd kategori",
+        color: cat?.color ?? "#333",
+        endDate: end.toISOString().split("T")[0],
       };
     });
-  }, [absencesRaw, employees, teams, categories]);
+  }, [absences, employees, teams, categories]);
 
-  // --- WHITE THEME CONFIG ---
   const whiteTableConfig = {
     mrtTheme: { baseBackgroundColor: "#ffffff" },
     muiTablePaperProps: { elevation: 0, sx: { backgroundColor: "#ffffff" } },
@@ -155,31 +155,21 @@ const DataManagementDashboard = () => {
       sx: { backgroundColor: "#ffffff", borderTop: "1px solid #e2e8f0" },
     },
     muiTableHeadCellProps: {
-      sx: { backgroundColor: "#ffffff", fontWeight: "bold", borderTop: "none" },
+      sx: { backgroundColor: "#ffffff", fontWeight: "bold" },
     },
-    muiTableBodyCellProps: { sx: { backgroundColor: "#ffffff" } },
     muiSearchTextFieldProps: {
       size: "small" as const,
       variant: "outlined" as const,
       sx: { m: "8px" },
-      placeholder: "Sök på vad som helst...",
+      placeholder: "Sök...",
     },
     enableStickyHeader: true,
-    muiTableContainerProps: {
-      sx: { maxHeight: "calc(100vh - 350px)", overflowY: "auto" },
-    },
-    globalFilterFn: "contains" as const,
-    enableGlobalFilterRankedResults: false,
+    muiTableContainerProps: { sx: { maxHeight: "calc(100vh - 250px)" } },
   };
 
-  // UPPDATERAD HJÄLPFUNKTION MED TOOLTIP
-  const renderActions = (
-    table: any,
-    addFn: () => void,
-    tooltipText: string,
-  ) => (
+  const renderActions = (table: any, addFn: () => void, tooltip: string) => (
     <Box sx={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
-      <Tooltip title={tooltipText} arrow>
+      <Tooltip title={tooltip} arrow>
         <IconButton onClick={addFn} color="primary" size="small">
           <AddCircleOutlineIcon />
         </IconButton>
@@ -190,273 +180,200 @@ const DataManagementDashboard = () => {
     </Box>
   );
 
-  // --- TABLES DEFINITIONS ---
+  const sharedIcons = {
+    SaveIcon: () => (
+      <Button
+        variant="contained"
+        sx={{
+          fontSize: "10px",
+          height: 24,
+          backgroundColor: "#2A780E",
+          color: "white",
+        }}
+      >
+        Spara
+      </Button>
+    ),
+    CancelIcon: () => (
+      <Button
+        variant="contained"
+        color="error"
+        sx={{ fontSize: "10px", height: 24, color: "white" }}
+      >
+        Avbryt
+      </Button>
+    ),
+  };
 
-  // 1. FRÅNVARO (Ingen lägg till-knapp här enligt önskemål)
-  const absenceTable = useMaterialReactTable({
-    columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
+  // --- EMPLOYEES TABLE ---
+  const handleSaveEmployee: MRT_TableOptions<Employee>["onEditingRowSave"] =
+    async ({ values, table, row }) => {
+      await updateEmployee(row.original.id, values.name, values.teamId);
+      table.setEditingRow(null);
+    };
+
+  const employeeTable = useMaterialReactTable<Employee>({
+    columns: useMemo<MRT_ColumnDef<Employee>[]>(
       () => [
+        { accessorKey: "id", header: "ID", enableEditing: false },
+        { accessorKey: "name", header: "Namn" },
         {
-          accessorKey: "id",
-          header: "ID",
-          enableEditing: false,
-          enableHiding: true,
-          enableGlobalFilter: true,
-        },
-        {
-          accessorKey: "teamName",
+          accessorKey: "teamId",
           header: "Team",
           enableGrouping: true,
-          enableEditing: false,
-        },
-        {
-          accessorKey: "employeeName",
-          header: "Anställd",
-          enableGrouping: true,
-          enableEditing: false,
-          Cell: ({ row }) => (
-            <Tooltip title={`ID: ${row.original.employeeId}`} arrow>
-              <span>{row.original.employeeName}</span>
-            </Tooltip>
-          ),
-        },
-        {
-          accessorKey: "categoryLabel",
-          header: "Kategori",
-          enableGrouping: true,
-          enableEditing: false,
-          Cell: ({ row }) => (
-            <Tooltip title={`ID: ${row.original.absenceCategoryId}`} arrow>
-              <Chip
-                label={row.original.categoryLabel}
-                sx={{ bgcolor: row.original.color, color: "#fff" }}
-                size="small"
-              />
-            </Tooltip>
-          ),
-        },
-        {
-          accessorKey: "startDate",
-          header: "Start",
           Cell: ({ cell }) =>
-            new Date(cell.getValue<string>()).toLocaleDateString(),
-        },
-        { accessorKey: "durationDays", header: "Dagar" },
-        {
-          id: "status",
-          header: "Status",
-          accessorFn: (row) => ["Väntande", "Godkänd", "Avvisad"][row.status],
+            teams.find((t) => t.id === cell.getValue<string>())?.name ??
+            "Inget team",
           editVariant: "select",
-          editSelectOptions: [
-            { value: 0, label: "Väntande" },
-            { value: 1, label: "Godkänd" },
-            { value: 2, label: "Avvisad" },
-          ],
-          muiTableBodyCellEditSelectProps: ({
-            cell,
-          }: {
-            cell: MRT_Cell<AbsenceView>;
-          }) => ({
-            value: cell.row.original.status,
-            onChange: (event: SelectChangeEvent<number>) =>
-              updateAbsenceStatus({
-                id: cell.row.original.id,
-                status: event.target.value as AbsenceStatus,
-                rejectionReason: null,
-              }),
-          }),
+          editSelectOptions: teams.map((t) => ({ value: t.id, label: t.name })),
+          muiEditTextFieldProps: { select: true },
         },
       ],
-      [updateAbsenceStatus],
+      [teams],
     ),
-    data: enrichedAbsences,
+    data: employees,
+    icons: sharedIcons,
     enableGrouping: true,
     enableColumnDragging: true,
     enableEditing: true,
-    editDisplayMode: "cell",
-    state: { grouping },
-    onGroupingChange: setGrouping,
-    initialState: {
-      showGlobalFilter: true,
-      expanded: true,
-      density: "compact",
-      columnVisibility: { id: false },
-    },
-    ...whiteTableConfig,
-  });
-
-  // 2. ANSTÄLLDA
-  const employeeTable = useMaterialReactTable({
-    columns: useMemo<MRT_ColumnDef<Employee>[]>(
-      () => [
-        {
-          accessorKey: "id",
-          header: "ID",
-          enableEditing: false,
-          enableGlobalFilter: true,
-        },
-        {
-          accessorKey: "name",
-          header: "Namn",
-          muiTableBodyCellEditTextFieldProps: ({
-            cell,
-          }: {
-            cell: MRT_Cell<Employee>;
-          }) => ({
-            onBlur: (e: React.FocusEvent<HTMLInputElement>) =>
-              updateEmployee(
-                cell.row.original.id,
-                e.target.value,
-                cell.row.original.teamId,
-              ),
-          }),
-        },
-        {
-          id: "teamId",
-          header: "Team",
-          accessorFn: (row) =>
-            teams.find((t) => t.id === row.teamId)?.name || "Inget Team",
-          editVariant: "select",
-          editSelectOptions: teams.map((t) => ({ value: t.id, label: t.name })),
-          muiTableBodyCellEditSelectProps: ({
-            cell,
-          }: {
-            cell: MRT_Cell<Employee>;
-          }) => ({
-            value: cell.row.original.teamId,
-            onChange: (e: SelectChangeEvent<string>) =>
-              updateEmployee(
-                cell.row.original.id,
-                cell.row.original.name,
-                e.target.value,
-              ),
-          }),
-        },
-      ],
-      [teams, updateEmployee],
+    editDisplayMode: "row",
+    getRowId: (row) => row.id,
+    onEditingRowSave: handleSaveEmployee,
+    enableRowActions: true,
+    positionActionsColumn: "last",
+    renderRowActions: ({ row, table }) => (
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Button
+          variant="outlined"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => {
+            table.setEditingRow(null);
+            setTimeout(() => table.setEditingRow(row), 0);
+          }}
+        >
+          Redigera
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => deleteEmployee(row.original.id)}
+        >
+          Ta bort
+        </Button>
+      </Box>
     ),
-    data: employees,
-    enableEditing: true,
-    editDisplayMode: "cell",
     renderToolbarInternalActions: ({ table }) =>
       renderActions(table, handleAddEmployee, "Lägg till anställd"),
+    ...whiteTableConfig,
     initialState: {
       showGlobalFilter: true,
       density: "compact",
       columnVisibility: { id: false },
+      grouping: [],
     },
-    ...whiteTableConfig,
   });
 
-  // 3. GRUPPER
-  const teamTable = useMaterialReactTable({
+  // --- TEAMS TABLE ---
+  const handleSaveTeam: MRT_TableOptions<Team>["onEditingRowSave"] = async ({
+    values,
+    table,
+    row,
+  }) => {
+    await updateTeam(row.original.id, values.name);
+    table.setEditingRow(null);
+  };
+
+  const teamTable = useMaterialReactTable<Team>({
     columns: useMemo<MRT_ColumnDef<Team>[]>(
       () => [
-        {
-          accessorKey: "id",
-          header: "ID",
-          enableEditing: false,
-          enableGlobalFilter: true,
-        },
-        {
-          accessorKey: "name",
-          header: "Gruppnamn",
-          muiTableBodyCellEditTextFieldProps: ({
-            cell,
-          }: {
-            cell: MRT_Cell<Team>;
-          }) => ({
-            onBlur: (e: React.FocusEvent<HTMLInputElement>) =>
-              updateTeam(cell.row.original.id, e.target.value),
-          }),
-        },
+        { accessorKey: "id", header: "ID", enableEditing: false },
+        { accessorKey: "name", header: "Gruppnamn" },
       ],
-      [updateTeam],
+      [],
     ),
     data: teams,
+    icons: sharedIcons,
     enableEditing: true,
-    editDisplayMode: "cell",
+    editDisplayMode: "row",
+    getRowId: (row) => row.id,
+    onEditingRowSave: handleSaveTeam,
+    enableRowActions: true,
+    positionActionsColumn: "last",
+    renderRowActions: ({ row, table }) => (
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Button
+          variant="outlined"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => {
+            table.setEditingRow(null);
+            setTimeout(() => table.setEditingRow(row), 0);
+          }}
+        >
+          Redigera
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => deleteTeam(row.original.id)}
+        >
+          Ta bort
+        </Button>
+      </Box>
+    ),
     renderToolbarInternalActions: ({ table }) =>
       renderActions(table, handleAddTeam, "Lägg till grupp"),
-    initialState: {
-      showGlobalFilter: true,
-      density: "compact",
-      columnVisibility: { id: false },
-    },
     ...whiteTableConfig,
+    initialState: {
+      columnVisibility: { id: false },
+      density: "compact",
+      showGlobalFilter: true,
+    },
   });
 
-  // 4. KATEGORIER
-  const categoryTable = useMaterialReactTable({
+  // --- CATEGORIES TABLE ---
+  const handleSaveCategory: MRT_TableOptions<AbsenceCategory>["onEditingRowSave"] =
+    async ({ values, table, row }) => {
+      await updateAbsenceCategory(row.original.id, values.label, values.color);
+      table.setEditingRow(null);
+    };
+
+  const categoryTable = useMaterialReactTable<AbsenceCategory>({
     columns: useMemo<MRT_ColumnDef<AbsenceCategory>[]>(
       () => [
-        {
-          accessorKey: "id",
-          header: "ID",
-          enableEditing: false,
-          enableGlobalFilter: true,
-        },
-        {
-          accessorKey: "label",
-          header: "Benämning",
-          muiTableBodyCellEditTextFieldProps: ({
-            cell,
-          }: {
-            cell: MRT_Cell<AbsenceCategory>;
-          }) => ({
-            onBlur: (e: React.FocusEvent<HTMLInputElement>) =>
-              updateAbsenceCategory(
-                cell.row.original.id,
-                e.target.value,
-                cell.row.original.color,
-              ),
-          }),
-        },
+        { accessorKey: "id", header: "ID", enableEditing: false },
+        { accessorKey: "label", header: "Benämning" },
         {
           accessorKey: "color",
           header: "Färg",
-          Edit: ({
-            cell,
-            row,
-          }: {
-            cell: MRT_Cell<AbsenceCategory>;
-            row: MRT_Row<AbsenceCategory>;
-          }) => {
-            const usedColors = categories.map((c) => c.color);
-            const available = PREDEFINED_COLORS.filter(
-              (c) => c === cell.getValue<string>() || !usedColors.includes(c),
-            );
-            return (
-              <Select
-                value={cell.getValue<string>()}
-                onChange={(e: SelectChangeEvent<string>) =>
-                  updateAbsenceCategory(
-                    row.original.id,
-                    row.original.label,
-                    e.target.value,
-                  )
-                }
-                fullWidth
-                size="small"
-              >
-                {available.map((c) => (
-                  <MenuItem key={c} value={c}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Box
-                        sx={{
-                          width: 14,
-                          height: 14,
-                          bgcolor: c,
-                          borderRadius: "50%",
-                        }}
-                      />{" "}
-                      {c}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            );
-          },
+          Edit: ({ cell, row, table }) => (
+            <Select
+              value={cell.getValue<string>()}
+              onChange={(e) => {
+                row._valuesCache.color = e.target.value;
+                table.setEditingRow({ ...row });
+              }}
+              fullWidth
+              size="small"
+            >
+              {PREDEFINED_COLORS.map((c) => (
+                <MenuItem key={c} value={c}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 14,
+                        height: 14,
+                        bgcolor: c,
+                        borderRadius: "50%",
+                      }}
+                    />{" "}
+                    {c}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          ),
           Cell: ({ cell }) => (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Box
@@ -473,55 +390,196 @@ const DataManagementDashboard = () => {
           ),
         },
       ],
-      [categories, updateAbsenceCategory],
+      [categories],
     ),
     data: categories,
+    icons: sharedIcons,
     enableEditing: true,
-    editDisplayMode: "cell",
+    editDisplayMode: "row",
+    getRowId: (row) => row.id,
+    onEditingRowSave: handleSaveCategory,
+    enableRowActions: true,
+    positionActionsColumn: "last",
+    renderRowActions: ({ row, table }) => (
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Button
+          variant="outlined"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => {
+            table.setEditingRow(null);
+            setTimeout(() => table.setEditingRow(row), 0);
+          }}
+        >
+          Redigera
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => deleteAbsenceCategory(row.original.id)}
+        >
+          Ta bort
+        </Button>
+      </Box>
+    ),
     renderToolbarInternalActions: ({ table }) =>
-      renderActions(table, handleAddCategory, "Lägg till kategori"),
-    initialState: {
-      showGlobalFilter: true,
-      density: "compact",
-      columnVisibility: { id: false },
-    },
+      renderActions(table, handleAddCategory, "Skapa frånvarotyp"),
     ...whiteTableConfig,
+    initialState: {
+      columnVisibility: { id: false },
+      density: "compact",
+      showGlobalFilter: true,
+    },
   });
 
-  if (isLoadingTeams || isLoadingEmployees || isLoadingCategories) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-        <CircularProgress />
+  // --- ABSENCES TABLE ---
+  const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
+    async ({ values, table, row }) => {
+      const start = new Date(values.startDate);
+      const end = new Date(values.endDate);
+      const diffTime = end.getTime() - start.getTime();
+      const calculatedDuration = Math.max(
+        1,
+        Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
+      );
+      const updatePayload = {
+        id: row.original.id,
+        employeeId: row.original.employeeId,
+        startDate: values.startDate,
+        durationDays: Number(calculatedDuration),
+        absenceCategoryId: values.absenceCategoryId,
+        status: Number(values.status) as AbsenceStatus,
+      };
+      try {
+        await absence.updateOne(row.original.id, updatePayload);
+        table.setEditingRow(null);
+      } catch (error) {
+        console.error("Save failed:", error);
+      }
+    };
+
+  const absenceTable = useMaterialReactTable<AbsenceView>({
+    columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
+      () => [
+        { accessorKey: "id", header: "ID", enableEditing: false },
+        {
+          accessorKey: "teamId",
+          header: "Team",
+          enableGrouping: true,
+          Cell: ({ row }) => row.original.teamName,
+          editVariant: "select",
+          editSelectOptions: teams.map((t) => ({ value: t.id, label: t.name })),
+        },
+        {
+          accessorKey: "employeeId",
+          header: "Anställd",
+          enableGrouping: true,
+          enableEditing: false,
+          Cell: ({ row }) => row.original.employeeName,
+        },
+        {
+          accessorKey: "absenceCategoryId",
+          header: "Kategori",
+          enableGrouping: true,
+          Cell: ({ row }) => (
+            <Chip
+              label={row.original.categoryLabel}
+              sx={{ bgcolor: row.original.color, color: "#fff" }}
+              size="small"
+            />
+          ),
+          editVariant: "select",
+          editSelectOptions: categories.map((c) => ({
+            value: c.id,
+            label: c.label,
+          })),
+        },
+        {
+          accessorKey: "startDate",
+          header: "Start",
+          muiEditTextFieldProps: { type: "date" },
+          Cell: ({ cell }) =>
+            new Date(cell.getValue<string>()).toLocaleDateString(),
+        },
+        {
+          accessorKey: "endDate",
+          header: "Slut",
+          muiEditTextFieldProps: { type: "date" },
+          Cell: ({ cell }) =>
+            new Date(cell.getValue<string>()).toLocaleDateString(),
+        },
+        { accessorKey: "durationDays", header: "Dagar", enableEditing: false },
+        {
+          accessorKey: "status",
+          header: "Status",
+          enableGrouping: true,
+          editVariant: "select",
+          editSelectOptions: [
+            { value: AbsenceStatus.Pending, label: "Väntande" },
+            { value: AbsenceStatus.Approved, label: "Godkänd" },
+            { value: AbsenceStatus.Rejected, label: "Avvisad" },
+          ],
+          Cell: ({ cell }) =>
+            ["Väntande", "Godkänd", "Avvisad"][cell.getValue<number>()] ??
+            "Okänd",
+        },
+      ],
+      [teams, categories],
+    ),
+    data: enrichedAbsences,
+    enableGrouping: true,
+    enableColumnDragging: true,
+    enableColumnOrdering: true,
+    enableEditing: true,
+    editDisplayMode: "row",
+    getRowId: (row) => row.id,
+    onEditingRowSave: handleSaveAbsence,
+    enableRowActions: true,
+    positionActionsColumn: "last",
+    renderRowActions: ({ row, table }) => (
+      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+        <Button
+          variant="outlined"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => {
+            table.setEditingRow(null);
+            setTimeout(() => table.setEditingRow(row), 0);
+          }}
+        >
+          Redigera
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          sx={{ fontSize: "10px", height: 24 }}
+          onClick={() => {
+            if (window.confirm("Ta bort frånvaro?"))
+              absence.removeOne(row.original.id);
+          }}
+        >
+          Ta bort
+        </Button>
       </Box>
-    );
-  }
+    ),
+    icons: sharedIcons,
+    ...whiteTableConfig,
+    initialState: {
+      columnVisibility: { id: false },
+      density: "compact",
+      showGlobalFilter: true,
+      grouping: [],
+    },
+  });
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
       <Typography
         variant="h5"
         sx={{ mb: 2, fontWeight: "bold", color: "#334155" }}
       >
         Datahantering
       </Typography>
-      <Paper
-        elevation={0}
-        sx={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          border: "1px solid #e2e8f0",
-          bgcolor: "#ffffff",
-        }}
-      >
+      <Paper elevation={0} sx={{ border: "1px solid #e2e8f0" }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
@@ -532,7 +590,7 @@ const DataManagementDashboard = () => {
           <Tab label="Grupper" value="teams" />
           <Tab label="Kategorier" value="categories" />
         </Tabs>
-        <Box sx={{ flex: 1, overflow: "hidden", p: 0 }}>
+        <Box sx={{ p: 0 }}>
           {activeTab === "absences" && (
             <MaterialReactTable table={absenceTable} />
           )}

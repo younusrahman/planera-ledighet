@@ -12,8 +12,9 @@ import {
 import type { GroupFormProps } from "./Content/GroupForm";
 import GroupForm from "./Content/GroupForm";
 import DataManagementDashboard from "./Content/DataManagementDashboard";
-import type { ResourceFormProps } from "./Content/ResourceForm";
-import ResourceForm from "./Content/ResourceForm";
+import type { ResourceFormProps } from "./Content/TeamForm";
+import TeamForm from "./Content/TeamForm";
+import type { Absence, AbsenceCategory, Employee, Team } from "../../types";
 
 // 1. All dialog content
 export const dialogRegistry = {
@@ -27,7 +28,7 @@ export const dialogRegistry = {
     component: GroupForm,
   },
   resource: {
-    component: ResourceForm,
+    component: TeamForm,
   },
   absence: { component: AbsenceForm },
   databaseSystem: {
@@ -65,5 +66,10 @@ export interface DialogPropsMap {
   absence: AbsenceFormProps;
   databaseSystem: DatabaseMaintenanceProps;
   analytics: {};
-  dataManagementDashboard: {};
+  dataManagementDashboard: {
+    absences: Absence[];
+    employees: Employee[];
+    categories: AbsenceCategory[];
+    teams: Team[];
+  };
 }

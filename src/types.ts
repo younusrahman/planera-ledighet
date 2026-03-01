@@ -4,6 +4,7 @@ export type AbsenceStatus = (typeof AbsenceStatus)[keyof typeof AbsenceStatus];
 export interface Absence {
   id: string;
   startDate: string;
+  endDate: string;
   durationDays: number;
   employeeId: string;
   absenceCategoryId: string;
@@ -30,10 +31,6 @@ export interface AbsenceCategory {
 export interface TeamWithEmployees extends Team {
   employees: Employee[];
 }
-
-
-
-
 
 export interface AbsencePerTeam {
   teamName: string;

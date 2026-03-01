@@ -6,7 +6,6 @@ import {
   DialogActions,
   DialogTitle,
   Typography,
-  Fade,
   useTheme,
   alpha,
   InputAdornment,
@@ -71,14 +70,6 @@ const GroupForm: React.FC<GroupFormProps> = ({
     }
   };
 
-  const getHelperText = () => {
-    if (!saveAttempted) return " ";
-    if (name.trim().length === 0) return "Gruppnamn krävs";
-    if (alphabetCount < minAlphabetChars) {
-      return `Minst ${minAlphabetChars} bokstäver krävs (har ${alphabetCount})`;
-    }
-    return " ";
-  };
 
   return (
     <Box>
@@ -113,7 +104,7 @@ const GroupForm: React.FC<GroupFormProps> = ({
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
         error={showError}
-        helperText={getHelperText()}
+       
         placeholder="Ange gruppnamn..."
         InputProps={{
           startAdornment: (
@@ -159,13 +150,18 @@ const GroupForm: React.FC<GroupFormProps> = ({
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={saveAttempted && !isNameValid}
+            // ÄNDRING HÄR: Knappen är låst tills valideringen går igenom
+            disabled={!isNameValid}
             sx={{
               borderRadius: 1,
               px: 4,
               fontWeight: 600,
               boxShadow: "none",
-              // Samma snygga gradient som AbsenceTypeForm
+              // Gör knappen gråaktig när den är disabled
+              "&.Mui-disabled": {
+                background: theme.palette.action.disabledBackground,
+                color: theme.palette.action.disabled,
+              },
               "&:not(.Mui-disabled)": {
                 background: isEditMode
                   ? `linear-gradient(135deg, ${

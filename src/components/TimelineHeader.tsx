@@ -35,7 +35,6 @@ import type { Team, TeamWithEmployees } from "../types";
 import { useUIActions } from "../services/stores/uiStore";
 import { Storage as DatabaseIcon } from "@mui/icons-material";
 import PieChartIcon from "@mui/icons-material/PieChart";
-import StorageIcon from "@mui/icons-material/Storage";
 import BackupTableIcon from '@mui/icons-material/BackupTable';
 // ---------------------------------------------------------
 // Main Component
@@ -204,8 +203,8 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   const [resourceMenuAnchor, setResourceMenuAnchor] =
     useState<null | HTMLElement>(null);
 
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
+  const [selectedGroupId] = useState<string | null>(null);
+  const [selectedResourceId] = useState<string | null>(
     null,
   );
   const closeMenus = () => {
