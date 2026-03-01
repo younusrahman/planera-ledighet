@@ -661,9 +661,7 @@ export const TimelineDndContext = forwardRef<
                       absenceDetails={activeAbsenceBlock}
                       isOverlay
                       left={0} // DragOverlay positions itself
-                      employeeName={
-                        activeAbsenceBlock.absenceCategoryId || "Dragging..."
-                      }
+                      employeeName="Dragging..."
                       absenceColor={
                         absenceTypes.find(
                           (t) => t.id === activeAbsenceBlock.absenceCategoryId,
