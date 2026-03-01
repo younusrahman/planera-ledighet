@@ -43,6 +43,7 @@ interface AbsenceView extends Absence {
   teamName: string;
   categoryLabel: string;
   color: string;
+  statusText: string; // for searching
 }
 
 interface DataManagementDashboardProps {
@@ -104,6 +105,7 @@ const DataManagementDashboard = ({
       },
       onClose: () => dialog.close(),
     });
+
   const handleAddEmployee = () =>
     dialog.open("resource", {
       title: "Lägg till anställd",
@@ -114,6 +116,7 @@ const DataManagementDashboard = ({
       },
       onClose: () => dialog.close(),
     });
+
   const handleAddCategory = () =>
     dialog.open("absenceType", {
       title: "Skapa frånvarotyp",
@@ -133,6 +136,16 @@ const DataManagementDashboard = ({
       const end = new Date(abs.startDate);
       end.setDate(end.getDate() + abs.durationDays);
 
+      // Status text for searching
+      const statusText =
+        abs.status === AbsenceStatus.Pending
+          ? "Väntande"
+          : abs.status === AbsenceStatus.Approved
+            ? "Godkänd"
+            : abs.status === AbsenceStatus.Rejected
+              ? "Avvisad"
+              : "Okänd";
+
       return {
         ...abs,
         employeeName: emp?.name ?? "Okänd",
@@ -141,18 +154,36 @@ const DataManagementDashboard = ({
         categoryLabel: cat?.label ?? "Okänd kategori",
         color: cat?.color ?? "#333",
         endDate: end.toISOString().split("T")[0],
+        statusText,
       };
     });
   }, [absences, employees, teams, categories]);
 
+  // Base table configuration with sticky header and full height
   const whiteTableConfig = {
     mrtTheme: { baseBackgroundColor: "#ffffff" },
-    muiTablePaperProps: { elevation: 0, sx: { backgroundColor: "#ffffff" } },
+    muiTablePaperProps: {
+      elevation: 0,
+      sx: {
+        backgroundColor: "#ffffff",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      },
+    },
     muiTopToolbarProps: {
-      sx: { backgroundColor: "#ffffff", boxShadow: "none" },
+      sx: {
+        backgroundColor: "#ffffff",
+        boxShadow: "none",
+        flexShrink: 0,
+      },
     },
     muiBottomToolbarProps: {
-      sx: { backgroundColor: "#ffffff", borderTop: "1px solid #e2e8f0" },
+      sx: {
+        backgroundColor: "#ffffff",
+        borderTop: "1px solid #e2e8f0",
+        flexShrink: 0,
+      },
     },
     muiTableHeadCellProps: {
       sx: { backgroundColor: "#ffffff", fontWeight: "bold" },
@@ -164,7 +195,24 @@ const DataManagementDashboard = ({
       placeholder: "Sök...",
     },
     enableStickyHeader: true,
-    muiTableContainerProps: { sx: { maxHeight: "calc(100vh - 250px)" } },
+    muiTableContainerProps: {
+      sx: {
+        flex: 1,
+        overflow: "auto",
+        maxHeight: "unset",
+      },
+    },
+    muiTableBodyProps: {
+      sx: {
+        overflow: "auto",
+      },
+    },
+    // Powerful search & filter enhancements
+    globalFilterFn: "fuzzy",
+    enableGlobalFilterModes: true,
+    enableFilterMatchHighlighting: true,
+    enableColumnFilters: true,
+    enableFilters: true,
   };
 
   const renderActions = (table: any, addFn: () => void, tooltip: string) => (
@@ -227,6 +275,23 @@ const DataManagementDashboard = ({
           editVariant: "select",
           editSelectOptions: teams.map((t) => ({ value: t.id, label: t.name })),
           muiEditTextFieldProps: { select: true },
+          filterVariant: "select",
+          filterSelectOptions: teams.map((t) => ({
+            value: t.id,
+            label: t.name,
+          })),
+        },
+        // Hidden column for team name to enable global search
+        {
+          accessorKey: "teamName",
+          header: "Team (sök)",
+          enableEditing: false,
+          enableHiding: true,
+          enableGlobalFilter: true,
+          Cell: ({ row }) => {
+            const team = teams.find((t) => t.id === row.original.teamId);
+            return team?.name ?? "Inget team";
+          },
         },
       ],
       [teams],
@@ -269,7 +334,7 @@ const DataManagementDashboard = ({
     initialState: {
       showGlobalFilter: true,
       density: "compact",
-      columnVisibility: { id: false },
+      columnVisibility: { id: false, teamName: false }, // hide the search column
       grouping: [],
     },
   });
@@ -367,7 +432,7 @@ const DataManagementDashboard = ({
                         bgcolor: c,
                         borderRadius: "50%",
                       }}
-                    />{" "}
+                    />
                     {c}
                   </Box>
                 </MenuItem>
@@ -469,6 +534,11 @@ const DataManagementDashboard = ({
           Cell: ({ row }) => row.original.teamName,
           editVariant: "select",
           editSelectOptions: teams.map((t) => ({ value: t.id, label: t.name })),
+          filterVariant: "select",
+          filterSelectOptions: teams.map((t) => ({
+            value: t.id,
+            label: t.name,
+          })),
         },
         {
           accessorKey: "employeeId",
@@ -493,6 +563,11 @@ const DataManagementDashboard = ({
             value: c.id,
             label: c.label,
           })),
+          filterVariant: "select",
+          filterSelectOptions: categories.map((c) => ({
+            value: c.id,
+            label: c.label,
+          })),
         },
         {
           accessorKey: "startDate",
@@ -500,6 +575,7 @@ const DataManagementDashboard = ({
           muiEditTextFieldProps: { type: "date" },
           Cell: ({ cell }) =>
             new Date(cell.getValue<string>()).toLocaleDateString(),
+          filterVariant: "date-range",
         },
         {
           accessorKey: "endDate",
@@ -507,6 +583,7 @@ const DataManagementDashboard = ({
           muiEditTextFieldProps: { type: "date" },
           Cell: ({ cell }) =>
             new Date(cell.getValue<string>()).toLocaleDateString(),
+          filterVariant: "date-range",
         },
         { accessorKey: "durationDays", header: "Dagar", enableEditing: false },
         {
@@ -522,6 +599,41 @@ const DataManagementDashboard = ({
           Cell: ({ cell }) =>
             ["Väntande", "Godkänd", "Avvisad"][cell.getValue<number>()] ??
             "Okänd",
+          filterVariant: "select",
+          filterSelectOptions: [
+            { value: AbsenceStatus.Pending, label: "Väntande" },
+            { value: AbsenceStatus.Approved, label: "Godkänd" },
+            { value: AbsenceStatus.Rejected, label: "Avvisad" },
+          ],
+        },
+        // Hidden columns for global search on displayed text
+        {
+          accessorKey: "teamName",
+          header: "Team (sök)",
+          enableEditing: false,
+          enableHiding: true,
+          enableGlobalFilter: true,
+        },
+        {
+          accessorKey: "employeeName",
+          header: "Anställd (sök)",
+          enableEditing: false,
+          enableHiding: true,
+          enableGlobalFilter: true,
+        },
+        {
+          accessorKey: "categoryLabel",
+          header: "Kategori (sök)",
+          enableEditing: false,
+          enableHiding: true,
+          enableGlobalFilter: true,
+        },
+        {
+          accessorKey: "statusText",
+          header: "Status (sök)",
+          enableEditing: false,
+          enableHiding: true,
+          enableGlobalFilter: true,
         },
       ],
       [teams, categories],
@@ -564,7 +676,13 @@ const DataManagementDashboard = ({
     icons: sharedIcons,
     ...whiteTableConfig,
     initialState: {
-      columnVisibility: { id: false },
+      columnVisibility: {
+        id: false,
+        teamName: false,
+        employeeName: false,
+        categoryLabel: false,
+        statusText: false,
+      },
       density: "compact",
       showGlobalFilter: true,
       grouping: [],
@@ -572,25 +690,49 @@ const DataManagementDashboard = ({
   });
 
   return (
-    <Box sx={{ width: "100%", display: "flex", flexDirection: "column" }}>
-      <Typography
-        variant="h5"
-        sx={{ mb: 2, fontWeight: "bold", color: "#334155" }}
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          border: "1px solid #e2e8f0",
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
       >
-        Datahantering
-      </Typography>
-      <Paper elevation={0} sx={{ border: "1px solid #e2e8f0" }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
-          sx={{ borderBottom: 1, borderColor: "divider" }}
+          sx={{
+            borderBottom: 1,
+            borderColor: "divider",
+            flexShrink: 0,
+            bgcolor: "background.paper",
+          }}
         >
           <Tab label="Frånvaro" value="absences" />
           <Tab label="Anställda" value="employees" />
           <Tab label="Grupper" value="teams" />
           <Tab label="Kategorier" value="categories" />
         </Tabs>
-        <Box sx={{ p: 0 }}>
+
+        <Box
+          sx={{
+            flex: 1,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {activeTab === "absences" && (
             <MaterialReactTable table={absenceTable} />
           )}
