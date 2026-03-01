@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import {
   Paper,
@@ -28,6 +28,7 @@ import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LockIcon from "@mui/icons-material/Lock";
+
 interface Props {
   absenceDetails: Absence;
   left?: number;
@@ -46,9 +47,13 @@ interface Props {
   rejectionReason?: string;
   onApprove?: (id: string) => void;
   onReject?: (id: string, reason: string) => void;
+  // NEW: Callback when drag starts to hide original
+  onDragStart?: () => void;
 }
+
 const today = dayjs().startOf("day");
 const TOOLTIP_DELAY = 500;
+
 export const AbsenceBlock = ({
   absenceDetails,
   left = 0,
@@ -65,19 +70,37 @@ export const AbsenceBlock = ({
   absenceColor = "transparent",
   onApprove,
   onReject,
+  onDragStart,
 }: Props) => {
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
-
   const currentStatus = absenceDetails.status;
   const isLocked = currentStatus === AbsenceStatus.Approved;
+
+  // NEW: Track if we should show placeholder (drag started but overlay not ready yet)
+  const [isPreDrag, setIsPreDrag] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: absenceDetails.id,
-      data: absenceDetails,
+      data: {
+        ...absenceDetails,
+        initialLeft: left,
+        initialWidth: absenceDetails.durationDays * CELL_WIDTH,
+      },
       disabled: isOverlay || isPast || isLocked,
     });
+
+  // Trigger immediate hide when drag starts
+  useEffect(() => {
+    if (isDragging && !isOverlay) {
+      setIsPreDrag(true);
+      onDragStart?.();
+    } else if (!isDragging) {
+      setIsPreDrag(false);
+    }
+  }, [isDragging, isOverlay, onDragStart]);
+
   // --- STATE FROM ZUSTAND ---
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
   const visualDuration = useAbsenceBlockVisualDuration(absenceDetails.id);
@@ -85,13 +108,12 @@ export const AbsenceBlock = ({
   const isTooltipOpen = useAbsenceBlockIsTooltipOpen(absenceDetails.id);
   const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
 
-  // --- REFS FOR VIRTUAL POSITIONING ---
+  // --- REFS ---
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const popperRef = useRef<Instance | null>(null);
   const blockRef = useRef<HTMLDivElement | null>(null);
   const closeTimeoutRef = useRef<number>(0);
   const openTimeoutRef = useRef<number>(0);
-  // --- RESIZE REFS ---
   const mouseXRef = useRef(0);
   const startXRef = useRef(0);
   const startScrollLeftRef = useRef(0);
@@ -100,8 +122,7 @@ export const AbsenceBlock = ({
   const requestRef = useRef<number>(0);
   const prevLeftRef = useRef(left);
 
-  const isPlaceholder = isDragging && !isOverlay;
-  // Initialize block state on mount
+  // Initialize block state
   useEffect(() => {
     setBlock(absenceDetails.id, {
       visualDuration: absenceDetails.durationDays,
@@ -111,7 +132,6 @@ export const AbsenceBlock = ({
     });
   }, []);
 
-  // Track position changes during resize
   useLayoutEffect(() => {
     const jump = left - prevLeftRef.current;
     if (jump !== 0 && isResizingRef.current) {
@@ -120,14 +140,12 @@ export const AbsenceBlock = ({
     prevLeftRef.current = left;
   }, [left]);
 
-  // Reset visual state when resizing ends or props change
   useEffect(() => {
     if (!isResizing) {
       resetBlock(absenceDetails.id, absenceDetails.durationDays);
     }
   }, [absenceDetails.durationDays, isResizing, absenceDetails.id, resetBlock]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       removeBlock(absenceDetails.id);
@@ -160,7 +178,6 @@ export const AbsenceBlock = ({
       });
     } else {
       const newVisualWidth = startDuration * CELL_WIDTH - totalDeltaX;
-
       if (newVisualWidth < CELL_WIDTH) {
         setBlock(absenceDetails.id, {
           visualStartShift: startDuration - 1,
@@ -231,8 +248,6 @@ export const AbsenceBlock = ({
 
         if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
           onResizeEnd(absenceDetails.id, fDur, fS);
-          // Persist to server via TanStack Query
-          // updateAbsence(absenceDetails.id, fDur);
         }
       }
     };
@@ -263,7 +278,7 @@ export const AbsenceBlock = ({
   };
 
   const handleMouseEnter = () => {
-    if (isDragging || isResizing || isOverlay) return;
+    if (isDragging || isResizing || isOverlay || isPreDrag) return;
 
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
 
@@ -272,6 +287,7 @@ export const AbsenceBlock = ({
       onTooltipOpen?.();
     }, TOOLTIP_DELAY);
   };
+
   const handleMouseLeave = () => {
     if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
 
@@ -280,6 +296,7 @@ export const AbsenceBlock = ({
       onTooltipClose?.();
     }, 300);
   };
+
   const isApproved = absenceDetails.status === AbsenceStatus.Approved;
 
   // --- STYLES ---
@@ -289,53 +306,56 @@ export const AbsenceBlock = ({
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
   const blockHeight = ROW_HEIGHT - 10;
+
+  // HIDE COMPLETELY when dragging (DragOverlay takes over)
+  if ((isDragging || isPreDrag) && !isOverlay) {
+    return (
+      <Box
+        sx={{
+          position: "absolute",
+          left: `${displayLeft}px`,
+          width: `${currentWidth}px`,
+          height: `${blockHeight}px`,
+          border: `2px dashed ${alpha(absenceColor, 0.5)}`,
+          borderRadius: "30px",
+          bgcolor: alpha(absenceColor, 0.1),
+          pointerEvents: "none",
+        }}
+      />
+    );
+  }
+
   const shinyVariables = {
-    "--clr": isPlaceholder ? alpha(absenceColor, 0.3) : absenceColor,
+    "--clr": absenceColor,
     "--text": isApproved ? "rgba(255, 255, 255, 0.7)" : "white",
     "--gradoffset": "45%",
     "--gradgap": "30%",
   };
+
   const style: React.CSSProperties = {
-    position: isOverlay ? "relative" : "absolute",
-    left: isOverlay ? 0 : `${displayLeft}px`,
+    position: "absolute",
+    left: `${displayLeft}px`,
     width: `${currentWidth}px`,
     height: `${blockHeight}px`,
-
-    // Shiny Button Base
-    backgroundColor: isPlaceholder ? alpha(absenceColor, 0.3) : absenceColor,
+    backgroundColor: absenceColor,
     backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.2) var(--gradgap), transparent calc(100% - var(--gradgap)))`,
     backgroundRepeat: "no-repeat",
     backgroundPosition: "center var(--gradoffset)",
     backgroundSize: "100% 200%",
-
-    // Shadows from CSS
-    boxShadow: isPlaceholder
-      ? "none"
-      : `0 0.25em 0.3em -0.2em ${alpha(absenceColor, 0.46)}, 0 0.25em 0.75em ${alpha(absenceColor, 0.3)}`,
-
-    // Existing logic
-    border: isPlaceholder ? `3px dotted ${absenceColor}` : "none",
-    opacity: isPlaceholder
-      ? 0.6
-      : currentStatus === AbsenceStatus.Pending
-        ? 1
-        : 0.7,
+    boxShadow: `0 0.25em 0.3em -0.2em ${alpha(absenceColor, 0.46)}, 0 0.25em 0.75em ${alpha(absenceColor, 0.3)}`,
+    border: "none",
+    opacity: currentStatus === AbsenceStatus.Pending ? 1 : 0.7,
     color: "var(--text)",
     borderRadius: "30px",
     display: "flex",
     alignItems: "center",
-    zIndex: isOverlay ? 999 : isResizing ? 1000 : transform ? 100 : 1,
-    cursor: isDragging
-      ? "grabbing"
-      : isLocked
-        ? "default"
-        : isPast
-          ? "not-allowed"
-          : "ew-resize",
+    zIndex: isResizing ? 1000 : 1,
+    cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
     transition: "background-color 0.2s, border 0.2s",
     overflow: "hidden",
     ...(shinyVariables as React.CSSProperties),
   };
+
   const handleStyle = {
     position: "absolute" as const,
     top: 0,
@@ -368,9 +388,7 @@ export const AbsenceBlock = ({
       }}
       onMouseLeave={handleMouseLeave}
     >
-      {/* Top Color Strip */}
       <Box sx={{ bgcolor: absenceColor, height: 6, width: "100%", mb: 1 }} />
-
       <Box sx={{ p: 0.5 }}>
         <Typography
           variant="subtitle2"
@@ -378,10 +396,7 @@ export const AbsenceBlock = ({
         >
           {employeeName}
         </Typography>
-
         <Divider sx={{ my: 1 }} />
-
-        {/* --- INFO SECTION --- */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Box
             sx={{
@@ -427,8 +442,6 @@ export const AbsenceBlock = ({
           </Box>
         </Box>
 
-        {/* --- STATUS TEXT SECTION --- */}
-        {/* 1. Show Rejected block */}
         {absenceDetails.status === AbsenceStatus.Rejected && (
           <Box
             sx={{
@@ -444,7 +457,7 @@ export const AbsenceBlock = ({
               variant="caption"
               sx={{ fontWeight: "bold", display: "block", textAlign: "center" }}
             >
-              Avvisad 
+              Avvisad
             </Typography>
             <Typography variant="caption" sx={{ fontStyle: "italic" }}>
               {absenceDetails.rejectionReason || "Ingen kommentar"}
@@ -452,7 +465,6 @@ export const AbsenceBlock = ({
           </Box>
         )}
 
-        {/* 2. Show Approved text */}
         {absenceDetails.status === AbsenceStatus.Approved && (
           <Typography
             color="success.main"
@@ -468,8 +480,6 @@ export const AbsenceBlock = ({
           </Typography>
         )}
 
-        {/* 3. Show Pending text - Simplified to avoid "no overlap" error */}
-        {/* We check if it is NOT approved and NOT rejected. This covers 0 and null/undefined. */}
         {absenceDetails.status !== AbsenceStatus.Approved &&
           absenceDetails.status !== AbsenceStatus.Rejected && (
             <Typography
@@ -481,18 +491,16 @@ export const AbsenceBlock = ({
             </Typography>
           )}
 
-        {/* --- ACTION BUTTONS (Aligned & Same Size) --- */}
         <Box
           sx={{
             mt: 2,
             pt: 1.5,
             borderTop: "1px solid #eee",
             display: "flex",
-            justifyContent: "center", // Aligns all buttons together in the center
-            gap: 1.5, // Equal spacing between all buttons
+            justifyContent: "center",
+            gap: 1.5,
           }}
         >
-          {/* Approve & Reject Buttons (Only if not approved) */}
           {absenceDetails.status !== AbsenceStatus.Approved ? (
             <>
               <IconButton
@@ -503,9 +511,9 @@ export const AbsenceBlock = ({
                 }}
                 title="Godkänn"
                 sx={{
-                  width: 28, // Reduced from 36
-                  height: 28, // Reduced from 36
-                  p: 2, // Removed padding
+                  width: 28,
+                  height: 28,
+                  p: 2,
                   color: "success.main",
                   border: "1px solid",
                   borderColor: "success.light",
@@ -514,7 +522,6 @@ export const AbsenceBlock = ({
               >
                 <ThumbUpIcon fontSize="small" />
               </IconButton>
-
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -524,9 +531,9 @@ export const AbsenceBlock = ({
                 }}
                 title="Neka"
                 sx={{
-                  width: 28, // Reduced from 36
-                  height: 28, // Reduced from 36
-                  p: 2, // Removed padding
+                  width: 28,
+                  height: 28,
+                  p: 2,
                   color: "error.main",
                   border: "1px solid",
                   borderColor: "error.light",
@@ -540,7 +547,6 @@ export const AbsenceBlock = ({
             <LockIcon color="action" sx={{ fontSize: 20, color: "green" }} />
           )}
 
-          {/* Edit & Delete Buttons (Only if not approved and not past) */}
           {absenceDetails.status !== AbsenceStatus.Approved && !isPast && (
             <>
               <IconButton
@@ -552,18 +558,16 @@ export const AbsenceBlock = ({
                 }}
                 title="Redigera"
                 sx={{
-                  width: 28, // Reduced from 36
-                  height: 28, // Reduced from 36
-                  p: 2, // Removed padding to fit the smaller size
+                  width: 28,
+                  height: 28,
+                  p: 2,
                   border: "1px solid",
                   borderColor: "primary.light",
                   "&:hover": { bgcolor: "primary.main", color: "white" },
                 }}
               >
-                {/* Use a fixed pixel size for the icon to keep it crisp */}
                 <EditSquareIcon sx={{ fontSize: 18 }} />
               </IconButton>
-
               {!isDeletionDisabled && (
                 <IconButton
                   size="small"
@@ -574,9 +578,9 @@ export const AbsenceBlock = ({
                   }}
                   title="Radera"
                   sx={{
-                    width: 28, // Reduced from 36
-                    height: 28, // Reduced from 36
-                    p: 2, // Removed padding
+                    width: 28,
+                    height: 28,
+                    p: 2,
                     border: "1px solid",
                     borderColor: "rgb(211, 47, 47)",
                     "&:hover": { bgcolor: "error.main", color: "white" },
@@ -591,25 +595,29 @@ export const AbsenceBlock = ({
       </Box>
     </Box>
   );
+
+  const setRefs = (el: HTMLDivElement | null) => {
+    setNodeRef(el);
+    blockRef.current = el;
+  };
+
   const blockContent = (
     <Paper
-      ref={(el) => {
-        setNodeRef(el);
-        blockRef.current = el as HTMLDivElement;
-      }}
+      ref={setRefs}
       style={style}
-      {...listeners}
       {...attributes}
+      {...listeners}
       elevation={0}
       onPointerDown={(e) => {
-        e.stopPropagation();
-        listeners?.onPointerDown?.(e);
+        if (!(e.target as HTMLElement).closest('[data-resize-handle="true"]')) {
+          e.stopPropagation();
+          listeners?.onPointerDown?.(e);
+        }
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onMouseMove={handleMouseMove}
       sx={{
-        // Glossy inner layers via pseudo-elements
         "&::before": {
           content: '""',
           inset: 0,
@@ -651,13 +659,23 @@ export const AbsenceBlock = ({
         },
       }}
     >
-      {!isDragging && !isPast && !isLocked && (
-        <Box
-          onPointerDown={(e) => initResize(e, "left")}
-          sx={{ ...handleStyle, left: 0 }}
-        >
-          {handleBar}
-        </Box>
+      {!isPast && !isLocked && (
+        <>
+          <Box
+            data-resize-handle="true"
+            onPointerDown={(e) => initResize(e, "left")}
+            sx={{ ...handleStyle, left: 0 }}
+          >
+            {handleBar}
+          </Box>
+          <Box
+            data-resize-handle="true"
+            onPointerDown={(e) => initResize(e, "right")}
+            sx={{ ...handleStyle, right: 0 }}
+          >
+            {handleBar}
+          </Box>
+        </>
       )}
       <Typography
         variant="caption"
@@ -669,27 +687,20 @@ export const AbsenceBlock = ({
           zIndex: 2,
           textShadow: "0 1px 2px rgba(0,0,0,0.2)",
           px: 1,
+          pointerEvents: "none",
+          userSelect: "none",
         }}
       >
         {employeeName}
       </Typography>
-      {!isDragging && !isPast && !isLocked && (
-        <Box
-          onPointerDown={(e) => initResize(e, "right")}
-          sx={{ ...handleStyle, right: 0 }}
-        >
-          {handleBar}
-        </Box>
-      )}
     </Paper>
   );
 
-  if (isOverlay || isDragging || isResizing) return blockContent;
+  if (isOverlay) return blockContent;
 
   return (
     <>
       {blockContent}
-
       <Tooltip
         title={tooltipContent}
         open={isTooltipOpen}
@@ -709,14 +720,7 @@ export const AbsenceBlock = ({
                 );
               },
             },
-            modifiers: [
-              {
-                name: "offset",
-                options: {
-                  offset: [0, 18],
-                },
-              },
-            ],
+            modifiers: [{ name: "offset", options: { offset: [0, 18] } }],
           },
           arrow: {
             sx: {
@@ -735,10 +739,7 @@ export const AbsenceBlock = ({
             sx: {
               background: "linear-gradient(135deg, #ffffff 0%, #fafafa 100%)",
               color: "#2d3748",
-              boxShadow: `
-          0px 10px 30px rgba(0, 0, 0, 0.08),
-          0px 1px 3px rgba(0, 0, 0, 0.03)
-        `,
+              boxShadow: `0px 10px 30px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.03)`,
               p: "16px 20px",
               minWidth: 180,
               maxWidth: 320,
@@ -752,24 +753,13 @@ export const AbsenceBlock = ({
               letterSpacing: "0.01em",
               animation: "tooltipAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
               "@keyframes tooltipAppear": {
-                "0%": {
-                  opacity: 0,
-                  transform: "translateY(-4px) scale(0.98)",
-                },
-                "100%": {
-                  opacity: 1,
-                  transform: "translateY(0) scale(1)",
-                },
+                "0%": { opacity: 0, transform: "translateY(-4px) scale(0.98)" },
+                "100%": { opacity: 1, transform: "translateY(0) scale(1)" },
               },
               "&:hover": {
-                boxShadow: `
-            0px 12px 35px rgba(0, 0, 0, 0.1),
-            0px 2px 5px rgba(0, 0, 0, 0.04)
-          `,
+                boxShadow: `0px 12px 35px rgba(0, 0, 0, 0.1), 0px 2px 5px rgba(0, 0, 0, 0.04)`,
               },
-              "& .MuiTooltip-tooltip": {
-                margin: 0,
-              },
+              "& .MuiTooltip-tooltip": { margin: 0 },
               "&::before": {
                 content: '""',
                 position: "absolute",

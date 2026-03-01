@@ -1,4 +1,11 @@
-import React, { forwardRef, useMemo } from "react";
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Typography, Collapse, alpha, useTheme } from "@mui/material";
 import {
   DndContext,
@@ -113,9 +120,96 @@ export const TimelineDndContext = forwardRef<
     // 0 = Sunday, 6 = Saturday
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
-
+  const startScrollLeftRef = useRef(0);
+  const totalScrollDeltaRef = useRef(0);
   const theme = useTheme();
 
+  // Add these hooks at the top of your component
+  const [isDragging, setIsDragging] = useState(false);
+  const scrollIntervalRef = useRef<number | null>(null);
+  const mousePosRef = useRef({ x: 0, y: 0 });
+
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      setIsDragging(true);
+      // Capture starting scroll position
+      const container = (ref as React.RefObject<HTMLDivElement>).current;
+      if (container) {
+        startScrollLeftRef.current = container.scrollLeft;
+        totalScrollDeltaRef.current = 0;
+      }
+      onDragStart?.(event);
+    },
+    [onDragStart, ref],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setIsDragging(false);
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+
+      // IMPORTANT: Adjust the drop coordinates based on total scroll delta
+      const { delta } = event;
+      const adjustedDelta = {
+        ...delta,
+        x: delta.x + totalScrollDeltaRef.current,
+      };
+
+      // Create modified event with adjusted delta
+      const adjustedEvent = {
+        ...event,
+        delta: adjustedDelta,
+      };
+
+      onDragEnd?.(adjustedEvent);
+
+      // Reset
+      startScrollLeftRef.current = 0;
+      totalScrollDeltaRef.current = 0;
+    },
+    [onDragEnd],
+  );
+  // Auto-scroll effect
+  useEffect(() => {
+    if (!isDragging || !ref) return;
+
+    const container = (ref as React.RefObject<HTMLDivElement>).current;
+    if (!container) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePosRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
+    scrollIntervalRef.current = window.setInterval(() => {
+      const rect = container.getBoundingClientRect();
+      const mouseX = mousePosRef.current.x;
+      const edgeThreshold = 80;
+      const scrollSpeed = 15;
+      const previousScrollLeft = container.scrollLeft;
+
+      if (mouseX < rect.left + edgeThreshold) {
+        container.scrollLeft -= scrollSpeed;
+      } else if (mouseX > rect.right - edgeThreshold) {
+        container.scrollLeft += scrollSpeed;
+      }
+
+      // Track how much we scrolled during this drag
+      const currentScrollLeft = container.scrollLeft;
+      const deltaThisFrame = currentScrollLeft - previousScrollLeft;
+      totalScrollDeltaRef.current += deltaThisFrame;
+    }, 16);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, [isDragging, ref]);
   // 1. Beräkna vilka absences som faktiskt är inom det synliga fönstret
   const visibleAbsences = useMemo(() => {
     // Slutdatumet för vad som visas i gridet just nu
@@ -455,8 +549,8 @@ export const TimelineDndContext = forwardRef<
               />
 
               <DndContext
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 modifiers={[restrictToHorizontalAxis]}
               >
                 <Box sx={{ position: "relative", width: "100%", flex: 1 }}>
@@ -558,17 +652,27 @@ export const TimelineDndContext = forwardRef<
                   })}
                 </Box>
 
-                <DragOverlay adjustScale={false}>
+                <DragOverlay
+                  adjustScale={false}
+                  dropAnimation={null} // Disable animation for instant response
+                >
                   {activeAbsenceBlock && (
                     <AbsenceBlock
                       absenceDetails={activeAbsenceBlock}
                       isOverlay
+                      left={0} // DragOverlay positions itself
+                      employeeName={
+                        activeAbsenceBlock.absenceCategoryId || "Dragging..."
+                      }
                       absenceColor={
                         absenceTypes.find(
                           (t) => t.id === activeAbsenceBlock.absenceCategoryId,
                         )?.color
                       }
-                      employeeName={"Dragging ..."}
+                      // Disable interactions on overlay
+                      onResizeEnd={undefined}
+                      onEdit={undefined}
+                      onDelete={undefined}
                     />
                   )}
                 </DragOverlay>
