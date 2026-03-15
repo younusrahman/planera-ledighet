@@ -71,6 +71,7 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
     setGroupMenuAnchor(null);
     setResourceMenuAnchor(null);
   };
+  console.log("TimelineSidebar rendered")
   return (
     <Box
       sx={{

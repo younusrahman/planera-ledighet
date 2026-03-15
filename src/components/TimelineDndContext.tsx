@@ -235,6 +235,8 @@ export const TimelineDndContext = forwardRef<
   const noGroups = !teams || teams.length === 0;
   const noAbsenceTypes = !absenceTypes || absenceTypes.length === 0;
   const showWatermark = noGroups || noAbsenceTypes;
+
+  console.log("TimelineDndContext rendered");
   return (
     /* 
       The outermost Box is the Horizontal Scroller. 
@@ -634,6 +636,7 @@ export const TimelineDndContext = forwardRef<
                                     isPastDaysBlocked={blockPastDays}
                                     onApprove={onApprove}
                                     onReject={onReject}
+                                    employeeId={emp.id}
                                     absenceColor={
                                       absenceTypes.find(
                                         (t) => t.id === l.absenceCategoryId,

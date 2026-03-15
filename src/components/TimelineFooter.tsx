@@ -16,7 +16,7 @@ export default function TimelineFooter({
 }: TimelineFooterProps) {
   const { data: absenceTypes = [] } = useAbsenceCategories();
   const theme = useTheme();
-
+console.log("TimelineFooter rendered")
   return (
     <Box
       sx={{

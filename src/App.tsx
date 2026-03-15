@@ -16,7 +16,7 @@ const theme = createTheme({
 });
 
 export const queryClient = new QueryClient();
-
+console.log("App rendered")
 function App() {
   return (
     <QueryClientProvider client={queryClient}>

@@ -11,7 +11,7 @@ export const PastDaysOverlay: React.FC<PastDaysOverlayProps> = ({
   isVisible,
 }) => {
   if (!isVisible || width <= 0) return null;
-
+console.log("PastDaysOverlay rendered")
   return (
     <Box
       sx={{

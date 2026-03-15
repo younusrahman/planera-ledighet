@@ -32,10 +32,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
 import type { Team, TeamWithEmployees } from "../types";
-import { useUIActions } from "../services/stores/uiStore";
+import { useUIActions, type SidebarMode } from "../services/stores/uiStore";
 import { Storage as DatabaseIcon } from "@mui/icons-material";
 import PieChartIcon from "@mui/icons-material/PieChart";
-import BackupTableIcon from '@mui/icons-material/BackupTable';
+import BackupTableIcon from "@mui/icons-material/BackupTable";
+import Divider from "@mui/material/Divider";
+
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
@@ -50,7 +52,7 @@ interface TimelineHeaderProps {
   onOpenDatePicker: () => void;
   onCloseDatePicker: () => void;
   onDateChange: (date: Dayjs) => void;
-  sidebarMode: "full" | "initials" | "hidden";
+  sidebarMode: SidebarMode;
   handleDeleteResource: (groupId: string, resId: string) => void;
   handleDeleteGroup: (groupId: string) => void;
   handleDialogGroupTrigger: (group?: Team) => void;
@@ -191,6 +193,7 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   openDataManagement,
   doseHaveAbsenceTypes,
   disableDeletion,
+  sidebarMode,
 }) => {
   const theme = useTheme();
   const { setSidebarMode } = useUIActions();
@@ -204,15 +207,15 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
     useState<null | HTMLElement>(null);
 
   const [selectedGroupId] = useState<string | null>(null);
-  const [selectedResourceId] = useState<string | null>(
-    null,
-  );
+  const [selectedResourceId] = useState<string | null>(null);
   const closeMenus = () => {
     setMainMenuAnchor(null);
     setGroupMenuAnchor(null);
     setResourceMenuAnchor(null);
   };
-
+  const modes: SidebarMode[] = ["full", "initials", "hidden"];
+  const activeIndex = modes.indexOf(sidebarMode);
+console.log("TimelineHeader rendered")
   return (
     <AppBar
       position="static"
@@ -298,7 +301,8 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
               openDataManagement();
             }}
           >
-            <BackupTableIcon fontSize="small" sx={{ mr: 1.5 }} /> Data Management
+            <BackupTableIcon fontSize="small" sx={{ mr: 1.5 }} /> Data
+            Management
           </MenuItem>
           <MenuItem
             onClick={() => {
@@ -325,45 +329,68 @@ export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             <DatabaseIcon fontSize="small" sx={{ mr: 1.5 }} />
             Databassystem
           </MenuItem>
-          <Box sx={{ flexGrow: 1 }}>
+          <Divider />
+
+          <Box sx={{ px: 2, pb: 2, minWidth: 250 }}>
             <Typography
               variant="overline"
-              display="block"
               sx={{
-                color: "text.secondary",
-                fontSize: "0.75rem",
-                textAlign: "center",
-                mt: 1,
-                borderTop: "1px solid rgba(0,0,0,0.1)",
-                pt: 1,
                 fontWeight: 700,
+                opacity: 0.7,
+                textAlign: "center",
+                display: "block",
               }}
             >
-              Sidebar mode
+              Sidebar Mode
             </Typography>
-            <Button
-              sx={{ fontSize: "13px", fontWeight: 700 }}
-              variant="text"
-              onClick={() => setSidebarMode("full")}
+
+            <Box
+              sx={{
+                position: "relative",
+                display: "flex",
+                bgcolor: "rgba(0,0,0,0.05)",
+                borderRadius: 1,
+                mt: 1,
+                p: 0.5,
+              }}
             >
-              Full
-            </Button>
-            |
-            <Button
-              sx={{ fontSize: "13px", fontWeight: 700 }}
-              variant="text"
-              onClick={() => setSidebarMode("initials")}
-            >
-              Compact
-            </Button>
-            |
-            <Button
-              sx={{ fontSize: "13px", fontWeight: 700 }}
-              variant="text"
-              onClick={() => setSidebarMode("hidden")}
-            >
-              Hidden
-            </Button>
+              {/* The Animated Indicator */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  bottom: 4,
+                  left: 4,
+                  width: "calc(33.33% - 4px)",
+                  bgcolor: "white",
+                  borderRadius: "4px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                  transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  // Map: full=0, initials=100%, hidden=200%
+                  transform: `translateX(${modes.indexOf(sidebarMode) * 100}%)`,
+                }}
+              />
+
+              {/* The Buttons using your Type */}
+              {modes.map((mode) => (
+                <Button
+                  key={mode}
+                  fullWidth
+                  size="small"
+                  onClick={() => setSidebarMode(mode)}
+                  sx={{
+                    zIndex: 1,
+                    textTransform: "capitalize",
+                    fontSize: "0.75rem",
+                    fontWeight: sidebarMode === mode ? 700 : 500,
+                    color:
+                      sidebarMode === mode ? "primary.main" : "text.secondary",
+                  }}
+                >
+                  {mode === "initials" ? "Compact" : mode}
+                </Button>
+              ))}
+            </Box>
           </Box>
         </Menu>
 

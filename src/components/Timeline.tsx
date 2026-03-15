@@ -587,6 +587,7 @@ export const Timeline = () => {
       }
     }
   };
+  console.log("Timeline rendered")
   const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;

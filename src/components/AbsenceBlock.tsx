@@ -28,7 +28,7 @@ import ThumbUpIcon from "@mui/icons-material/ThumbUp";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import DeleteIcon from "@mui/icons-material/Delete";
 import LockIcon from "@mui/icons-material/Lock";
-
+import BadgeIcon from "@mui/icons-material/Badge";
 interface Props {
   absenceDetails: Absence;
   left?: number;
@@ -49,6 +49,7 @@ interface Props {
   onReject?: (id: string, reason: string) => void;
   // NEW: Callback when drag starts to hide original
   onDragStart?: () => void;
+  employeeId?: string;
 }
 
 const today = dayjs().startOf("day");
@@ -71,6 +72,7 @@ export const AbsenceBlock = ({
   onApprove,
   onReject,
   onDragStart,
+  employeeId,
 }: Props) => {
   const isPast =
     isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
@@ -394,7 +396,7 @@ export const AbsenceBlock = ({
       }}
     />
   );
-
+console.log("AbsenceBlock rendered")
   const tooltipContent = (
     <Box
       onMouseEnter={() => {
@@ -412,6 +414,19 @@ export const AbsenceBlock = ({
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              color: "text.secondary",
+            }}
+          >
+            <BadgeIcon fontSize="small" />
+            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
+              {employeeId}
+            </Typography>
+          </Box>
           <Box
             sx={{
               display: "flex",
@@ -525,8 +540,8 @@ export const AbsenceBlock = ({
                 }}
                 title="Godkänn"
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 10,
+                  height: 10,
                   p: 2,
                   color: "success.main",
                   border: "1px solid",
@@ -534,7 +549,7 @@ export const AbsenceBlock = ({
                   "&:hover": { bgcolor: "success.main", color: "white" },
                 }}
               >
-                <ThumbUpIcon fontSize="small" />
+                <ThumbUpIcon sx={{ fontSize: "17px" }} />
               </IconButton>
               <IconButton
                 size="small"
@@ -545,8 +560,8 @@ export const AbsenceBlock = ({
                 }}
                 title="Neka"
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 10,
+                  height: 10,
                   p: 2,
                   color: "error.main",
                   border: "1px solid",
@@ -554,7 +569,7 @@ export const AbsenceBlock = ({
                   "&:hover": { bgcolor: "error.main", color: "white" },
                 }}
               >
-                <ThumbDownIcon fontSize="small" />
+                <ThumbDownIcon sx={{ fontSize: "17px" }} />
               </IconButton>
             </>
           ) : (
@@ -572,8 +587,8 @@ export const AbsenceBlock = ({
                 }}
                 title="Redigera"
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 10,
+                  height: 10,
                   p: 2,
                   border: "1px solid",
                   borderColor: "primary.light",
@@ -592,8 +607,8 @@ export const AbsenceBlock = ({
                   }}
                   title="Radera"
                   sx={{
-                    width: 28,
-                    height: 28,
+                    width: 10,
+                    height: 10,
                     p: 2,
                     border: "1px solid",
                     borderColor: "rgb(211, 47, 47)",
