@@ -22,10 +22,9 @@ import type { Absence, TeamWithEmployees } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import AbsenceBlock from "./AbsenceBlock";
 
-// --- UTILS ---
+// --- HELPERS (Replacing MUI alpha/icons) ---
 const rgba = (hex: string, opacity: number) => {
   if (!hex || hex === "transparent") return `rgba(0,0,0,${opacity})`;
-  // Handles shorthand #000 or full #000000
   const r = parseInt(
     hex.slice(1, 3).length === 2
       ? hex.slice(1, 3)
@@ -65,11 +64,7 @@ interface TimelineDndContextProps {
   blockPastDays: boolean;
   disabledOverlayWidth: number;
   disableDeletion: boolean;
-  selection: {
-    isSelecting: boolean;
-    rowId: string | null;
-    startX: number;
-  };
+  selection: { isSelecting: boolean; rowId: string | null; startX: number };
   selectionBoxRef: React.RefObject<HTMLDivElement>;
   onTeamMouseDown: (e: React.MouseEvent) => void;
   onTeamMouseMove: (e: React.MouseEvent) => void;
@@ -143,8 +138,6 @@ export const TimelineDndContext = forwardRef<
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
 
-  const startScrollLeftRef = useRef(0);
-  const totalScrollDeltaRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const scrollIntervalRef = useRef<number | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
@@ -152,14 +145,9 @@ export const TimelineDndContext = forwardRef<
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       setIsDragging(true);
-      const container = (ref as React.RefObject<HTMLDivElement>).current;
-      if (container) {
-        startScrollLeftRef.current = container.scrollLeft;
-        totalScrollDeltaRef.current = 0;
-      }
       onDragStart?.(event);
     },
-    [onDragStart, ref],
+    [onDragStart],
   );
 
   const handleDragEnd = useCallback(
@@ -169,14 +157,10 @@ export const TimelineDndContext = forwardRef<
         clearInterval(scrollIntervalRef.current);
         scrollIntervalRef.current = null;
       }
-      const { delta } = event;
-      const adjustedEvent = {
-        ...event,
-        delta: { ...delta, x: delta.x + totalScrollDeltaRef.current },
-      };
-      onDragEnd?.(adjustedEvent);
-      startScrollLeftRef.current = 0;
-      totalScrollDeltaRef.current = 0;
+
+      // FIX: We pass the native event directly.
+      // dnd-kit usually accounts for scroll if DndContext is inside the scroller.
+      onDragEnd?.(event);
     },
     [onDragEnd],
   );
@@ -185,23 +169,25 @@ export const TimelineDndContext = forwardRef<
     if (!isDragging || !ref) return;
     const container = (ref as React.RefObject<HTMLDivElement>).current;
     if (!container) return;
+
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
     };
     window.addEventListener("mousemove", handleMouseMove);
+
     scrollIntervalRef.current = window.setInterval(() => {
       const rect = container.getBoundingClientRect();
       const mouseX = mousePosRef.current.x;
       const edgeThreshold = 80;
       const scrollSpeed = 15;
-      const previousScrollLeft = container.scrollLeft;
-      if (mouseX < rect.left + edgeThreshold)
+
+      if (mouseX < rect.left + edgeThreshold) {
         container.scrollLeft -= scrollSpeed;
-      else if (mouseX > rect.right - edgeThreshold)
+      } else if (mouseX > rect.right - edgeThreshold) {
         container.scrollLeft += scrollSpeed;
-      const deltaThisFrame = container.scrollLeft - previousScrollLeft;
-      totalScrollDeltaRef.current += deltaThisFrame;
+      }
     }, 16);
+
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
@@ -273,7 +259,6 @@ export const TimelineDndContext = forwardRef<
                   fontWeight: 700,
                   fontSize: "1.23rem",
                   marginBottom: "16px",
-                  lineHeight: 1.3,
                 }}
               >
                 Börja med att skapa frånvarotyper, grupper och anställda.
@@ -286,7 +271,6 @@ export const TimelineDndContext = forwardRef<
                   marginBottom: "16px",
                 }}
               >
-                {/* Step 1 */}
                 <div
                   style={{
                     display: "flex",
@@ -312,12 +296,7 @@ export const TimelineDndContext = forwardRef<
                     1
                   </div>
                   <span
-                    style={{
-                      color: "rgba(0,0,0,0.5)",
-                      fontSize: "0.9rem",
-                      textAlign: "center",
-                      maxWidth: "120px",
-                    }}
+                    style={{ fontSize: "0.9rem", color: "rgba(0,0,0,0.5)" }}
                   >
                     Skapa frånvarotyper
                   </span>
@@ -331,7 +310,6 @@ export const TimelineDndContext = forwardRef<
                 >
                   <ArrowRightSvg />
                 </div>
-                {/* Step 2 */}
                 <div
                   style={{
                     display: "flex",
@@ -357,12 +335,7 @@ export const TimelineDndContext = forwardRef<
                     2
                   </div>
                   <span
-                    style={{
-                      color: "rgba(0,0,0,0.5)",
-                      fontSize: "0.9rem",
-                      textAlign: "center",
-                      maxWidth: "120px",
-                    }}
+                    style={{ fontSize: "0.9rem", color: "rgba(0,0,0,0.5)" }}
                   >
                     Skapa Grupp
                   </span>
@@ -376,7 +349,6 @@ export const TimelineDndContext = forwardRef<
                 >
                   <ArrowRightSvg />
                 </div>
-                {/* Step 3 */}
                 <div
                   style={{
                     display: "flex",
@@ -402,29 +374,13 @@ export const TimelineDndContext = forwardRef<
                     3
                   </div>
                   <span
-                    style={{
-                      color: "rgba(0,0,0,0.5)",
-                      fontSize: "0.9rem",
-                      textAlign: "center",
-                      maxWidth: "120px",
-                    }}
+                    style={{ fontSize: "0.9rem", color: "rgba(0,0,0,0.5)" }}
                   >
                     Skapa Arbetare
                   </span>
                 </div>
               </div>
-              <p
-                style={{
-                  color: "rgba(0,0,0,0.4)",
-                  fontWeight: 300,
-                  fontSize: "1.05rem",
-                  fontStyle: "italic",
-                  lineHeight: 1.6,
-                  maxWidth: "400px",
-                  margin: "0 auto",
-                  textAlign: "center",
-                }}
-              >
+              <p style={{ fontStyle: "italic", color: "rgba(0,0,0,0.4)" }}>
                 Klicka på <strong>Meny</strong> i sidomenyn för att komma igång!
               </p>
             </div>

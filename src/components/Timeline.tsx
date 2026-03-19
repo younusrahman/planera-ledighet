@@ -587,7 +587,7 @@ export const Timeline = () => {
       }
     }
   };
-  console.log("Timeline rendered")
+  console.log("Timeline rendered");
   const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;
@@ -1027,21 +1027,19 @@ export const Timeline = () => {
     );
   }, [days, monthBlocks, weekBlocks, holidays, sidebarMode]); // Added sidebarMode to dependencies
   return (
-    <Box
-      style={{ opacity: isReady ? 1 : 0 }}
-      sx={{
+    <div
+      style={{
+        opacity: isReady ? 1 : 0,
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        overflow: "hidden", // Prevent body scroll
+        overflow: "hidden",
       }}
     >
       <TimelineHeader
         pickerDate={pickerDate}
         isDatePickerOpen={isDatePickerOpen}
-        datePickerAnchorRef={
-          datePickerAnchorRef as React.RefObject<HTMLButtonElement>
-        }
+        datePickerAnchorRef={datePickerAnchorRef as any}
         groups={teamsWithEmployees}
         sidebarMode={sidebarMode}
         disableDeletion={disableDeletion}
@@ -1050,7 +1048,7 @@ export const Timeline = () => {
         openAnalyticsDashboard={openAnalyticsDashboard}
         onOpenDatePicker={() => setIsDatePickerOpen(true)}
         onCloseDatePicker={() => setIsDatePickerOpen(false)}
-        onDateChange={(newDate) => jumpToDate(newDate)}
+        onDateChange={(newDate: any) => jumpToDate(newDate)}
         handleDeleteResource={handleDeleteEmployee}
         handleDeleteGroup={handleDeleteTeam}
         handleDialogGroupTrigger={handleDialogGroupTrigger}
@@ -1062,19 +1060,19 @@ export const Timeline = () => {
         onNextMonth={() => jumpToDate(pickerDate.add(1, "month"))}
       />
 
-      {/* MAIN SCROLLER: Handles both vertical and horizontal scroll */}
-      <Box
+      <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        sx={{
+        style={{
           flex: 1,
           overflow: "auto",
           position: "relative",
-          bgcolor: "background.paper",
+          backgroundColor: "white",
         }}
       >
-        <Box sx={{ display: "flex", width: "fit-content", minWidth: "100%" }}>
-          {/* SIDEBAR (GLASSMORPHISM) */}
+        <div
+          style={{ display: "flex", width: "fit-content", minWidth: "100%" }}
+        >
           <TimelineSidebar
             groups={teamsWithEmployees}
             sidebarMode={sidebarMode}
@@ -1086,35 +1084,26 @@ export const Timeline = () => {
             handleDialogGroupTrigger={handleDialogGroupTrigger}
             handleDialogResourceTrigger={handleDialogEmployeeTrigger}
           />
-
-          <Box sx={{ position: "relative" }}>
-            {/* THE STICKY DATES HEADER */}
+          <div style={{ position: "relative" }}>
             {MemoizedHeader}
-
-            {/* THE GRID CONTENT */}
             <TimelineDndContext
               ref={scrollContainerRef}
               onTeamMouseDown={handleTeamRowMouseDown}
               onTeamMouseMove={handleTeamRowMouseMove}
               onTeamMouseUp={handleTeamRowMouseLeaveOrUp}
-              days={days} // from useMemo(() => getDaysArray...)
-              daysCount={daysCount} // from useState
-              startDate={startDate} // from useState
-              teams={teamsWithEmployees} // from useState
-              absences={visibleAbsences} // from useState (filtered)
-              collapsedTeams={collapsedTeams} // from useState
-              absenceTypes={absenceTypes} // from useState
-              activeAbsenceBlock={activeLeave} // from useState (dnd-kit)
-              // 3. SETTINGS PROPS
-              blockPastDays={blockPastDays} // from useState
-              disabledOverlayWidth={disabledOverlayWidth} // from useMemo
-              disableDeletion={disableDeletion} // from useState
-              // 4. INTERACTION STATE & REFS
-              selection={selection} // from useState (isSelecting, rowId, startX)
-              selectionBoxRef={
-                selectionBoxRef as React.RefObject<HTMLDivElement>
-              } // from useRef
-              // 5. EVENT HANDLERS (The functions in your Timeline component)
+              days={days}
+              daysCount={daysCount}
+              startDate={startDate}
+              teams={teamsWithEmployees}
+              absences={visibleAbsences}
+              collapsedTeams={collapsedTeams}
+              absenceTypes={absenceTypes}
+              activeAbsenceBlock={activeLeave}
+              blockPastDays={blockPastDays}
+              disabledOverlayWidth={disabledOverlayWidth}
+              disableDeletion={disableDeletion}
+              selection={selection}
+              selectionBoxRef={selectionBoxRef as any}
               onScroll={handleScroll}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
@@ -1129,16 +1118,16 @@ export const Timeline = () => {
               onApprove={handleApprove}
               onReject={handleReject}
             />
-          </Box>
-        </Box>
-      </Box>
+          </div>
+        </div>
+      </div>
 
       <TimelineFooter
         onAbsenceTypeClick={handleDialogAbsenceTypeTrigger}
         selectedIds={filteredCategoryIds}
         onToggle={handleToggleFilter}
       />
-    </Box>
+    </div>
   );
 };
 
