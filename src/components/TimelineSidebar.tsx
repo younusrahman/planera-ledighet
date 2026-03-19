@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import {
   Box,
   Typography,
@@ -36,7 +36,7 @@ interface TimelineSidebarProps {
     currentGroupId?: string,
   ) => void;
 }
-export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
+const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   groups,
   sidebarMode,
   collapsedGroups,
@@ -392,3 +392,4 @@ export const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
     </Box>
   );
 };
+export default memo(TimelineSidebar);

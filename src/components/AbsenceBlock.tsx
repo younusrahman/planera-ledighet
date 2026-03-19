@@ -1,21 +1,7 @@
-import React, { useRef, useEffect, useLayoutEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import {
-  Paper,
-  Typography,
-  Box,
-  IconButton,
-  Divider,
-  Tooltip,
-  alpha,
-} from "@mui/material";
-import EditSquareIcon from "@mui/icons-material/EditSquare";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import DateRangeIcon from "@mui/icons-material/DateRange";
 import dayjs from "dayjs";
-import type { Instance } from "@popperjs/core";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
-import PersonIcon from "@mui/icons-material/Person";
 import { AbsenceStatus, type Absence } from "../types";
 import {
   useAbsenceBlockIsResizing,
@@ -24,11 +10,123 @@ import {
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
 } from "../services/stores/absenceUIStore";
-import ThumbUpIcon from "@mui/icons-material/ThumbUp";
-import ThumbDownIcon from "@mui/icons-material/ThumbDown";
-import DeleteIcon from "@mui/icons-material/Delete";
-import LockIcon from "@mui/icons-material/Lock";
-import BadgeIcon from "@mui/icons-material/Badge";
+
+// --- UTILS ---
+const alpha = (hex: string, opacity: number) => {
+  if (!hex || hex === "transparent") return `rgba(0,0,0,${opacity})`;
+  const r = parseInt(hex.slice(1, 3), 16) || 0;
+  const g = parseInt(hex.slice(3, 5), 16) || 0;
+  const b = parseInt(hex.slice(5, 7), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
+const Icon = {
+  Edit: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  ),
+  Delete: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  ),
+  ThumbUp: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  ),
+  ThumbDown: () => (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+    </svg>
+  ),
+  Lock: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="green"
+      strokeWidth="2"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  ),
+  User: () => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  Calendar: () => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  ),
+  Clock: () => (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+};
+
 interface Props {
   absenceDetails: Absence;
   left?: number;
@@ -43,24 +141,19 @@ interface Props {
   isPastDaysBlocked?: boolean;
   employeeName?: string;
   absenceColor?: string;
-  status?: AbsenceStatus;
-  rejectionReason?: string;
   onApprove?: (id: string) => void;
   onReject?: (id: string, reason: string) => void;
-  // NEW: Callback when drag starts to hide original
-  onDragStart?: () => void;
   employeeId?: string;
 }
 
-const today = dayjs().startOf("day");
-const TOOLTIP_DELAY = 500;
+const TOOLTIP_DELAY_MS = 3000;
 
-export const AbsenceBlock = ({
+const AbsenceBlock = ({
   absenceDetails,
   left = 0,
   isOverlay = false,
   onResizeEnd,
-  employeeName = "Namnet saknas ",
+  employeeName = "Namnet saknas",
   scrollContainerRef,
   onEdit,
   onDelete,
@@ -68,60 +161,75 @@ export const AbsenceBlock = ({
   onTooltipClose,
   isDeletionDisabled = false,
   isPastDaysBlocked = true,
-  absenceColor = "transparent",
+  absenceColor = "#3b82f6",
   onApprove,
   onReject,
-  onDragStart,
   employeeId,
 }: Props) => {
   const isPast =
-    isPastDaysBlocked && dayjs(absenceDetails.startDate).isBefore(today);
-  const currentStatus = absenceDetails.status;
-  const isLocked = currentStatus === AbsenceStatus.Approved;
+    isPastDaysBlocked &&
+    dayjs(absenceDetails.startDate).isBefore(dayjs().startOf("day"));
+  const isLocked = absenceDetails.status === AbsenceStatus.Approved;
 
-  // NEW: Track if we should show placeholder (drag started but overlay not ready yet)
-  const [isPreDrag, setIsPreDrag] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: absenceDetails.id,
-      data: absenceDetails,
-      disabled: isOverlay || isPast || isLocked,
-    });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: absenceDetails.id,
+    data: absenceDetails,
+    disabled: isOverlay || isPast || isLocked,
+  });
 
-  // --- STATE FROM ZUSTAND ---
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
   const visualDuration = useAbsenceBlockVisualDuration(absenceDetails.id);
   const visualStartShift = useAbsenceBlockVisualStartShift(absenceDetails.id);
   const isTooltipOpen = useAbsenceBlockIsTooltipOpen(absenceDetails.id);
-  const { setBlock, resetBlock, removeBlock } = useAbsenceBlockActions();
+  const { setBlock, removeBlock } = useAbsenceBlockActions();
 
-  // --- REFS ---
+  // REFS
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const popperRef = useRef<Instance | null>(null);
-  const blockRef = useRef<HTMLDivElement | null>(null);
-  const closeTimeoutRef = useRef<number>(0);
-  const openTimeoutRef = useRef<number>(0);
+  const badgeRef = useRef<HTMLDivElement | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  // RESIZE REFS
   const mouseXRef = useRef(0);
   const startXRef = useRef(0);
   const startScrollLeftRef = useRef(0);
   const isResizingRef = useRef(false);
   const directionRef = useRef<"left" | "right">("right");
   const requestRef = useRef<number>(0);
-  const prevLeftRef = useRef(left);
 
-  // Trigger immediate hide when drag starts
-  useEffect(() => {
-    if (isDragging && !isOverlay) {
-      // Force close tooltip
+  const killAllTimers = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    if (countdownIntervalRef.current)
+      window.clearInterval(countdownIntervalRef.current);
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    timerRef.current = null;
+    countdownIntervalRef.current = null;
+    closeTimerRef.current = null;
+    setCountdown(null);
+  };
+
+  const handleMouseEnter = () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+  };
+
+  const handleMouseLeave = () => {
+    killAllTimers();
+    closeTimerRef.current = window.setTimeout(() => {
       setBlock(absenceDetails.id, { isTooltipOpen: false });
-      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
       onTooltipClose?.();
-    }
-  }, [isDragging, isOverlay, absenceDetails.id, setBlock, onTooltipClose]);
+    }, 300);
+  };
 
-  // Initialize block state
+  useEffect(() => {
+    if (isDragging) {
+      killAllTimers();
+      setBlock(absenceDetails.id, { isTooltipOpen: false });
+    }
+  }, [isDragging, absenceDetails.id, setBlock]);
+
   useEffect(() => {
     setBlock(absenceDetails.id, {
       visualDuration: absenceDetails.durationDays,
@@ -129,690 +237,431 @@ export const AbsenceBlock = ({
       isResizing: false,
       isTooltipOpen: false,
     });
-  }, []);
-  useEffect(() => {
-    const handleScroll = () => {
-      // Force tooltip to update position when container scrolls
-      if (popperRef.current && blockRef.current) {
-        popperRef.current.update();
-      }
-    };
-
-    const container = scrollContainerRef?.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
-  }, [scrollContainerRef]);
-
-  useLayoutEffect(() => {
-    const jump = left - prevLeftRef.current;
-    if (jump !== 0 && isResizingRef.current) {
-      startScrollLeftRef.current += jump;
-    }
-    prevLeftRef.current = left;
-  }, [left]);
-
-  useEffect(() => {
-    if (!isResizing) {
-      resetBlock(absenceDetails.id, absenceDetails.durationDays);
-    }
-  }, [absenceDetails.durationDays, isResizing, absenceDetails.id, resetBlock]);
-
-  useEffect(() => {
     return () => {
+      killAllTimers();
       removeBlock(absenceDetails.id);
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [absenceDetails.id, removeBlock]);
+  }, [absenceDetails.id, absenceDetails.durationDays, setBlock, removeBlock]);
 
-  const animate = () => {
+  // --- RESIZE LOGIC ---
+  const animateResize = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
     const container = scrollContainerRef.current;
     const { left: cL, width: cW } = container.getBoundingClientRect();
     const pX = mouseXRef.current;
-    const eT = 50;
-    const sS = 15;
+    if (pX < cL + 50) container.scrollLeft -= 15;
+    else if (pX > cL + cW - 50) container.scrollLeft += 15;
 
-    if (pX < cL + eT) container.scrollLeft -= sS;
-    else if (pX > cL + cW - eT) container.scrollLeft += sS;
-
-    const currentScrollLeft = container.scrollLeft;
-    const scrollDiff = currentScrollLeft - startScrollLeftRef.current;
-    const mouseDiff = pX - startXRef.current;
-    const totalDeltaX = mouseDiff + scrollDiff;
+    const scrollDiff = container.scrollLeft - startScrollLeftRef.current;
+    const totalDeltaX = pX - startXRef.current + scrollDiff;
     const startDuration = absenceDetails.durationDays;
 
     if (directionRef.current === "right") {
-      const newVisualWidth = startDuration * CELL_WIDTH + totalDeltaX;
-      const newVisualDuration = newVisualWidth / CELL_WIDTH;
       setBlock(absenceDetails.id, {
-        visualDuration: Math.max(1, newVisualDuration),
+        visualDuration: Math.max(1, startDuration + totalDeltaX / CELL_WIDTH),
       });
     } else {
-      const newVisualWidth = startDuration * CELL_WIDTH - totalDeltaX;
-      if (newVisualWidth < CELL_WIDTH) {
-        setBlock(absenceDetails.id, {
-          visualStartShift: startDuration - 1,
-          visualDuration: 1,
-        });
-      } else {
-        const actualShiftInPixels = totalDeltaX;
-        const actualShiftInDays = actualShiftInPixels / CELL_WIDTH;
-        setBlock(absenceDetails.id, {
-          visualStartShift: actualShiftInDays,
-          visualDuration: startDuration - actualShiftInDays,
-        });
-      }
+      const shiftDays = totalDeltaX / CELL_WIDTH;
+      setBlock(absenceDetails.id, {
+        visualStartShift: Math.min(shiftDays, startDuration - 1),
+        visualDuration: Math.max(1, startDuration - shiftDays),
+      });
     }
-    requestRef.current = requestAnimationFrame(animate);
+    requestRef.current = requestAnimationFrame(animateResize);
   };
 
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     if (isLocked) return;
     e.preventDefault();
     e.stopPropagation();
-    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-    setBlock(absenceDetails.id, { isTooltipOpen: false });
+    killAllTimers();
+    setBlock(absenceDetails.id, { isTooltipOpen: false, isResizing: true });
+
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
-    setBlock(absenceDetails.id, { isResizing: true });
     isResizingRef.current = true;
     directionRef.current = direction;
     startXRef.current = e.clientX;
     mouseXRef.current = e.clientX;
-    prevLeftRef.current = left;
-
     if (scrollContainerRef?.current)
       startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
 
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      mouseXRef.current = moveEvent.clientX;
+    const onPointerMove = (me: PointerEvent) => {
+      mouseXRef.current = me.clientX;
     };
-    const onPointerUp = (upEvent: PointerEvent) => {
-      handle.releasePointerCapture(upEvent.pointerId);
+    const onPointerUp = (ue: PointerEvent) => {
+      handle.releasePointerCapture(ue.pointerId);
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
       isResizingRef.current = false;
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-        requestRef.current = 0;
-      }
-
+      cancelAnimationFrame(requestRef.current);
       setBlock(absenceDetails.id, { isResizing: false });
 
       if (scrollContainerRef?.current) {
-        const finalScrollLeft = scrollContainerRef.current.scrollLeft;
-        const scrollDiff = finalScrollLeft - startScrollLeftRef.current;
-        const mouseDiff = upEvent.clientX - startXRef.current;
-        const totalDeltaX = mouseDiff + scrollDiff;
-        const deltaDays = Math.round(totalDeltaX / CELL_WIDTH);
-        const startDuration = absenceDetails.durationDays;
-        let fDur = startDuration;
+        const deltaDays = Math.round(
+          (ue.clientX -
+            startXRef.current +
+            (scrollContainerRef.current.scrollLeft -
+              startScrollLeftRef.current)) /
+            CELL_WIDTH,
+        );
+        let fDur = absenceDetails.durationDays;
         let fS = 0;
-
-        if (directionRef.current === "right") {
-          fDur = Math.max(1, startDuration + deltaDays);
-        } else {
-          const mS = startDuration - 1;
-          fS = Math.min(deltaDays, mS);
-          fDur = startDuration - fS;
+        if (direction === "right") fDur = Math.max(1, fDur + deltaDays);
+        else {
+          fS = Math.min(deltaDays, fDur - 1);
+          fDur -= fS;
         }
-
-        if (onResizeEnd && (fDur !== startDuration || fS !== 0)) {
+        if (onResizeEnd && (fDur !== absenceDetails.durationDays || fS !== 0))
           onResizeEnd(absenceDetails.id, fDur, fS);
-        }
       }
     };
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
-    requestRef.current = requestAnimationFrame(animate);
+    requestRef.current = requestAnimationFrame(animateResize);
   };
-
-  useEffect(() => {
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, []);
 
   const handleMouseMove = (event: React.MouseEvent) => {
-    // Update position ref immediately
     positionRef.current = { x: event.clientX, y: event.clientY };
-
-    // Update popper position in real-time
-    if (popperRef.current) {
-      popperRef.current.update();
+    if (badgeRef.current) {
+      badgeRef.current.style.transform = `translate3d(${event.clientX + 15}px, ${event.clientY - 15}px, 0)`;
     }
 
-    if (!isTooltipOpen && !isDragging) {
-      if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-      openTimeoutRef.current = window.setTimeout(() => {
+    if (isDragging || isResizing || isTooltipOpen || isOverlay) return;
+
+    if (!timerRef.current) {
+      timerRef.current = window.setTimeout(() => {
         setBlock(absenceDetails.id, { isTooltipOpen: true });
+        setCountdown(null);
         onTooltipOpen?.();
-      }, TOOLTIP_DELAY);
+      }, TOOLTIP_DELAY_MS);
+
+      let secondsLeft = 3;
+      setCountdown(secondsLeft);
+      countdownIntervalRef.current = window.setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft > 0) setCountdown(secondsLeft);
+        else {
+          if (countdownIntervalRef.current)
+            window.clearInterval(countdownIntervalRef.current);
+          setCountdown(null);
+        }
+      }, 1000);
     }
   };
 
-  const handleMouseEnter = () => {
-    // Don't show tooltip if dragging or just finished dragging
-    if (isDragging || isResizing || isOverlay) return;
-
-    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-
-    openTimeoutRef.current = window.setTimeout(() => {
-      setBlock(absenceDetails.id, { isTooltipOpen: true });
-      onTooltipOpen?.();
-    }, TOOLTIP_DELAY);
-  };
-  const handleMouseLeave = () => {
-    if (openTimeoutRef.current) clearTimeout(openTimeoutRef.current);
-
-    closeTimeoutRef.current = window.setTimeout(() => {
-      setBlock(absenceDetails.id, { isTooltipOpen: false });
-      onTooltipClose?.();
-    }, 300);
-  };
-
-  const isApproved = absenceDetails.status === AbsenceStatus.Approved;
-
-  // --- STYLES ---
   const displayDuration = isResizing
     ? visualDuration
     : absenceDetails.durationDays;
   const currentWidth = displayDuration * CELL_WIDTH - 4;
   const displayLeft = isResizing ? left + visualStartShift * CELL_WIDTH : left;
-  const blockHeight = ROW_HEIGHT - 10;
 
-  // HIDE COMPLETELY when dragging (DragOverlay takes over)
-  if ((isDragging || isPreDrag) && !isOverlay) {
-    return (
-      <Box
-        sx={{
-          position: "absolute",
-          left: `${displayLeft}px`,
-          width: `${currentWidth}px`,
-          height: `${blockHeight}px`,
-          border: `2px dashed ${alpha(absenceColor, 0.5)}`,
-          borderRadius: "30px",
-          bgcolor: alpha(absenceColor, 0.1),
-          pointerEvents: "none",
-        }}
-      />
-    );
-  }
-
-  const shinyVariables = {
-    "--clr": absenceColor,
-    "--text": isApproved ? "rgba(255, 255, 255, 0.7)" : "white",
-    "--gradoffset": "45%",
-    "--gradgap": "30%",
-  };
-
-  const style: React.CSSProperties = {
+  const commonStyles: React.CSSProperties = {
     position: "absolute",
-    left: `${displayLeft}px`,
-    width: `${currentWidth}px`,
-    height: `${blockHeight}px`,
-    backgroundColor: absenceColor,
-    backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.2) var(--gradgap), transparent calc(100% - var(--gradgap)))`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "center var(--gradoffset)",
-    backgroundSize: "100% 200%",
-    boxShadow: `0 0.25em 0.3em -0.2em ${alpha(absenceColor, 0.46)}, 0 0.25em 0.75em ${alpha(absenceColor, 0.3)}`,
-    border: "none",
-    opacity: currentStatus === AbsenceStatus.Pending ? 1 : 0.7,
-    color: "var(--text)",
+    left: displayLeft,
+    width: currentWidth,
+    height: ROW_HEIGHT - 10,
     borderRadius: "30px",
-    display: "flex",
-    alignItems: "center",
-    zIndex: isResizing ? 1000 : 1,
-    cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
-    transition: "background-color 0.2s, border 0.2s",
-    overflow: "hidden",
-    ...(shinyVariables as React.CSSProperties),
-  };
-
-  const handleStyle = {
-    position: "absolute" as const,
-    top: 0,
-    bottom: 0,
-    width: "20px",
-    zIndex: 10,
-    borderRadius: "30px",
-    cursor: "col-resize",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    "&:hover": { backgroundColor: "rgba(255,255,255,0.2)" },
+    fontSize: "12px",
+    fontWeight: "bold",
+    boxSizing: "border-box",
   };
 
-  const handleBar = (
-    <Box
-      sx={{
-        width: "10px",
-        height: "10px",
-        bgcolor: "rgba(255,255,255,0.5)",
-        borderRadius: "50%",
-      }}
-    />
-  );
-console.log("AbsenceBlock rendered")
-  const tooltipContent = (
-    <Box
-      onMouseEnter={() => {
-        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-      }}
-      onMouseLeave={handleMouseLeave}
-    >
-      <Box sx={{ bgcolor: absenceColor, height: 6, width: "100%", mb: 1 }} />
-      <Box sx={{ p: 0.5 }}>
-        <Typography
-          variant="subtitle2"
-          sx={{ fontWeight: 700, mb: 1, fontSize: "0.95rem" }}
-        >
-          {employeeName}
-        </Typography>
-        <Divider sx={{ my: 1 }} />
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              color: "text.secondary",
-            }}
-          >
-            <BadgeIcon fontSize="small" />
-            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {employeeId}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              color: "text.secondary",
-            }}
-          >
-            <PersonIcon fontSize="small" />
-            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {employeeName}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              color: "text.secondary",
-            }}
-          >
-            <DateRangeIcon fontSize="small" />
-            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {dayjs(absenceDetails.startDate).format("D MMM")} -{" "}
-              {dayjs(absenceDetails.startDate)
-                .add(absenceDetails.durationDays - 1, "day")
-                .format("D MMM")}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              color: "text.secondary",
-            }}
-          >
-            <AccessTimeIcon fontSize="small" />
-            <Typography variant="body2" sx={{ fontSize: "0.85rem" }}>
-              {absenceDetails.durationDays} dagar
-            </Typography>
-          </Box>
-        </Box>
-
-        {absenceDetails.status === AbsenceStatus.Rejected && (
-          <Box
-            sx={{
-              mt: 2,
-              p: 1,
-              bgcolor: "rgba(244, 67, 54, 0.08)",
-              borderRadius: 1,
-              borderLeft: "3px solid #f44336",
-            }}
-          >
-            <Typography
-              color="error"
-              variant="caption"
-              sx={{ fontWeight: "bold", display: "block", textAlign: "center" }}
-            >
-              Avvisad
-            </Typography>
-            <Typography variant="caption" sx={{ fontStyle: "italic" }}>
-              {absenceDetails.rejectionReason || "Ingen kommentar"}
-            </Typography>
-          </Box>
-        )}
-
-        {absenceDetails.status === AbsenceStatus.Approved && (
-          <Typography
-            color="success.main"
-            variant="caption"
-            sx={{
-              mt: 2,
-              display: "block",
-              fontWeight: "bold",
-              textAlign: "center",
-            }}
-          >
-            ✓ Godkänd
-          </Typography>
-        )}
-
-        {absenceDetails.status !== AbsenceStatus.Approved &&
-          absenceDetails.status !== AbsenceStatus.Rejected && (
-            <Typography
-              color="warning.main"
-              variant="caption"
-              sx={{ textAlign: "center", display: "block", mt: 2 }}
-            >
-              Väntar på beslut
-            </Typography>
-          )}
-
-        <Box
-          sx={{
-            mt: 2,
-            pt: 1.5,
-            borderTop: "1px solid #eee",
-            display: "flex",
-            justifyContent: "center",
-            gap: 1.5,
-          }}
-        >
-          {absenceDetails.status !== AbsenceStatus.Approved ? (
-            <>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApprove?.(absenceDetails.id);
-                }}
-                title="Godkänn"
-                sx={{
-                  width: 10,
-                  height: 10,
-                  p: 2,
-                  color: "success.main",
-                  border: "1px solid",
-                  borderColor: "success.light",
-                  "&:hover": { bgcolor: "success.main", color: "white" },
-                }}
-              >
-                <ThumbUpIcon sx={{ fontSize: "17px" }} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const reason = window.prompt("Ange anledning till avslag:");
-                  if (reason) onReject?.(absenceDetails.id, reason);
-                }}
-                title="Neka"
-                sx={{
-                  width: 10,
-                  height: 10,
-                  p: 2,
-                  color: "error.main",
-                  border: "1px solid",
-                  borderColor: "error.light",
-                  "&:hover": { bgcolor: "error.main", color: "white" },
-                }}
-              >
-                <ThumbDownIcon sx={{ fontSize: "17px" }} />
-              </IconButton>
-            </>
-          ) : (
-            <LockIcon color="action" sx={{ fontSize: 20, color: "green" }} />
-          )}
-
-          {absenceDetails.status !== AbsenceStatus.Approved && !isPast && (
-            <>
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit?.(absenceDetails.id);
-                }}
-                title="Redigera"
-                sx={{
-                  width: 10,
-                  height: 10,
-                  p: 2,
-                  border: "1px solid",
-                  borderColor: "primary.light",
-                  "&:hover": { bgcolor: "primary.main", color: "white" },
-                }}
-              >
-                <EditSquareIcon sx={{ fontSize: 18 }} />
-              </IconButton>
-              {!isDeletionDisabled && (
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete?.(absenceDetails.id);
-                  }}
-                  title="Radera"
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    p: 2,
-                    border: "1px solid",
-                    borderColor: "rgb(211, 47, 47)",
-                    "&:hover": { bgcolor: "error.main", color: "white" },
-                  }}
-                >
-                  <DeleteIcon sx={{ fontSize: 18 }} />
-                </IconButton>
-              )}
-            </>
-          )}
-        </Box>
-      </Box>
-    </Box>
-  );
-
-  const setRefs = (el: HTMLDivElement | null) => {
-    setNodeRef(el);
-    blockRef.current = el;
-  };
-
-  const blockContent = (
-    <Paper
-      ref={setRefs}
-      style={style}
-      {...attributes}
-      {...listeners}
-      elevation={0}
-      onPointerDown={(e) => {
-        if (!(e.target as HTMLElement).closest('[data-resize-handle="true"]')) {
-          e.stopPropagation();
-          listeners?.onPointerDown?.(e);
-        }
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onMouseMove={handleMouseMove}
-      sx={{
-        "&::before": {
-          content: '""',
-          inset: 0,
-          position: "absolute",
-          borderRadius: "inherit",
+  if (isDragging && !isOverlay) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{
+          ...commonStyles,
+          border: `2px dashed ${alpha(absenceColor, 0.5)}`,
+          backgroundColor: alpha(absenceColor, 0.05),
+          color: alpha(absenceColor, 0.4),
           pointerEvents: "none",
-          backgroundImage: `radial-gradient(ellipse, rgba(255,255,255,0.5) 20%, transparent 50%, transparent 200%), 
-                            linear-gradient(90deg, rgba(0,0,0,0.1) -10%, transparent 30%, transparent 70%, rgba(0,0,0,0.1) 110%)`,
-          boxShadow: `inset 0 0.25em 0.75em rgba(0, 0, 0, 0.3), 
-                      inset 0 -0.05em 0.2em rgba(255, 255, 255, 0.2)`,
-          backgroundBlendMode: "overlay",
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "200% 80%, cover",
-          backgroundPosition: "center 220%",
-          mixBlendMode: "overlay",
-        },
-        "&::after": {
-          content: '""',
-          position: "absolute",
-          pointerEvents: "none",
-          borderRadius: "inherit",
-          background: `linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1) 40%, transparent 80%)`,
-          top: "0.075em",
-          left: "0.75em",
-          right: "0.75em",
-          bottom: "1.4em",
-          mixBlendMode: "screen",
-          filter: "blur(1px)",
-        },
-        "&:hover": {
-          backgroundPosition: "center calc(var(--gradoffset) - 0.75em)",
-          boxShadow: `0 -0.2em 0.5em ${alpha(absenceColor, 0.3)}, 
-                      0 0.25em 0.5em ${alpha(absenceColor, 0.25)}, 
-                      inset 0 -2px 2px rgba(255, 255, 255, 0.2)`,
-        },
-        "&:active": {
-          scale: "0.98",
-          transition: "all 0.2s ease",
-        },
-      }}
-    >
-      {!isPast && !isLocked && (
-        <>
-          <Box
-            data-resize-handle="true"
-            onPointerDown={(e) => initResize(e, "left")}
-            sx={{ ...handleStyle, left: 0 }}
-          >
-            {handleBar}
-          </Box>
-          <Box
-            data-resize-handle="true"
-            onPointerDown={(e) => initResize(e, "right")}
-            sx={{ ...handleStyle, right: 0 }}
-          >
-            {handleBar}
-          </Box>
-        </>
-      )}
-      <Typography
-        variant="caption"
-        noWrap
-        fontWeight="bold"
-        sx={{
-          flex: 1,
-          textAlign: "center",
-          zIndex: 2,
-          textShadow: "0 1px 2px rgba(0,0,0,0.2)",
-          px: 1,
-          pointerEvents: "none",
-          userSelect: "none",
         }}
       >
         {employeeName}
-      </Typography>
-    </Paper>
-  );
-
-  if (isOverlay || isDragging || isResizing) return blockContent;
+      </div>
+    );
+  }
 
   return (
     <>
-      {blockContent}
-      <Tooltip
-        title={tooltipContent}
-        open={isTooltipOpen}
-        arrow
-        placement="top"
-        slotProps={{
-          popper: {
-            popperRef: popperRef,
-            anchorEl: {
-              getBoundingClientRect: () => {
-                const blockRect = blockRef.current?.getBoundingClientRect();
-                return new DOMRect(
-                  positionRef.current.x,
-                  blockRect ? blockRect.top : positionRef.current.y,
-                  0,
-                  0,
-                );
-              },
-            },
-            modifiers: [{ name: "offset", options: { offset: [0, 18] } }],
-          },
-          arrow: {
-            sx: {
-              color: absenceColor,
-              fontSize: 12,
-              "&:before": {
-                border: "1px solid",
-                borderColor: "rgba(0,0,0,0.05)",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-              },
-            },
-          },
+      <div
+        ref={(el) => setNodeRef(el)}
+        {...attributes}
+        {...listeners}
+        onPointerDown={(e) => {
+          killAllTimers();
+          setBlock(absenceDetails.id, { isTooltipOpen: false });
+          e.stopPropagation();
+          listeners?.onPointerDown?.(e);
         }}
-        componentsProps={{
-          tooltip: {
-            sx: {
-              background: "linear-gradient(135deg, #ffffff 0%, #fafafa 100%)",
-              color: "#2d3748",
-              boxShadow: `0px 10px 30px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.03)`,
-              p: "16px 20px",
-              minWidth: 180,
-              maxWidth: 320,
-              borderRadius: "10px",
-              border: "1px solid",
-              borderColor: `${absenceColor}70`,
-              pointerEvents: "auto",
-              fontSize: "0.875rem",
-              lineHeight: 1.6,
-              fontWeight: 400,
-              letterSpacing: "0.01em",
-              animation: "tooltipAppear 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-              "@keyframes tooltipAppear": {
-                "0%": { opacity: 0, transform: "translateY(-4px) scale(0.98)" },
-                "100%": { opacity: 1, transform: "translateY(0) scale(1)" },
-              },
-              "&:hover": {
-                boxShadow: `0px 12px 35px rgba(0, 0, 0, 0.1), 0px 2px 5px rgba(0, 0, 0, 0.04)`,
-              },
-              "& .MuiTooltip-tooltip": { margin: 0 },
-              "&::before": {
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: "1px",
-                background:
-                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)",
-                borderRadius: "10px 10px 0 0",
-              },
-            },
-          },
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}
+        style={{
+          ...commonStyles,
+          backgroundColor: absenceColor,
+          color: "white",
+          zIndex: isResizing || isOverlay ? 1000 : 1,
+          cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
+          boxShadow: isOverlay
+            ? `0 8px 20px rgba(0,0,0,0.3)`
+            : `0 3px 6px ${alpha(absenceColor, 0.4)}`,
+          touchAction: "none",
+          userSelect: "none",
+          opacity: isOverlay ? 0.9 : 1,
         }}
+        className="absence-block-shiny"
       >
+        {/* RESIZE HANDLES */}
+        {!isPast && !isLocked && !isOverlay && (
+          <>
+            <div
+              onPointerDown={(e) => initResize(e, "left")}
+              style={{
+                position: "absolute",
+                left: 0,
+                width: 15,
+                height: "100%",
+                cursor: "col-resize",
+                zIndex: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.4)",
+                  margin: "auto",
+                  marginTop: (ROW_HEIGHT - 10) / 2 - 2,
+                }}
+              />
+            </div>
+            <div
+              onPointerDown={(e) => initResize(e, "right")}
+              style={{
+                position: "absolute",
+                right: 0,
+                width: 15,
+                height: "100%",
+                cursor: "col-resize",
+                zIndex: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.4)",
+                  margin: "auto",
+                  marginTop: (ROW_HEIGHT - 10) / 2 - 2,
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        <span
+          style={{
+            pointerEvents: "none",
+            padding: "0 10px",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {employeeName}
+        </span>
+      </div>
+
+      {countdown !== null && !isOverlay && (
+        <div
+          ref={badgeRef}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: 22,
+            height: 22,
+            backgroundColor: "#222",
+            color: "white",
+            borderRadius: "50%",
+            fontSize: "11px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "2px solid white",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+            zIndex: 10001,
+            pointerEvents: "none",
+            willChange: "transform",
+            transform: `translate3d(${positionRef.current.x + 15}px, ${positionRef.current.y - 15}px, 0)`,
+          }}
+        >
+          {countdown}
+        </div>
+      )}
+
+      {isTooltipOpen && !isDragging && !isResizing && (
         <div
           style={{
-            position: "absolute",
-            width: 0,
-            height: 0,
-            pointerEvents: "none",
+            position: "fixed",
+            top: positionRef.current.y - 12,
+            left: positionRef.current.x,
+            transform: "translate(-50%, -100%)",
+            backgroundColor: "white",
+            border: `1px solid ${alpha(absenceColor, 0.4)}`,
+            borderRadius: "10px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            zIndex: 9999,
+            width: "240px",
+            pointerEvents: "auto",
+            animation: "tooltipIn 0.2s ease-out",
           }}
-        />
-      </Tooltip>
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <div
+            style={{
+              height: 6,
+              backgroundColor: absenceColor,
+              borderRadius: "10px 10px 0 0",
+            }}
+          />
+          <div style={{ padding: "12px" }}>
+            <div
+              style={{
+                fontWeight: "bold",
+                fontSize: "14px",
+                marginBottom: "4px",
+                color: "#333",
+              }}
+            >
+              {employeeName}
+            </div>
+            <div
+              style={{ height: "1px", background: "#eee", margin: "8px 0" }}
+            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                fontSize: "12px",
+                color: "#555",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.User /> {employeeId}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.Calendar />{" "}
+                {dayjs(absenceDetails.startDate).format("D MMM")} -{" "}
+                {dayjs(absenceDetails.startDate)
+                  .add(absenceDetails.durationDays - 1, "day")
+                  .format("D MMM")}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.Clock /> {absenceDetails.durationDays} dagar
+              </div>
+            </div>
+            <div
+              style={{
+                marginTop: "12px",
+                paddingTop: "12px",
+                borderTop: "1px solid #eee",
+                display: "flex",
+                justifyContent: "center",
+                gap: "12px",
+              }}
+            >
+              {absenceDetails.status !== AbsenceStatus.Approved ? (
+                <>
+                  <button
+                    style={{
+                      padding: "6px",
+                      border: "1px solid #ddd",
+                      background: "white",
+                      borderRadius: "6px",
+                      color: "#10b981",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => onApprove?.(absenceDetails.id)}
+                  >
+                    <Icon.ThumbUp />
+                  </button>
+                  <button
+                    style={{
+                      padding: "6px",
+                      border: "1px solid #ddd",
+                      background: "white",
+                      borderRadius: "6px",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => {
+                      const r = window.prompt("Orsak till avslag:");
+                      if (r) onReject?.(absenceDetails.id, r);
+                    }}
+                  >
+                    <Icon.ThumbDown />
+                  </button>
+                </>
+              ) : (
+                <Icon.Lock />
+              )}
+              {!isLocked && !isPast && (
+                <>
+                  <button
+                    style={{
+                      padding: "6px",
+                      border: "1px solid #ddd",
+                      background: "white",
+                      borderRadius: "6px",
+                      color: "#3b82f6",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => onEdit?.(absenceDetails.id)}
+                  >
+                    <Icon.Edit />
+                  </button>
+                  {!isDeletionDisabled && (
+                    <button
+                      style={{
+                        padding: "6px",
+                        border: "1px solid #ddd",
+                        background: "white",
+                        borderRadius: "6px",
+                        color: "#ef4444",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => onDelete?.(absenceDetails.id)}
+                    >
+                      <Icon.Delete />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes tooltipIn { from { opacity: 0; transform: translate(-50%, -95%); } to { opacity: 1; transform: translate(-50%, -100%); } }
+        .absence-block-shiny::before {
+            content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+            background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(0,0,0,0.05) 100%);
+        }
+      `}</style>
     </>
   );
 };
+
+export default React.memo(AbsenceBlock);

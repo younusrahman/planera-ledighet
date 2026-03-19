@@ -6,7 +6,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Box, Typography, Collapse, alpha, useTheme } from "@mui/material";
 import {
   DndContext,
   DragOverlay,
@@ -17,14 +16,44 @@ import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import dayjs, { Dayjs } from "dayjs";
 import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
-import { AbsenceBlock } from "./AbsenceBlock";
+
 import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Absence, TeamWithEmployees } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
-import { ArrowRightAlt } from "@mui/icons-material";
+import AbsenceBlock from "./AbsenceBlock";
+
+// --- UTILS ---
+const rgba = (hex: string, opacity: number) => {
+  if (!hex || hex === "transparent") return `rgba(0,0,0,${opacity})`;
+  // Handles shorthand #000 or full #000000
+  const r = parseInt(
+    hex.slice(1, 3).length === 2
+      ? hex.slice(1, 3)
+      : hex.slice(1, 2) + hex.slice(1, 2),
+    16,
+  );
+  const g = parseInt(
+    hex.slice(3, 5).length === 2
+      ? hex.slice(3, 5)
+      : hex.slice(2, 3) + hex.slice(2, 3),
+    16,
+  );
+  const b = parseInt(
+    hex.slice(5, 7).length === 2
+      ? hex.slice(5, 7)
+      : hex.slice(3, 4) + hex.slice(3, 4),
+    16,
+  );
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
+const ArrowRightSvg = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4z" />
+  </svg>
+);
 
 interface TimelineDndContextProps {
-  // Data
   days: Dayjs[];
   daysCount: number;
   startDate: Dayjs;
@@ -33,13 +62,9 @@ interface TimelineDndContextProps {
   collapsedTeams: string[];
   absenceTypes: any[];
   activeAbsenceBlock: Absence | null;
-
-  // Settings
   blockPastDays: boolean;
   disabledOverlayWidth: number;
   disableDeletion: boolean;
-
-  // Interaction State
   selection: {
     isSelecting: boolean;
     rowId: string | null;
@@ -49,8 +74,6 @@ interface TimelineDndContextProps {
   onTeamMouseDown: (e: React.MouseEvent) => void;
   onTeamMouseMove: (e: React.MouseEvent) => void;
   onTeamMouseUp: () => void;
-
-  // Handlers
   onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   onDragStart: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
@@ -105,7 +128,7 @@ export const TimelineDndContext = forwardRef<
     onApprove,
     onReject,
   } = props;
-  // 1. Hämta helgdagar för de år som visas
+
   const holidays = useMemo(() => {
     const years = Array.from(new Set(days.map((d) => d.year())));
     let allHolidays: Record<string, any> = {};
@@ -117,14 +140,11 @@ export const TimelineDndContext = forwardRef<
 
   const isRedDay = (day: Dayjs) => {
     const dateStr = day.format("YYYY-MM-DD");
-    // 0 = Sunday, 6 = Saturday
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
+
   const startScrollLeftRef = useRef(0);
   const totalScrollDeltaRef = useRef(0);
-  const theme = useTheme();
-
-  // Add these hooks at the top of your component
   const [isDragging, setIsDragging] = useState(false);
   const scrollIntervalRef = useRef<number | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
@@ -132,7 +152,6 @@ export const TimelineDndContext = forwardRef<
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       setIsDragging(true);
-      // Capture starting scroll position
       const container = (ref as React.RefObject<HTMLDivElement>).current;
       if (container) {
         startScrollLeftRef.current = container.scrollLeft;
@@ -150,121 +169,82 @@ export const TimelineDndContext = forwardRef<
         clearInterval(scrollIntervalRef.current);
         scrollIntervalRef.current = null;
       }
-
-      // IMPORTANT: Adjust the drop coordinates based on total scroll delta
       const { delta } = event;
-      const adjustedDelta = {
-        ...delta,
-        x: delta.x + totalScrollDeltaRef.current,
-      };
-
-      // Create modified event with adjusted delta
       const adjustedEvent = {
         ...event,
-        delta: adjustedDelta,
+        delta: { ...delta, x: delta.x + totalScrollDeltaRef.current },
       };
-
       onDragEnd?.(adjustedEvent);
-
-      // Reset
       startScrollLeftRef.current = 0;
       totalScrollDeltaRef.current = 0;
     },
     [onDragEnd],
   );
-  // Auto-scroll effect
+
   useEffect(() => {
     if (!isDragging || !ref) return;
-
     const container = (ref as React.RefObject<HTMLDivElement>).current;
     if (!container) return;
-
     const handleMouseMove = (e: MouseEvent) => {
       mousePosRef.current = { x: e.clientX, y: e.clientY };
     };
     window.addEventListener("mousemove", handleMouseMove);
-
     scrollIntervalRef.current = window.setInterval(() => {
       const rect = container.getBoundingClientRect();
       const mouseX = mousePosRef.current.x;
       const edgeThreshold = 80;
       const scrollSpeed = 15;
       const previousScrollLeft = container.scrollLeft;
-
-      if (mouseX < rect.left + edgeThreshold) {
+      if (mouseX < rect.left + edgeThreshold)
         container.scrollLeft -= scrollSpeed;
-      } else if (mouseX > rect.right - edgeThreshold) {
+      else if (mouseX > rect.right - edgeThreshold)
         container.scrollLeft += scrollSpeed;
-      }
-
-      // Track how much we scrolled during this drag
-      const currentScrollLeft = container.scrollLeft;
-      const deltaThisFrame = currentScrollLeft - previousScrollLeft;
+      const deltaThisFrame = container.scrollLeft - previousScrollLeft;
       totalScrollDeltaRef.current += deltaThisFrame;
     }, 16);
-
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-      }
+      if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
     };
   }, [isDragging, ref]);
-  // 1. Beräkna vilka absences som faktiskt är inom det synliga fönstret
+
   const visibleAbsences = useMemo(() => {
-    // Slutdatumet för vad som visas i gridet just nu
     const timelineEndDate = startDate.add(daysCount, "day");
-
-    const filtered = absences.filter((l) => {
+    return absences.filter((l) => {
       const leaveStart = dayjs(l.startDate);
-      // Vi räknar ut blockets slutdatum
       const leaveEnd = leaveStart.add(l.durationDays, "day");
-
-      // Ett block ska visas om:
-      // Blocket startar INNAN tidslinjen slutar...
-      // OCH blocket slutar EFTER att tidslinjen börjar.
       return (
         leaveStart.isBefore(timelineEndDate) && leaveEnd.isAfter(startDate)
       );
     });
-
-    return filtered;
   }, [absences, startDate, daysCount]);
-  // --- Grid Visual Constants ---
 
-  const noGroups = !teams || teams.length === 0;
-  const noAbsenceTypes = !absenceTypes || absenceTypes.length === 0;
-  const showWatermark = noGroups || noAbsenceTypes;
+  const showWatermark =
+    !teams || teams.length === 0 || !absenceTypes || absenceTypes.length === 0;
 
-  console.log("TimelineDndContext rendered");
   return (
-    /* 
-      The outermost Box is the Horizontal Scroller. 
-      IMPORTANT: This Box must NOT have overflowY: "auto" if you want 
-      it to scroll vertically with the sidebar.
-    */
-    <Box
+    <div
       ref={ref}
       onScroll={onScroll}
-      sx={{
+      style={{
         flex: 1,
         display: "flex",
         flexDirection: "column",
         width: "100%",
         position: "relative",
+        overflowX: "auto",
       }}
     >
-      <Box
-        sx={{
+      <div
+        style={{
           width: daysCount * CELL_WIDTH,
           minHeight: "100%",
           position: "relative",
         }}
       >
         {showWatermark ? (
-          /* --- Your existing Watermark Code --- */
-          <Box
-            sx={{
+          <div
+            style={{
               position: "absolute",
               top: -200,
               left: 0,
@@ -275,224 +255,169 @@ export const TimelineDndContext = forwardRef<
               justifyContent: "center",
               zIndex: 1,
               pointerEvents: "none",
-              background: `linear-gradient(180deg, 
-                transparent 0%, 
-                ${alpha(theme.palette.background.paper, 0.7)} 30%,
-                ${alpha(theme.palette.background.paper, 0.9)} 100%
-            )`,
+              background: `linear-gradient(180deg, transparent 0%, rgba(255,255,255, 0.7) 30%, rgba(255,255,255, 0.9) 100%)`,
             }}
           >
-            <Box
-              sx={{
+            <div
+              style={{
                 textAlign: "center",
                 maxWidth: "600px",
-                padding: { xs: 3, md: 4 },
+                padding: "32px",
                 width: "90%",
               }}
             >
-              {/* Icon/Emoji */}
-              <Box sx={{ opacity: 0.3 }}>
-                <Typography sx={{ fontSize: "3.5rem" }}>📋</Typography>
-              </Box>
-
-              {/* Main Title */}
-              <Typography
-                variant="h4"
-                sx={{
-                  color: alpha(theme.palette.text.primary, 0.3),
+              <div style={{ opacity: 0.3, fontSize: "3.5rem" }}>📋</div>
+              <h4
+                style={{
+                  color: "rgba(0,0,0,0.3)",
                   fontWeight: 700,
-                  fontSize: { xs: "1.5rem", md: "1.23rem" },
-                  mb: 2,
+                  fontSize: "1.23rem",
+                  marginBottom: "16px",
                   lineHeight: 1.3,
                 }}
               >
                 Börja med att skapa frånvarotyper, grupper och anställda.
-              </Typography>
-
-              {/* Instruction Steps */}
-              <Box
-                sx={{
+              </h4>
+              <div
+                style={{
                   display: "flex",
-                  flexDirection: { xs: "column", sm: "row" },
                   justifyContent: "center",
-                  gap: { xs: 2, sm: 3, md: 4 },
-                  mb: 2,
+                  gap: "32px",
+                  marginBottom: "16px",
                 }}
               >
                 {/* Step 1 */}
-                <Box
-                  sx={{
+                <div
+                  style={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1,
+                    gap: "8px",
                   }}
                 >
-                  <Box
-                    sx={{
+                  <div
+                    style={{
                       width: 40,
                       height: 40,
                       borderRadius: "50%",
-                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      backgroundColor: rgba("#1976d2", 0.1),
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      border: `1px solid ${alpha(
-                        theme.palette.primary.main,
-                        0.2,
-                      )}`,
+                      border: `1px solid ${rgba("#1976d2", 0.2)}`,
+                      color: rgba("#1976d2", 0.5),
+                      fontWeight: 500,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        color: alpha(theme.palette.primary.main, 0.5),
-                        fontWeight: 500,
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      1
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: alpha(theme.palette.text.secondary, 0.5),
-                      fontWeight: 400,
+                    1
+                  </div>
+                  <span
+                    style={{
+                      color: "rgba(0,0,0,0.5)",
                       fontSize: "0.9rem",
                       textAlign: "center",
                       maxWidth: "120px",
                     }}
                   >
                     Skapa frånvarotyper
-                  </Typography>
-                </Box>
-
-                {/* Arrow */}
-                <Box
-                  sx={{
-                    display: { xs: "none", sm: "flex" },
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
                     alignItems: "center",
-                    color: alpha(theme.palette.text.disabled, 0.3),
+                    color: "rgba(0,0,0,0.3)",
                   }}
                 >
-                  <ArrowRightAlt />
-                </Box>
-
+                  <ArrowRightSvg />
+                </div>
                 {/* Step 2 */}
-                <Box
-                  sx={{
+                <div
+                  style={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1,
+                    gap: "8px",
                   }}
                 >
-                  <Box
-                    sx={{
+                  <div
+                    style={{
                       width: 40,
                       height: 40,
                       borderRadius: "50%",
-                      backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                      backgroundColor: rgba("#9c27b0", 0.1),
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      border: `1px solid ${alpha(
-                        theme.palette.secondary.main,
-                        0.2,
-                      )}`,
+                      border: `1px solid ${rgba("#9c27b0", 0.2)}`,
+                      color: rgba("#9c27b0", 0.5),
+                      fontWeight: 500,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        color: alpha(theme.palette.secondary.main, 0.5),
-                        fontWeight: 500,
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      2
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: alpha(theme.palette.text.secondary, 0.5),
-                      fontWeight: 400,
+                    2
+                  </div>
+                  <span
+                    style={{
+                      color: "rgba(0,0,0,0.5)",
                       fontSize: "0.9rem",
                       textAlign: "center",
                       maxWidth: "120px",
                     }}
                   >
                     Skapa Grupp
-                  </Typography>
-                </Box>
-
-                {/* Arrow */}
-                <Box
-                  sx={{
-                    display: { xs: "none", sm: "flex" },
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
                     alignItems: "center",
-                    color: alpha(theme.palette.text.disabled, 0.3),
+                    color: "rgba(0,0,0,0.3)",
                   }}
                 >
-                  <ArrowRightAlt />
-                </Box>
-
+                  <ArrowRightSvg />
+                </div>
                 {/* Step 3 */}
-                <Box
-                  sx={{
+                <div
+                  style={{
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 1,
+                    gap: "8px",
                   }}
                 >
-                  <Box
-                    sx={{
+                  <div
+                    style={{
                       width: 40,
                       height: 40,
                       borderRadius: "50%",
-                      backgroundColor: alpha(theme.palette.success.main, 0.1),
+                      backgroundColor: rgba("#2e7d32", 0.1),
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      border: `1px solid ${alpha(
-                        theme.palette.success.main,
-                        0.2,
-                      )}`,
+                      border: `1px solid ${rgba("#2e7d32", 0.2)}`,
+                      color: rgba("#2e7d32", 0.5),
+                      fontWeight: 500,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        color: alpha(theme.palette.success.main, 0.5),
-                        fontWeight: 500,
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      3
-                    </Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: alpha(theme.palette.text.secondary, 0.5),
-                      fontWeight: 400,
+                    3
+                  </div>
+                  <span
+                    style={{
+                      color: "rgba(0,0,0,0.5)",
                       fontSize: "0.9rem",
                       textAlign: "center",
                       maxWidth: "120px",
                     }}
                   >
                     Skapa Arbetare
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Final Instruction */}
-              <Typography
-                variant="body1"
-                sx={{
-                  color: alpha(theme.palette.text.secondary, 0.4),
+                  </span>
+                </div>
+              </div>
+              <p
+                style={{
+                  color: "rgba(0,0,0,0.4)",
                   fontWeight: 300,
-                  fontSize: { xs: "0.95rem", md: "1.05rem" },
+                  fontSize: "1.05rem",
                   fontStyle: "italic",
                   lineHeight: 1.6,
                   maxWidth: "400px",
@@ -501,23 +426,21 @@ export const TimelineDndContext = forwardRef<
                 }}
               >
                 Klicka på <strong>Meny</strong> i sidomenyn för att komma igång!
-              </Typography>
-            </Box>
-          </Box>
+              </p>
+            </div>
+          </div>
         ) : (
-          <Box
-            sx={{
-              width: daysCount * CELL_WIDTH, // Forces the horizontal width
+          <div
+            style={{
+              width: daysCount * CELL_WIDTH,
               display: "flex",
               flexDirection: "column",
               position: "relative",
             }}
           >
-            {/* 2. MAIN GRID CONTENT */}
-            <Box sx={{ position: "relative", flex: 1 }}>
-              {/* Red Day Background Highlights */}
-              <Box
-                sx={{
+            <div style={{ position: "relative", flex: 1 }}>
+              <div
+                style={{
                   position: "absolute",
                   top: 0,
                   left: 0,
@@ -529,64 +452,58 @@ export const TimelineDndContext = forwardRef<
                 {days.map(
                   (day, i) =>
                     isRedDay(day) && (
-                      <Box
+                      <div
                         key={`bg-${i}`}
-                        sx={{
+                        style={{
                           position: "absolute",
                           left: i * CELL_WIDTH,
                           width: CELL_WIDTH,
                           top: 0,
                           bottom: 0,
-                          bgcolor: "rgba(244, 67, 54, 0.04)",
+                          backgroundColor: "rgba(244, 67, 54, 0.04)",
                           borderRight: "1px solid rgba(0, 0, 0, 0.02)",
                         }}
                       />
                     ),
                 )}
-              </Box>
-
+              </div>
               <PastDaysOverlay
                 width={disabledOverlayWidth}
                 isVisible={blockPastDays}
               />
-
               <DndContext
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToHorizontalAxis]}
               >
-                <Box sx={{ position: "relative", width: "100%", flex: 1 }}>
+                <div style={{ position: "relative", width: "100%", flex: 1 }}>
                   {teams.map((team) => {
                     const isCollapsed = collapsedTeams.includes(team.id);
                     return (
-                      <Box key={team.id}>
-                        {/* Group Separator Row */}
-                        <Box
+                      <div key={team.id}>
+                        <div
                           onMouseDown={onTeamMouseDown}
                           onMouseMove={onTeamMouseMove}
                           onMouseUp={onTeamMouseUp}
                           onMouseLeave={onTeamMouseUp}
-                          sx={{
+                          style={{
                             height: 40,
-                            bgcolor: alpha("#000", 0.04),
+                            backgroundColor: "rgba(0,0,0,0.04)",
                             borderBottom: "1px solid #eee",
                             cursor: "grab",
                             userSelect: "none",
-                            "&:hover": { bgcolor: alpha("#000", 0.08) },
-                            "&:active": { cursor: "grabbing" },
                           }}
                         />
-
-                        <Collapse in={!isCollapsed}>
-                          {(team.employees || []).map((emp) => (
-                            <Box
+                        {!isCollapsed &&
+                          (team.employees || []).map((emp) => (
+                            <div
                               key={emp.id}
                               onPointerDown={(e) =>
                                 onGridPointerDown(e, emp.id)
                               }
                               onPointerMove={onGridPointerMove}
                               onPointerUp={onGridPointerUp}
-                              sx={{
+                              style={{
                                 height: ROW_HEIGHT,
                                 borderBottom: "1px solid #eee",
                                 position: "relative",
@@ -596,29 +513,24 @@ export const TimelineDndContext = forwardRef<
                                 alignItems: "center",
                               }}
                             >
-                              {/* Selection Box Ghost */}
                               {selection.isSelecting &&
                                 selection.rowId === emp.id && (
-                                  <Box
+                                  <div
                                     ref={selectionBoxRef}
                                     style={{
-                                      left: selection.startX,
-                                      width: CELL_WIDTH,
-                                    }}
-                                    sx={{
                                       position: "absolute",
                                       top: 5,
                                       height: ROW_HEIGHT - 10,
-                                      bgcolor: alpha("#1976d2", 0.15),
+                                      left: selection.startX,
+                                      width: CELL_WIDTH,
+                                      backgroundColor: rgba("#1976d2", 0.15),
                                       border: "2px dashed #1976d2",
-                                      borderRadius: 1,
+                                      borderRadius: "4px",
                                       zIndex: 10,
                                       pointerEvents: "none",
                                     }}
                                   />
                                 )}
-
-                              {/* Absence Blocks */}
                               {visibleAbsences
                                 .filter((l) => l.employeeId === emp.id)
                                 .map((l) => (
@@ -647,30 +559,24 @@ export const TimelineDndContext = forwardRef<
                                     }
                                   />
                                 ))}
-                            </Box>
+                            </div>
                           ))}
-                        </Collapse>
-                      </Box>
+                      </div>
                     );
                   })}
-                </Box>
-
-                <DragOverlay
-                  adjustScale={false}
-                  dropAnimation={null} // Disable animation for instant response
-                >
+                </div>
+                <DragOverlay adjustScale={false} dropAnimation={null}>
                   {activeAbsenceBlock && (
                     <AbsenceBlock
                       absenceDetails={activeAbsenceBlock}
                       isOverlay
-                      left={0} // DragOverlay positions itself
+                      left={0}
                       employeeName="Dragging..."
                       absenceColor={
                         absenceTypes.find(
                           (t) => t.id === activeAbsenceBlock.absenceCategoryId,
                         )?.color
                       }
-                      // Disable interactions on overlay
                       onResizeEnd={undefined}
                       onEdit={undefined}
                       onDelete={undefined}
@@ -678,10 +584,10 @@ export const TimelineDndContext = forwardRef<
                   )}
                 </DragOverlay>
               </DndContext>
-            </Box>
-          </Box>
+            </div>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 });

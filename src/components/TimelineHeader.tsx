@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, memo, useContext, useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -172,7 +172,7 @@ function HolidayLayout(props: PickersLayoutProps<any>) {
 // ---------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------
-export const TimelineHeader: React.FC<TimelineHeaderProps> = ({
+const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   groups,
   pickerDate,
   isDatePickerOpen,
@@ -544,3 +544,4 @@ console.log("TimelineHeader rendered")
     </AppBar>
   );
 };
+export default memo(TimelineHeader);

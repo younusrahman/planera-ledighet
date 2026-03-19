@@ -1,6 +1,7 @@
 import { Box, Typography, Chip, alpha, useTheme, Tooltip } from "@mui/material";
 import { useAbsenceCategories } from "../services/hooks/useData";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import { memo } from "react";
 
 interface TimelineFooterProps {
   onAbsenceTypeClick: (type: any) => void;
@@ -8,8 +9,7 @@ interface TimelineFooterProps {
   selectedIds: string[];
   onToggle: (id: string) => void;
 }
-
-export default function TimelineFooter({
+ function TimelineFooter({
   onAbsenceTypeClick,
   selectedIds,
   onToggle,
@@ -113,3 +113,4 @@ console.log("TimelineFooter rendered")
     </Box>
   );
 }
+export default memo(TimelineFooter);

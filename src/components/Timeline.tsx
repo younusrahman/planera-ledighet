@@ -20,8 +20,6 @@ import {
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
 import { dialog } from "../services/dialog/dialogStore";
-import { TimelineHeader } from "./TimelineHeader";
-import { TimelineSidebar } from "./TimelineSidebar";
 import { TimelineDndContext } from "./TimelineDndContext";
 import {
   useTeamMutation,
@@ -36,6 +34,8 @@ import { absence } from "../services/stores/absenceDataStore";
 import TimelineFooter from "./TimelineFooter";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
+import TimelineHeader from "./TimelineHeader";
+import TimelineSidebar from "./TimelineSidebar";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
