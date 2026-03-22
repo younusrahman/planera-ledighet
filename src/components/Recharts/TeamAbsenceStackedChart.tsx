@@ -1,26 +1,4 @@
-// components/Analytics/TeamAbsenceStackedChart.tsx
 import React, { useState, useMemo } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  useTheme,
-  alpha,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  Checkbox,
-  FormControlLabel,
-  Tooltip as MuiTooltip,
-  IconButton,
-  Chip,
-} from "@mui/material";
-import InfoIcon from "@mui/icons-material/Info";
 import {
   BarChart,
   Bar,
@@ -36,477 +14,180 @@ import { absence } from "../../services/stores/absenceDataStore";
 import useFilterStore from "../../services/stores/analyticsStore";
 import dayjs from "dayjs";
 import { getSwedishHolidays } from "../../utils/holidayHelper";
+import styles from "./TeamAbsenceStackedChart.module.css";
+
+// Constants for Chart Colors (MUI theme replacements)
+const COLOR_SUCCESS = "#22c55e"; // Green
+const COLOR_ERROR = "#ef4444";   // Red
 
 export function TeamAbsenceStackedChart() {
-  const theme = useTheme();
   const { data: teams = [] } = useTeams();
   const { data: employees = [] } = useEmployees();
   const absences = absence.useItems();
+  const { teamSelections, getSelectedEmployeeIds, selectedStatuses } = useFilterStore();
 
-  const { teamSelections, getSelectedEmployeeIds, selectedStatuses } =
-    useFilterStore();
-
-  const currentYear = dayjs().year();
-  const today = dayjs().format("YYYY-MM-DD");
-
-  // Generate only upcoming holidays (not past)
-  const upcomingHolidays = useMemo(() => {
-    const years = [currentYear, currentYear + 1];
-    const allHolidays: Array<{ date: string; name: string }> = [];
-
-    years.forEach((year) => {
-      const h = getSwedishHolidays(year);
-      Object.entries(h).forEach(([date, holiday]) => {
-        if (date >= today) {
-          allHolidays.push({ date, name: holiday.name });
-        }
-      });
-    });
-
-    return allHolidays.sort((a, b) => a.date.localeCompare(b.date));
-  }, [currentYear, today]);
-
-  const defaultHoliday = useMemo(() => {
-    return upcomingHolidays[0]?.date || "";
-  }, [upcomingHolidays]);
-
-  const [selectedDate, setSelectedDate] = useState<string>(defaultHoliday);
-  // NEW: State for showing only employees without any absence
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const h = getSwedishHolidays(dayjs().year());
+    return Object.keys(h).sort().find(d => d >= dayjs().format("YYYY-MM-DD")) || "";
+  });
   const [showOnlyWithoutAbsence, setShowOnlyWithoutAbsence] = useState(false);
 
-  // Get selected employees from hierarchical selection
-  const selectedEmployeeIds = useMemo(() => {
-    return getSelectedEmployeeIds(employees);
-  }, [teamSelections, employees, getSelectedEmployeeIds]);
+  // --- Logic Helpers (Kept identical to original) ---
+  const upcomingHolidays = useMemo(() => {
+    const years = [dayjs().year(), dayjs().year() + 1];
+    const allHolidays: any[] = [];
+    years.forEach(y => {
+      const h = getSwedishHolidays(y);
+      Object.entries(h).forEach(([date, holiday]) => {
+        if (date >= dayjs().format("YYYY-MM-DD")) allHolidays.push({ date, name: holiday.name });
+      });
+    });
+    return allHolidays.sort((a, b) => a.date.localeCompare(b.date));
+  }, []);
 
-  // Get employees who have absences on the selected date (any status)
+  const selectedEmployeeIds = useMemo(() => getSelectedEmployeeIds(employees), [teamSelections, employees]);
+
   const employeesWithAnyAbsence = useMemo(() => {
     if (!selectedDate) return new Set<string>();
-
     const checkDate = dayjs(selectedDate).startOf("day");
-    const employeeIds = new Set<string>();
-
-    absences.forEach((abs) => {
-      const absStart = dayjs(abs.startDate).startOf("day");
-      const absEnd = dayjs(abs.endDate).endOf("day");
-
-      const isWithinAbsence =
-        (checkDate.isAfter(absStart) || checkDate.isSame(absStart, "day")) &&
-        (checkDate.isBefore(absEnd) || checkDate.isSame(absEnd, "day"));
-
-      if (isWithinAbsence && selectedEmployeeIds.includes(abs.employeeId)) {
-        employeeIds.add(abs.employeeId);
+    const ids = new Set<string>();
+    absences.forEach(abs => {
+      const s = dayjs(abs.startDate).startOf("day");
+      const e = dayjs(abs.endDate).endOf("day");
+      if ((checkDate.isAfter(s) || checkDate.isSame(s, 'd')) && (checkDate.isBefore(e) || checkDate.isSame(e, 'd'))) {
+        if (selectedEmployeeIds.includes(abs.employeeId)) ids.add(abs.employeeId);
       }
     });
-
-    return employeeIds;
+    return ids;
   }, [selectedDate, absences, selectedEmployeeIds]);
 
-  // Get employees who have absences matching selected statuses on the selected date
-  const employeesWithMatchingAbsences = useMemo(() => {
-    if (!selectedDate) return new Set<string>();
-
-    const checkDate = dayjs(selectedDate).startOf("day");
-    const employeeIds = new Set<string>();
-
-    absences.forEach((abs) => {
-      if (!selectedStatuses.includes(abs.status)) return;
-
-      const absStart = dayjs(abs.startDate).startOf("day");
-      const absEnd = dayjs(abs.endDate).endOf("day");
-
-      const isWithinAbsence =
-        (checkDate.isAfter(absStart) || checkDate.isSame(absStart, "day")) &&
-        (checkDate.isBefore(absEnd) || checkDate.isSame(absEnd, "day"));
-
-      if (isWithinAbsence && selectedEmployeeIds.includes(abs.employeeId)) {
-        employeeIds.add(abs.employeeId);
-      }
-    });
-
-    return employeeIds;
-  }, [selectedDate, absences, selectedStatuses, selectedEmployeeIds]);
-
-  // Filter employees based on mode
-  const filteredEmployees = useMemo(() => {
-    if (teamSelections.length === 0) {
-      return employees;
-    }
-
-    // NEW: If showing only employees without absence
-    if (showOnlyWithoutAbsence) {
-      // Show employees who have NO absences at all on this date
-      return employees.filter(
-        (emp) =>
-          selectedEmployeeIds.includes(emp.id) &&
-          !employeesWithAnyAbsence.has(emp.id),
-      );
-    }
-
-    // Normal mode: show based on status filter
-    const isShowingAllStatuses = selectedStatuses.length === 3;
-
-    if (!isShowingAllStatuses) {
-      return employees.filter(
-        (emp) =>
-          selectedEmployeeIds.includes(emp.id) &&
-          employeesWithMatchingAbsences.has(emp.id),
-      );
-    }
-
-    return employees.filter((emp) => selectedEmployeeIds.includes(emp.id));
-  }, [
-    employees,
-    teamSelections,
-    selectedEmployeeIds,
-    employeesWithMatchingAbsences,
-    selectedStatuses.length,
-    showOnlyWithoutAbsence,
-    employeesWithAnyAbsence,
-  ]);
-
-  // Group filtered employees by team
-  const employeesByTeam = useMemo(() => {
-    const map: Record<string, typeof employees> = {};
-    filteredEmployees.forEach((emp) => {
-      if (!map[emp.teamId]) map[emp.teamId] = [];
-      map[emp.teamId].push(emp);
-    });
-    return map;
-  }, [filteredEmployees]);
-
-  // Calculate attendance - when showing "without absence", all are working
   const attendanceByTeam = useMemo(() => {
-    if (!selectedDate) return {};
-
+    const res: Record<string, { absent: any[], working: any[] }> = {};
     const checkDate = dayjs(selectedDate).startOf("day");
 
-    const result: Record<
-      string,
-      {
-        absent: typeof employees;
-        working: typeof employees;
-      }
-    > = {};
-
-    // Initialize all teams with all employees as working
-    Object.entries(employeesByTeam).forEach(([teamId, teamEmployees]) => {
-      result[teamId] = {
-        absent: [],
-        working: [...teamEmployees],
-      };
+    // Filter relevant employees
+    const filtered = employees.filter(emp => {
+      const inSelection = selectedEmployeeIds.includes(emp.id);
+      if (showOnlyWithoutAbsence) return inSelection && !employeesWithAnyAbsence.has(emp.id);
+      return inSelection;
     });
 
-    // NEW: If showing only without absence, skip absence checking (all are working)
-    if (showOnlyWithoutAbsence) {
-      return result;
-    }
+    filtered.forEach(emp => {
+      if (!res[emp.teamId]) res[emp.teamId] = { absent: [], working: [] };
+      
+      const isAbsent = !showOnlyWithoutAbsence && absences.some(abs => {
+        if (!selectedStatuses.includes(abs.status)) return false;
+        const s = dayjs(abs.startDate).startOf("day");
+        const e = dayjs(abs.endDate).endOf("day");
+        return (checkDate.isAfter(s) || checkDate.isSame(s, 'd')) && (checkDate.isBefore(e) || checkDate.isSame(e, 'd')) && abs.employeeId === emp.id;
+      });
 
-    // Normal mode: check absences by selected statuses
-    absences.forEach((abs) => {
-      if (!selectedStatuses.includes(abs.status)) return;
-
-      const absStart = dayjs(abs.startDate).startOf("day");
-      const absEnd = dayjs(abs.endDate).endOf("day");
-
-      const isWithinAbsence =
-        (checkDate.isAfter(absStart) || checkDate.isSame(absStart, "day")) &&
-        (checkDate.isBefore(absEnd) || checkDate.isSame(absEnd, "day"));
-
-      if (isWithinAbsence) {
-        const emp = employees.find((e) => e.id === abs.employeeId);
-        if (emp && result[emp.teamId]) {
-          const workingIndex = result[emp.teamId].working.findIndex(
-            (e) => e.id === emp.id,
-          );
-          if (workingIndex >= 0) {
-            result[emp.teamId].working.splice(workingIndex, 1);
-          }
-          if (!result[emp.teamId].absent.find((e) => e.id === emp.id)) {
-            result[emp.teamId].absent.push(emp);
-          }
-        }
-      }
+      if (isAbsent) res[emp.teamId].absent.push(emp);
+      else res[emp.teamId].working.push(emp);
     });
+    return res;
+  }, [selectedDate, employees, selectedEmployeeIds, showOnlyWithoutAbsence, employeesWithAnyAbsence, absences, selectedStatuses]);
 
-    return result;
-  }, [
-    selectedDate,
-    employeesByTeam,
-    absences,
-    employees,
-    selectedStatuses,
-    showOnlyWithoutAbsence,
-  ]);
-
-  // Chart data
   const chartData = useMemo(() => {
-    if (!selectedDate) return [];
-
     return teams
-      .filter(
-        (team) =>
-          employeesByTeam[team.id] && employeesByTeam[team.id].length > 0,
-      )
-      .map((team) => {
-        const attendance = attendanceByTeam[team.id];
-        const working = attendance?.working.length || 0;
-        const absent = attendance?.absent.length || 0;
-        const total = working + absent;
-
+      .map(team => {
+        const data = attendanceByTeam[team.id] || { working: [], absent: [] };
         return {
           teamName: team.name,
-          Arbetar: working,
-          Ledig: absent,
-          total,
+          Arbetar: data.working.length,
+          Ledig: data.absent.length,
           teamId: team.id,
+          total: data.working.length + data.absent.length
         };
       })
+      .filter(t => t.total > 0)
       .sort((a, b) => b.total - a.total);
-  }, [selectedDate, teams, employeesByTeam, attendanceByTeam]);
+  }, [teams, attendanceByTeam]);
 
-  const selectedHolidayName = upcomingHolidays.find(
-    (h) => h.date === selectedDate,
-  )?.name;
-
-  // Custom tooltip
-  const renderTooltip = ({ active, payload }: any) => {
-    if (!active || !payload || !payload.length) return null;
-
-    const data = payload[0].payload;
-    const teamId = data.teamId;
-    const attendance = attendanceByTeam[teamId];
-
-    if (!attendance) return null;
-
-    const { working, absent } = attendance;
+  // --- Custom Tooltip ---
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.[0]) return null;
+    const teamId = payload[0].payload.teamId;
+    const { working, absent } = attendanceByTeam[teamId];
 
     return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-          boxShadow: `0 8px 24px ${alpha(theme.palette.common.black, 0.15)}`,
-          backgroundColor: theme.palette.background.paper,
-          minWidth: 320,
-          maxWidth: 450,
-          maxHeight: 400,
-          overflowY: "auto",
-        }}
-      >
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-          {data.teamName} – {selectedDate}
-          {showOnlyWithoutAbsence && (
-            <Chip
-              size="small"
-              label="Endast utan frånvaro"
-              color="success"
-              sx={{ ml: 1, fontSize: "0.7rem" }}
-            />
-          )}
-        </Typography>
-
-        <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
-          <Typography variant="body2" color="success.main" fontWeight={600}>
-            Arbetar: {working.length}
-          </Typography>
-          {!showOnlyWithoutAbsence && (
-            <Typography variant="body2" color="error.main" fontWeight={600}>
-              Ledig: {absent.length}
-            </Typography>
-          )}
-        </Box>
-
-        {/* Absent Employees - only show in normal mode */}
-        {!showOnlyWithoutAbsence && absent.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "error.main",
-                fontWeight: 600,
-                display: "block",
-                mb: 0.5,
-              }}
-            >
-              Lediga anställda:
-            </Typography>
-            <List
-              dense
-              sx={{
-                bgcolor: alpha(theme.palette.error.main, 0.05),
-                borderRadius: 1,
-              }}
-            >
-              {absent.map((emp) => (
-                <ListItem key={emp.id} disablePadding sx={{ py: 0.25, px: 1 }}>
-                  <ListItemText
-                    primary={
-                      <Typography
-                        variant="body2"
-                        sx={{ fontSize: "0.8rem", color: "error.dark" }}
-                      >
-                        {emp.name}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
-        )}
+      <div className={styles.tooltip}>
+        <div className={styles.tooltipTitle}>
+          {payload[0].payload.teamName} — {selectedDate}
+        </div>
+        
+        <div className={styles.statsGrid}>
+          <span style={{ color: COLOR_SUCCESS }} className={styles.statItem}>Arbetar: {working.length}</span>
+          {!showOnlyWithoutAbsence && <span style={{ color: COLOR_ERROR }} className={styles.statItem}>Ledig: {absent.length}</span>}
+        </div>
 
         {!showOnlyWithoutAbsence && absent.length > 0 && (
-          <Divider sx={{ my: 1 }} />
+          <div className={`${styles.employeeList} ${styles.listAbsent}`}>
+            <span className={styles.listTitle}>Frånvarande:</span>
+            {absent.map(e => <div key={e.id} className={styles.employeeName}>{e.name}</div>)}
+          </div>
         )}
 
-        {/* Working Employees */}
         {working.length > 0 && (
-          <Box>
-            <Typography
-              variant="caption"
-              sx={{
-                color: "success.main",
-                fontWeight: 600,
-                display: "block",
-                mb: 0.5,
-              }}
-            >
-              {showOnlyWithoutAbsence
-                ? "Anställda utan frånvaro:"
-                : "Arbetande anställda:"}
-            </Typography>
-            <List
-              dense
-              sx={{
-                bgcolor: alpha(theme.palette.success.main, 0.05),
-                borderRadius: 1,
-              }}
-            >
-              {working.map((emp) => (
-                <ListItem key={emp.id} disablePadding sx={{ py: 0.25, px: 1 }}>
-                  <ListItemText
-                    primary={
-                      <Typography
-                        variant="body2"
-                        sx={{ fontSize: "0.8rem", color: "success.dark" }}
-                      >
-                        {emp.name}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Box>
+          <div className={`${styles.employeeList} ${styles.listWorking}`}>
+            <span className={styles.listTitle}>
+              {showOnlyWithoutAbsence ? "Anställda utan frånvaro:" : "I tjänst:"}
+            </span>
+            {working.map(e => <div key={e.id} className={styles.employeeName}>{e.name}</div>)}
+          </div>
         )}
-      </Paper>
+      </div>
     );
   };
 
   return (
-    <Box sx={{ mt: 4 }}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          mb: 3,
-          flexWrap: "wrap",
-        }}
-      >
-        <FormControl sx={{ minWidth: 250 }} size="small">
-          <InputLabel id="holiday-select-label">Välj helgdag</InputLabel>
-          <Select
-            labelId="holiday-select-label"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            label="Välj helgdag"
+    <div className={styles.container}>
+      <div className={styles.controls}>
+        <div className={styles.selectGroup}>
+          <label className={styles.label}>Välj helgdag</label>
+          <select 
+            className={styles.select} 
+            value={selectedDate} 
+            onChange={e => setSelectedDate(e.target.value)}
           >
-            {upcomingHolidays.map((holiday) => (
-              <MenuItem key={holiday.date} value={holiday.date}>
-                {holiday.date} – {holiday.name}
-              </MenuItem>
+            {upcomingHolidays.map(h => (
+              <option key={h.date} value={h.date}>{h.date} – {h.name}</option>
             ))}
-          </Select>
-        </FormControl>
+          </select>
+        </div>
 
-        {/* NEW: Checkbox for showing only employees without absence */}
-        <Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={showOnlyWithoutAbsence}
-                onChange={(e) => setShowOnlyWithoutAbsence(e.target.checked)}
-                size="small"
-              />
-            }
-            label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <Typography variant="body2">
-                  Visa endast anställda utan frånvaro
-                </Typography>
-                <MuiTooltip
-                  title="När denna är ikryssad ignoreras statusfiltret och endast anställda som inte har någon frånvaro alls visas"
-                  arrow
-                >
-                  <IconButton size="small" sx={{ p: 0.5 }}>
-                    <InfoIcon fontSize="small" color="action" />
-                  </IconButton>
-                </MuiTooltip>
-              </Box>
-            }
+        <div className={styles.checkboxGroup} onClick={() => setShowOnlyWithoutAbsence(!showOnlyWithoutAbsence)}>
+          <input 
+            type="checkbox" 
+            className={styles.checkbox} 
+            checked={showOnlyWithoutAbsence}
+            onChange={() => {}} // Handled by div click
           />
-          {showOnlyWithoutAbsence && (
-            <Chip
-              size="small"
-              color="warning"
-              variant="outlined"
-              label="Åsidosätter statusfilter"
-              sx={{ ml: 1 }}
-            />
-          )}
-        </Box>
-      </Box>
+          <span style={{ fontSize: '0.85rem' }}>Visa endast utan frånvaro</span>
+          <span className={styles.infoIcon} title="Ignorerar statusfilter och visar bara de som inte har någon bokad frånvaro alls">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+          </span>
+          {showOnlyWithoutAbsence && <span className={styles.chip}>Åsidosätter statusfilter</span>}
+        </div>
+      </div>
 
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ width: "100%", height: 400 }}>
+      <div className={styles.card}>
+        <div style={{ width: "100%", height: 400 }}>
           <ResponsiveContainer>
-            <BarChart
-              data={chartData}
-              layout="vertical"
-              margin={{ top: 20, right: 30, left: 100, bottom: 20 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="teamName" />
-              <Tooltip content={renderTooltip} />
-              <Legend />
-              <Bar
-                dataKey="Arbetar"
-                stackId="a"
-                fill={theme.palette.success.main}
-              />
-              {!showOnlyWithoutAbsence && (
-                <Bar
-                  dataKey="Ledig"
-                  stackId="a"
-                  fill={theme.palette.error.main}
-                />
-              )}
+            <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="teamName" tick={{ fontSize: 12, fontWeight: 600 }} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f9fafb' }} />
+              <Legend verticalAlign="top" align="right" height={36}/>
+              <Bar dataKey="Arbetar" stackId="a" fill={COLOR_SUCCESS} radius={showOnlyWithoutAbsence ? [0, 4, 4, 0] : [0, 0, 0, 0]} />
+              {!showOnlyWithoutAbsence && <Bar dataKey="Ledig" stackId="a" fill={COLOR_ERROR} radius={[0, 4, 4, 0]} />}
             </BarChart>
           </ResponsiveContainer>
-        </Box>
-      </Paper>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 }

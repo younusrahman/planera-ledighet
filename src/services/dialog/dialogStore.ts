@@ -1,14 +1,16 @@
 import { create } from "zustand";
 
+type MaxWidth = "xs" | "sm" | "md" | "lg" | "xl";
+
 interface DialogInstance {
   id: string;
   props: any;
-  maxWidth?: "xs" | "sm" | "md" | "lg" | "xl";
+  maxWidth?: MaxWidth;
 }
 
 interface DialogState {
   stack: DialogInstance[];
-  open: (id: string, props: any, maxWidth?: any) => void;
+  open: (id: string, props: any, maxWidth?: MaxWidth) => void;
   close: () => void;
 }
 
@@ -20,12 +22,12 @@ export const useDialogStore = create<DialogState>((set) => ({
     })),
   close: () =>
     set((state) => ({
-      stack: state.stack.slice(0, -1), // Removes only the top dialog
+      stack: state.stack.slice(0, -1),
     })),
 }));
 
 export const dialog = {
-  open: (id: string, props: any, maxWidth?: any) =>
+  open: (id: string, props: any, maxWidth?: MaxWidth) =>
     useDialogStore.getState().open(id, props, maxWidth),
   close: () => useDialogStore.getState().close(),
 };

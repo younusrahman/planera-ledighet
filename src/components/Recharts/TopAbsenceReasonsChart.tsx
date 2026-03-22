@@ -1,18 +1,4 @@
-// components/Analytics/TopAbsenceReasonsChart.tsx
 import React, { useMemo } from "react";
-import {
-  Box,
-  Typography,
-  Paper,
-  useTheme,
-  alpha,
-  List,
-  ListItem,
-  Chip,
-  Grid,
-  LinearProgress,
-  Tooltip as MuiTooltip,
-} from "@mui/material";
 import {
   BarChart,
   Bar,
@@ -23,11 +9,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import TrendingDownIcon from "@mui/icons-material/TrendingDown";
-import TrendingFlatIcon from "@mui/icons-material/TrendingFlat";
-import PeopleIcon from "@mui/icons-material/People";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import {
   useEmployees,
   useAbsenceCategories,
@@ -35,454 +16,287 @@ import {
 import { absence } from "../../services/stores/absenceDataStore";
 import useFilterStore from "../../services/stores/analyticsStore";
 import dayjs from "dayjs";
+import styles from "./TopAbsenceReasonsChart.module.css";
 
-interface TopAbsenceReasonsChartProps {
-  startDate?: string;
-  endDate?: string;
-}
-
-// Chart data item with primitive values only
-interface ChartDataItem {
-  categoryId: string;
-  label: string;
-  color: string;
-  count: number;
-  days: number;
-  employeeCount: number; // Changed from Set to number
-  avgDuration: number;
-  trend: "up" | "down" | "stable";
-}
+// Lightweight Icons
+const TrendIcon = ({ type }: { type: "up" | "down" | "stable" }) => {
+  if (type === "up")
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#ef4444"
+        strokeWidth="2.5"
+      >
+        <path d="M23 6l-9.5 9.5-5-5L1 18m22-12h-6m6 0v6" />
+      </svg>
+    );
+  if (type === "down")
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#22c55e"
+        strokeWidth="2.5"
+      >
+        <path d="M23 18l-9.5-9.5-5 5L1 6m22 12h-6m6 0v-6" />
+      </svg>
+    );
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#9ca3af"
+      strokeWidth="2.5"
+    >
+      <path d="M5 12h14" />
+    </svg>
+  );
+};
 
 export function TopAbsenceReasonsChart({
   startDate,
   endDate,
-}: TopAbsenceReasonsChartProps) {
-  const theme = useTheme();
+}: {
+  startDate?: string;
+  endDate?: string;
+}) {
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useAbsenceCategories();
   const absences = absence.useItems();
-
   const { teamSelections, getSelectedEmployeeIds, selectedStatuses } =
     useFilterStore();
 
-  const selectedEmployeeIds = useMemo(() => {
-    return getSelectedEmployeeIds(employees);
-  }, [teamSelections, employees, getSelectedEmployeeIds]);
+  const selectedEmployeeIds = useMemo(
+    () => getSelectedEmployeeIds(employees),
+    [teamSelections, employees],
+  );
 
-  // Calculate stats and transform to chart-friendly format
-  const { categoryStats, totalDays, totalInstances, totalEmployees } =
-    useMemo(() => {
-      // First pass: collect data with Sets
-      const rawStats: Record<
-        string,
-        {
-          categoryId: string;
-          label: string;
-          color: string;
-          count: number;
-          days: number;
-          employees: Set<string>;
-          avgDuration: number;
-          trend: "up" | "down" | "stable";
-        }
-      > = {};
-
-      // Initialize all categories
-      categories.forEach((cat) => {
-        rawStats[cat.id] = {
-          categoryId: cat.id,
-          label: cat.label,
-          color: cat.color,
-          count: 0,
-          days: 0,
-          employees: new Set(),
-          avgDuration: 0,
-          trend: "stable",
-        };
-      });
-
-      // Filter date range
-      const rangeStart = startDate
-        ? dayjs(startDate)
-        : dayjs().subtract(1, "year");
-      const rangeEnd = endDate ? dayjs(endDate) : dayjs();
-
-      console.log("Date range:", rangeStart.format(), "to", rangeEnd.format());
-      console.log("Selected employees:", selectedEmployeeIds.length);
-      console.log("Selected statuses:", selectedStatuses);
-      console.log("Total absences:", absences.length);
-
-      // Calculate stats
-      let matchedAbsences = 0;
-      absences.forEach((abs) => {
-        // Check employee
-        if (!selectedEmployeeIds.includes(abs.employeeId)) {
-          return;
-        }
-
-        // Check status
-        if (!selectedStatuses.includes(abs.status)) {
-          return;
-        }
-
-        const absStart = dayjs(abs.startDate);
-        const absEnd = dayjs(abs.endDate);
-
-        // Check date range
-        const startsBeforeEnd =
-          absStart.isBefore(rangeEnd) || absStart.isSame(rangeEnd);
-        const endsAfterStart =
-          absEnd.isAfter(rangeStart) || absEnd.isSame(rangeStart);
-
-        if (!startsBeforeEnd || !endsAfterStart) {
-          return;
-        }
-
-        matchedAbsences++;
-
-        const cat = rawStats[abs.absenceCategoryId];
-        if (cat) {
-          cat.count += 1;
-          cat.days += abs.durationDays;
-          cat.employees.add(abs.employeeId);
-        }
-      });
-
-      console.log("Matched absences:", matchedAbsences);
-      console.log("Raw stats:", rawStats);
-
-      // Calculate averages and transform to chart data
-      const chartData: ChartDataItem[] = Object.values(rawStats)
-        .filter((s) => s.count > 0)
-        .map((cat) => ({
-          categoryId: cat.categoryId,
-          label: cat.label,
-          color: cat.color,
-          count: cat.count,
-          days: cat.days,
-          employeeCount: cat.employees.size, // Convert Set to number
-          avgDuration: cat.count > 0 ? Math.round(cat.days / cat.count) : 0,
-          trend: cat.count > 5 ? "up" : cat.count < 2 ? "down" : "stable",
-        }))
-        .sort((a, b) => b.employeeCount - a.employeeCount || b.days - a.days);
-
-      const totals = {
-        totalDays: chartData.reduce((sum, cat) => sum + cat.days, 0),
-        totalInstances: chartData.reduce((sum, cat) => sum + cat.count, 0),
-        totalEmployees: new Set(
-          chartData.flatMap((c) => {
-            // Reconstruct employee set for total calculation
-            const cat = rawStats[c.categoryId];
-            return cat ? Array.from(cat.employees) : [];
-          }),
-        ).size,
+  const stats = useMemo(() => {
+    const rawStats: Record<string, any> = {};
+    categories.forEach((cat) => {
+      rawStats[cat.id] = {
+        categoryId: cat.id,
+        label: cat.label,
+        color: cat.color,
+        count: 0,
+        days: 0,
+        employees: new Set(),
       };
+    });
 
-      console.log("Chart data:", chartData);
-      console.log("Totals:", totals);
+    const rangeStart = startDate
+      ? dayjs(startDate)
+      : dayjs().subtract(1, "year");
+    const rangeEnd = endDate ? dayjs(endDate) : dayjs();
 
-      return {
-        categoryStats: chartData,
-        ...totals,
-      };
-    }, [
-      absences,
-      categories,
-      selectedEmployeeIds,
-      selectedStatuses,
-      startDate,
-      endDate,
-    ]);
+    absences.forEach((abs) => {
+      if (
+        !selectedEmployeeIds.includes(abs.employeeId) ||
+        !selectedStatuses.includes(abs.status)
+      )
+        return;
+      const start = dayjs(abs.startDate);
+      const end = dayjs(abs.endDate);
+      if (
+        !(start.isBefore(rangeEnd) || start.isSame(rangeEnd)) ||
+        !(end.isAfter(rangeStart) || end.isSame(rangeStart))
+      )
+        return;
 
-  const topCategory = categoryStats[0];
+      const cat = rawStats[abs.absenceCategoryId];
+      if (cat) {
+        cat.count += 1;
+        cat.days += abs.durationDays;
+        cat.employees.add(abs.employeeId);
+      }
+    });
 
-  // Custom tooltip content component
+    const chartData = Object.values(rawStats)
+      .filter((s: any) => s.count > 0)
+      .map((cat: any) => ({
+        ...cat,
+        employeeCount: cat.employees.size,
+        avgDuration: Math.round(cat.days / cat.count),
+        trend: cat.count > 5 ? "up" : cat.count < 2 ? "down" : "stable",
+      }))
+      .sort((a, b) => b.employeeCount - a.employeeCount);
+
+    return {
+      categoryStats: chartData,
+      totalDays: chartData.reduce((sum, c) => sum + c.days, 0),
+      totalInstances: chartData.reduce((sum, c) => sum + c.count, 0),
+      totalEmployees: new Set(
+        chartData.flatMap((c) => Array.from(rawStats[c.categoryId].employees)),
+      ).size,
+    };
+  }, [
+    absences,
+    categories,
+    selectedEmployeeIds,
+    selectedStatuses,
+    startDate,
+    endDate,
+  ]);
+
+  const topCategory = stats.categoryStats[0];
+
   const CustomTooltip = ({ active, payload }: any) => {
-    if (!active || !payload || !payload.length) return null;
-
-    const data: ChartDataItem = payload[0].payload;
-
+    if (!active || !payload?.[0]) return null;
+    const data = payload[0].payload;
     return (
-      <Paper
-        elevation={0}
-        sx={{
-          p: 1.5,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 1,
-          bgcolor: "background.paper",
-          boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.15)}`,
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600}>
-          {data.label}
-        </Typography>
-        <Box sx={{ mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            {data.employeeCount} unika anställda drabbade
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {data.days} totala dagar • {data.count} tillfällen
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Snitt {data.avgDuration} dagar per tillfälle
-          </Typography>
-        </Box>
-      </Paper>
+      <div className={styles.tooltip}>
+        <div style={{ fontWeight: 700, marginBottom: "4px" }}>{data.label}</div>
+        <div style={{ fontSize: "0.8rem", color: "#666" }}>
+          {data.employeeCount} anställda • {data.days} dagar
+          <br />
+          Snitt {data.avgDuration} dagar per tillfälle
+        </div>
+      </div>
     );
   };
 
-  // Debug output
-  console.log("Rendering with stats:", categoryStats.length, "categories");
-
   return (
-    <Box sx={{ mt: 4 }}>
-      {/* Summary Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, textAlign: "center" }}>
-            <Typography variant="h4" color="primary.main" fontWeight={700}>
-              {totalInstances}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Totalt antal tillfällen
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, textAlign: "center" }}>
-            <Typography variant="h4" color="secondary.main" fontWeight={700}>
-              {totalDays}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Totala frånvarodagar
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
-          <Paper sx={{ p: 2, textAlign: "center" }}>
-            <Typography variant="h4" color="success.main" fontWeight={700}>
-              {totalEmployees}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Berörda anställda
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
+    <div className={styles.container}>
+      {/* Summary Row */}
+      <div className={styles.summaryGrid}>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryValue} style={{ color: "#2563eb" }}>
+            {stats.totalInstances}
+          </span>
+          <span className={styles.summaryLabel}>Tillfällen</span>
+        </div>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryValue} style={{ color: "#7c3aed" }}>
+            {stats.totalDays}
+          </span>
+          <span className={styles.summaryLabel}>Frånvarodagar</span>
+        </div>
+        <div className={styles.summaryCard}>
+          <span className={styles.summaryValue} style={{ color: "#059669" }}>
+            {stats.totalEmployees}
+          </span>
+          <span className={styles.summaryLabel}>Berörda anställda</span>
+        </div>
+      </div>
 
-      {/* Top Insight */}
+      {/* Insight Banner */}
       {topCategory && (
-        <Paper
-          sx={{
-            p: 2,
-            mb: 3,
-            bgcolor: alpha(topCategory.color, 0.1),
-            borderLeft: `4px solid ${topCategory.color}`,
+        <div
+          className={styles.insightCard}
+          style={{
+            backgroundColor: `${topCategory.color}15`,
+            borderLeftColor: topCategory.color,
           }}
         >
-          <Typography variant="subtitle1" fontWeight={600}>
+          <h4 className={styles.insightTitle}>
             Vanligaste orsak: {topCategory.label}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          </h4>
+          <p className={styles.insightDesc}>
             Påverkar {topCategory.employeeCount} anställda med{" "}
             {topCategory.days} dagar (
-            {Math.round((topCategory.days / (totalDays || 1)) * 100)}% av total
-            frånvaro)
-          </Typography>
-        </Paper>
+            {Math.round((topCategory.days / (stats.totalDays || 1)) * 100)}% av
+            totalen)
+          </p>
+        </div>
       )}
 
-      {/* Chart */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ width: "100%", height: 300, mb: 3 }}>
-          {categoryStats.length > 0 ? (
+      {/* Chart Section */}
+      <div className={styles.chartCard}>
+        <div style={{ width: "100%", height: 300, marginBottom: "32px" }}>
+          {stats.categoryStats.length > 0 ? (
             <ResponsiveContainer>
               <BarChart
-                data={categoryStats}
+                data={stats.categoryStats}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
+                margin={{ left: 80, right: 20 }}
               >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  horizontal={false}
+                  stroke="#f3f4f6"
+                />
+                <XAxis type="number" hide />
                 <YAxis
                   type="category"
                   dataKey="label"
-                  width={110}
-                  tick={{ fontSize: 11 }}
+                  width={100}
+                  tick={{ fontSize: 11, fontWeight: 500 }}
                 />
-                <Tooltip content={<CustomTooltip />} />
-                {/* Use employeeCount which is a number, not a Set */}
-                <Bar
-                  dataKey="employeeCount"
-                  fill={theme.palette.primary.main}
-                  radius={[0, 4, 4, 0]}
-                  barSize={20}
-                >
-                  {categoryStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{ fill: "#f9fafb" }}
+                />
+                <Bar dataKey="employeeCount" radius={[0, 4, 4, 0]} barSize={20}>
+                  {stats.categoryStats.map((entry: any, index: number) => (
+                    <Cell key={index} fill={entry.color} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <Box
-              sx={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "column",
-              }}
-            >
-              <Typography color="text.secondary">
-                Ingen data för valda filter
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 1 }}
-              >
-                Prova att ändra datumintervall eller filter
-              </Typography>
-            </Box>
+            <div className={styles.noData}>
+              Ingen data hittades för valda filter
+            </div>
           )}
-        </Box>
+        </div>
 
-        {/* Detailed Breakdown List */}
-        {categoryStats.length > 0 && (
-          <>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-              Detaljerad breakdown
-            </Typography>
-            <List dense>
-              {categoryStats.map((cat) => {
-                const percentageOfTotal = Math.round(
-                  (cat.days / (totalDays || 1)) * 100,
-                );
-                const employeeRate =
-                  selectedEmployeeIds.length > 0
-                    ? Math.round(
-                        (cat.employeeCount / selectedEmployeeIds.length) * 100,
-                      )
-                    : 0;
+        {/* Breakdown List */}
+        <div className={styles.chartTitle}>Detaljerad breakdown</div>
+        <div className={styles.list}>
+          {stats.categoryStats.map((cat: any) => {
+            const percentage = Math.round(
+              (cat.days / (stats.totalDays || 1)) * 100,
+            );
+            return (
+              <div key={cat.categoryId} className={styles.listItem}>
+                <div className={styles.itemHeader}>
+                  <div
+                    className={styles.dot}
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  <span className={styles.itemLabel}>{cat.label}</span>
+                  <TrendIcon type={cat.trend} />
+                  <div className={styles.badgeGroup}>
+                    <span className={styles.badge}>
+                      {cat.employeeCount} pers
+                    </span>
+                    <span
+                      className={styles.badge}
+                      style={{ borderColor: cat.color, color: cat.color }}
+                    >
+                      {cat.days} d
+                    </span>
+                  </div>
+                </div>
 
-                return (
-                  <ListItem key={cat.categoryId} sx={{ py: 1, px: 0 }}>
-                    <Box sx={{ width: "100%" }}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 2,
-                          mb: 0.5,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: 12,
-                            height: 12,
-                            borderRadius: 1,
-                            backgroundColor: cat.color,
-                          }}
-                        />
-                        <Typography
-                          variant="body2"
-                          fontWeight={500}
-                          sx={{ flex: 1 }}
-                        >
-                          {cat.label}
-                        </Typography>
+                <div className={styles.progressWrapper}>
+                  <div className={styles.progressBarContainer}>
+                    <div
+                      className={styles.progressBarFill}
+                      style={{
+                        width: `${percentage}%`,
+                        backgroundColor: cat.color,
+                      }}
+                    />
+                  </div>
+                  <span className={styles.percentageText}>{percentage}%</span>
+                </div>
 
-                        <MuiTooltip title="Trend jämfört med föregående period">
-                          <Box sx={{ display: "flex", alignItems: "center" }}>
-                            {cat.trend === "up" && (
-                              <TrendingUpIcon color="error" fontSize="small" />
-                            )}
-                            {cat.trend === "down" && (
-                              <TrendingDownIcon
-                                color="success"
-                                fontSize="small"
-                              />
-                            )}
-                            {cat.trend === "stable" && (
-                              <TrendingFlatIcon
-                                color="disabled"
-                                fontSize="small"
-                              />
-                            )}
-                          </Box>
-                        </MuiTooltip>
-
-                        <Chip
-                          size="small"
-                          icon={<PeopleIcon fontSize="small" />}
-                          label={`${cat.employeeCount} pers`}
-                          variant="outlined"
-                          sx={{ fontSize: "0.75rem" }}
-                        />
-                        <Chip
-                          size="small"
-                          icon={<CalendarTodayIcon fontSize="small" />}
-                          label={`${cat.days} d`}
-                          color="primary"
-                          variant="outlined"
-                          sx={{ fontSize: "0.75rem" }}
-                        />
-                      </Box>
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          ml: 4,
-                        }}
-                      >
-                        <LinearProgress
-                          variant="determinate"
-                          value={percentageOfTotal}
-                          sx={{
-                            flex: 1,
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: alpha(cat.color, 0.2),
-                            "& .MuiLinearProgress-bar": {
-                              backgroundColor: cat.color,
-                            },
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ minWidth: 40 }}
-                        >
-                          {percentageOfTotal}%
-                        </Typography>
-                      </Box>
-
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ ml: 4 }}
-                      >
-                        {cat.count} tillfällen • snitt {cat.avgDuration} dagar •
-                        {employeeRate}% av personalen drabbad
-                      </Typography>
-                    </Box>
-                  </ListItem>
-                );
-              })}
-            </List>
-          </>
-        )}
-      </Paper>
-    </Box>
+                <div className={styles.subText}>
+                  {cat.count} tillfällen • snitt {cat.avgDuration} dagar
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }

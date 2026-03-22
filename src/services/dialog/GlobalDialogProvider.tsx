@@ -1,62 +1,78 @@
-import { Dialog, DialogContent, Fade } from "@mui/material";
+import React, { useEffect } from "react";
 import { useDialogStore } from "./dialogStore";
 import { dialogRegistry } from "./DialogRegistry";
+import styles from "./GlobalDialogProvider.module.css"; // Import the scoped CSS
 
 export function GlobalDialogProvider() {
   const { stack, close } = useDialogStore();
 
+  // Prevent background scrolling when dialog is open
+  useEffect(() => {
+    if (stack.length > 0) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [stack.length]);
+
   if (stack.length === 0) return null;
 
   return (
-    <>
+    <div className={styles.overlay}>
       {stack.map((item, index) => {
         const registration =
           dialogRegistry[item.id as keyof typeof dialogRegistry];
-
         if (!registration) return null;
+
         const Component = registration.component;
+        const isFullScreen = item.maxWidth === "xl";
 
         return (
-          <Dialog
+          <div
             key={`${item.id}-${index}`}
-            open={true}
-            onClose={close}
-            maxWidth={item.maxWidth}
-            fullWidth
-            fullScreen={item.fullScreen || false} // Add option for fullscreen
+            className={styles.backdrop}
             style={{ zIndex: 1300 + index }}
-            TransitionComponent={Fade}
-            // CRITICAL: Allow dialog to scroll if content is tall
-            scroll="paper" // or "body"
-            PaperProps={{
-              sx: {
-                borderRadius: 3,
-                background: "rgba(255, 255, 255, 0.98)",
-                backdropFilter: "blur(10px)",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-                // CRITICAL: Allow dialog paper to be tall
-                maxHeight: "90vh", // Limit to 90% of viewport
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              },
-            }}
+            onClick={close} // Close when clicking backdrop
           >
-            <DialogContent
-              sx={{
-                p: 3,
-                // CRITICAL: Make content area scrollable
-                overflow: "hidden",
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
+            <div
+              className={styles.paper}
+              style={{
+                maxWidth: getWidth(item.maxWidth),
+                width: isFullScreen ? "100%" : "95%",
+                height: isFullScreen ? "100%" : "auto",
+                borderRadius: isFullScreen ? "0" : "12px",
               }}
+              onClick={(e) => e.stopPropagation()} // Prevent close when clicking inside
             >
-              <Component {...(item.props as any)} onClose={close} />
-            </DialogContent>
-          </Dialog>
+              <div className={styles.content}>
+                <Component {...(item.props as any)} onClose={close} />
+              </div>
+            </div>
+          </div>
         );
       })}
-    </>
+    </div>
   );
 }
+
+// Helper to handle MUI-like maxWidths
+const getWidth = (width?: string) => {
+  switch (width) {
+    case "xs":
+      return "444px";
+    case "sm":
+      return "600px";
+    case "md":
+      return "900px";
+    case "lg":
+      return "1200px";
+    case "xl":
+      return "100%";
+    default:
+      return "600px";
+  }
+};
+  

@@ -1,17 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  TextField,
-  Button,
-  Box,
-  DialogActions,
-  DialogTitle,
-  Typography,
-  useTheme,
-  alpha,
-  InputAdornment,
-} from "@mui/material";
-import GroupsIcon from "@mui/icons-material/Groups";
-import DeleteIcon from "@mui/icons-material/Delete";
+import styles from "./GroupForm.module.css";
 
 export interface GroupFormProps {
   title: string;
@@ -30,7 +18,6 @@ const GroupForm: React.FC<GroupFormProps> = ({
   onDelete,
   onClose,
 }) => {
-  const theme = useTheme();
   const [name, setName] = useState(initialName);
   const [isFocused, setIsFocused] = useState(false);
   const [saveAttempted, setSaveAttempted] = useState(false);
@@ -38,13 +25,11 @@ const GroupForm: React.FC<GroupFormProps> = ({
   const maxLength = 50;
   const minAlphabetChars = 3;
 
-  // Återställ formuläret när det öppnas/props ändras
   useEffect(() => {
     setName(initialName);
     setSaveAttempted(false);
   }, [initialName]);
 
-  // Räkna endast faktiska bokstäver (inte siffror/mellanslag) enligt din original-regex
   const countAlphabetChars = (text: string) => {
     const alphabetRegex = /[a-zA-ZåäöÅÄÖ]/g;
     const matches = text.match(alphabetRegex);
@@ -65,119 +50,108 @@ const GroupForm: React.FC<GroupFormProps> = ({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    }
+    if (e.key === "Enter") handleSave();
   };
 
-
   return (
-    <Box>
-      <DialogTitle
-        component="div"
-        sx={{
-          p: 0,
-          mb: 3,
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-        }}
-      >
-        <GroupsIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 600, color: "text.primary" }}
+    <div className={styles.container}>
+      <div className={styles.header}>
+        {/* Groups Icon SVG */}
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth="2"
         >
-          {title}
-        </Typography>
-      </DialogTitle>
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+        <h2 className={styles.title}>{title}</h2>
+      </div>
 
-      <TextField
-        fullWidth
-        autoFocus
-        label="Gruppnamn"
-        value={name}
-        onChange={(e) => {
-          if (e.target.value.length <= maxLength) setName(e.target.value);
-        }}
-        onKeyPress={handleKeyPress}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        error={showError}
-       
-        placeholder="Ange gruppnamn..."
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <GroupsIcon color={isFocused ? "primary" : "action"} />
-            </InputAdornment>
-          ),
-        }}
-        sx={{
-          "& .MuiOutlinedInput-root": {
-            borderRadius: 1,
-          },
-        }}
-      />
+      <div className={styles.inputWrapper}>
+        <label className={styles.label}>Gruppnamn</label>
 
-      <DialogActions
-        sx={{
-          px: 0,
-          pb: 0,
-          pt: 2,
-          justifyContent: "space-between",
-        }}
-      >
-        {/* Ta bort-knapp visas endast vid redigering */}
-        <Box>
+        {/* Adornment Icon */}
+        <div
+          className={`${styles.iconAdornment} ${isFocused ? styles.iconActive : ""}`}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+          </svg>
+        </div>
+
+        <input
+          autoFocus
+          className={`${styles.inputField} ${showError ? styles.inputError : ""}`}
+          value={name}
+          onChange={(e) => {
+            if (e.target.value.length <= maxLength) setName(e.target.value);
+          }}
+          onKeyDown={handleKeyPress}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder="Ange gruppnamn..."
+        />
+
+        {showError && (
+          <span className={styles.errorText}>
+            Namnet kräver minst {minAlphabetChars} bokstäver.
+          </span>
+        )}
+      </div>
+
+      <div className={styles.footer}>
+        <div>
           {isEditMode && onDelete && (
-            <Button
-              color="error"
-              variant="outlined"
+            <button
+              className={`${styles.btn} ${styles.btnDelete}`}
               onClick={onDelete}
-              startIcon={<DeleteIcon />}
-              sx={{ borderRadius: 1 }}
             >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
               Ta bort
-            </Button>
+            </button>
           )}
-        </Box>
+        </div>
 
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 1 }}>
+        <div className={styles.btnGroup}>
+          <button
+            className={`${styles.btn} ${styles.btnSecondary}`}
+            onClick={onClose}
+          >
             Avbryt
-          </Button>
-          <Button
-            variant="contained"
+          </button>
+          <button
+            className={`${styles.btn} ${isEditMode ? styles.btnWarning : styles.btnPrimary}`}
             onClick={handleSave}
-            // ÄNDRING HÄR: Knappen är låst tills valideringen går igenom
             disabled={!isNameValid}
-            sx={{
-              borderRadius: 1,
-              px: 4,
-              fontWeight: 600,
-              boxShadow: "none",
-              // Gör knappen gråaktig när den är disabled
-              "&.Mui-disabled": {
-                background: theme.palette.action.disabledBackground,
-                color: theme.palette.action.disabled,
-              },
-              "&:not(.Mui-disabled)": {
-                background: isEditMode
-                  ? `linear-gradient(135deg, ${
-                      theme.palette.warning.main
-                    } 0%, ${alpha(theme.palette.warning.dark, 0.9)} 100%)`
-                  : `linear-gradient(135deg, ${
-                      theme.palette.primary.main
-                    } 0%, ${alpha(theme.palette.primary.dark, 0.9)} 100%)`,
-              },
-            }}
           >
             {isEditMode ? "Spara" : "Skapa"}
-          </Button>
-        </Box>
-      </DialogActions>
-    </Box>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

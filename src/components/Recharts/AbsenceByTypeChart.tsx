@@ -1,15 +1,5 @@
-import { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import {
-  Box,
-  Typography,
-  useTheme,
-  alpha,
-  Chip,
-  IconButton,
-} from "@mui/material";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import {
   useEmployees,
   useAbsenceCategories,
@@ -17,36 +7,94 @@ import {
 } from "../../services/hooks/useData";
 import { absence } from "../../services/stores/absenceDataStore";
 import useFilterStore from "../../services/stores/analyticsStore";
+import styles from "./AbsenceByTypeChart.module.css";
 
-// MRT imports
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from "material-react-table";
-import type { MRT_ColumnDef } from "material-react-table";
-
-const STATUS_LABELS: Record<number, string> = {
-  0: "Pending",
-  1: "Approved",
-  2: "Rejected",
+const STATUS_CLASSES: Record<string, string> = {
+  Pending: styles["status-pending"],
+  Approved: styles["status-approved"],
+  Rejected: styles["status-rejected"],
 };
 
-interface AbsenceRow {
-  id: string;
-  type: "team" | "employee" | "absence";
-  name: string;
-  statusLabel?: string;
-  days: number;
-  totalDays?: number;
-  subRows?: AbsenceRow[];
-  categoryColor?: string;
-}
-
+// --- Logic Helpers ---
 const getOverlapDays = (fS: Date, fE: Date, aS: Date, aE: Date): number => {
   const s = aS < fS ? fS : aS;
   const e = aE < fE ? fE : aE;
   if (s > e) return 0;
   return Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+};
+
+// --- Recursive Row Component ---
+const TableRow = ({ row, depth = 0 }: { row: any; depth?: number }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const hasSubRows = row.subRows && row.subRows.length > 0;
+
+  return (
+    <>
+      <div className={styles.row} style={{ paddingLeft: `${depth * 16}px` }}>
+        <div className={styles.nameCell}>
+          {hasSubRows ? (
+            <button
+              className={styles.expandBtn}
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                style={{
+                  transform: isExpanded ? "rotate(0deg)" : "rotate(-90deg)",
+                  transition: "0.2s",
+                }}
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+          ) : (
+            <div style={{ width: 24 }} />
+          )}
+
+          {row.type === "absence" ? (
+            <span
+              className={styles.badge}
+              style={{
+                backgroundColor: `${row.categoryColor}20`,
+                color: row.categoryColor,
+              }}
+            >
+              {row.name}
+            </span>
+          ) : (
+            <span
+              className={`${styles.rowText} ${row.type === "team" ? styles.teamName : styles.employeeName}`}
+            >
+              {row.name}
+            </span>
+          )}
+        </div>
+
+        <div>
+          {row.statusLabel && row.type === "absence" && (
+            <span
+              className={`${styles.badge} ${styles.statusBadge} ${STATUS_CLASSES[row.statusLabel]}`}
+            >
+              {row.statusLabel}
+            </span>
+          )}
+        </div>
+
+        <div className={styles.daysCell}>{row.totalDays ?? row.days}</div>
+      </div>
+
+      {isExpanded &&
+        hasSubRows &&
+        row.subRows.map((sub: any) => (
+          <TableRow key={sub.id} row={sub} depth={depth + 1} />
+        ))}
+    </>
+  );
 };
 
 export function AbsenceByTypeChart({
@@ -56,18 +104,18 @@ export function AbsenceByTypeChart({
   startDate: string;
   endDate: string;
 }) {
-  const theme = useTheme();
   const { data: employees = [] } = useEmployees();
   const { data: teams = [] } = useTeams();
   const { data: categories = [] } = useAbsenceCategories();
   const absences = absence.useItems();
   const {
+    teamSelections,
     selectedCategoryIds,
     selectedStatuses,
-    teamSelections,
     getSelectedEmployeeIds,
   } = useFilterStore();
 
+  // Data processing remains identical to your logic
   const { chartData, tableData } = useMemo(() => {
     let targets =
       teamSelections.length === 0
@@ -84,7 +132,7 @@ export function AbsenceByTypeChart({
     const fS = startDate ? new Date(startDate) : null;
     const fE = endDate ? new Date(endDate) : null;
     const categoryMap: Record<string, any> = {};
-    const treeData: AbsenceRow[] = [];
+    const treeData: any[] = [];
 
     filtered.forEach((abs, index) => {
       const aS = new Date(abs.startDate);
@@ -97,9 +145,7 @@ export function AbsenceByTypeChart({
       const emp = employees.find((e) => e.id === abs.employeeId);
       const team = teams.find((t) => t.id === emp?.teamId);
 
-      const teamName = team?.name || "No Team";
-      const employeeName = emp?.name || "Unknown";
-
+      // Category logic for Chart
       if (!categoryMap[abs.absenceCategoryId]) {
         categoryMap[abs.absenceCategoryId] = {
           name: cat?.label,
@@ -109,6 +155,8 @@ export function AbsenceByTypeChart({
       }
       categoryMap[abs.absenceCategoryId].value += overlap;
 
+      // Tree logic for Table
+      const teamName = team?.name || "No Team";
       let tNode = treeData.find((n) => n.name === teamName);
       if (!tNode) {
         tNode = {
@@ -121,38 +169,42 @@ export function AbsenceByTypeChart({
         };
         treeData.push(tNode);
       }
-      let eNode = tNode.subRows?.find((n) => n.name === employeeName);
+      let eNode = tNode.subRows.find(
+        (n: any) => n.name === (emp?.name || "Unknown"),
+      );
       if (!eNode) {
         eNode = {
           id: `e-${abs.employeeId}`,
           type: "employee",
-          name: employeeName,
+          name: emp?.name || "Unknown",
           days: 0,
           totalDays: 0,
           subRows: [],
         };
-        tNode.subRows!.push(eNode);
+        tNode.subRows.push(eNode);
       }
-
-      eNode.subRows!.push({
+      eNode.subRows.push({
         id: `a-${index}`,
         type: "absence",
         name: cat?.label || "Unknown",
-        statusLabel: STATUS_LABELS[abs.status],
+        statusLabel:
+          abs.status === 0
+            ? "Pending"
+            : abs.status === 1
+              ? "Approved"
+              : "Rejected",
         days: overlap,
         categoryColor: cat?.color,
       });
-      eNode.totalDays = (eNode.totalDays || 0) + overlap;
-      tNode.totalDays = (tNode.totalDays || 0) + overlap;
+      eNode.totalDays += overlap;
+      tNode.totalDays += overlap;
     });
 
     return {
       chartData: Object.values(categoryMap).sort(
         (a: any, b: any) => b.value - a.value,
       ),
-      tableData: treeData.sort(
-        (a, b) => (b.totalDays || 0) - (a.totalDays || 0),
-      ),
+      tableData: treeData.sort((a, b) => b.totalDays - a.totalDays),
     };
   }, [
     teamSelections,
@@ -166,173 +218,14 @@ export function AbsenceByTypeChart({
     absences,
   ]);
 
-  const columns = useMemo<MRT_ColumnDef<AbsenceRow>[]>(
-    () => [
-      {
-        accessorKey: "name",
-        header: "NAMN",
-        size: 300, // INCREASED SIZE TO PREVENT TEXT CUTOFF
-        Cell: ({ row, cell }) => (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 0.5,
-              pl: `${row.depth * 1}rem`,
-            }}
-          >
-            {row.getCanExpand() ? (
-              <IconButton
-                size="small"
-                onClick={() => row.toggleExpanded()}
-                sx={{ p: 0.1 }}
-              >
-                {row.getIsExpanded() ? (
-                  <KeyboardArrowDownIcon sx={{ fontSize: 18 }} />
-                ) : (
-                  <KeyboardArrowRightIcon sx={{ fontSize: 18 }} />
-                )}
-              </IconButton>
-            ) : (
-              <Box sx={{ width: 24 }} />
-            )}
-
-            {row.original.type === "absence" ? (
-              <Chip
-                label={cell.getValue<string>()}
-                sx={{
-                  height: 20,
-                  fontSize: "0.75rem",
-                  backgroundColor: alpha(
-                    row.original.categoryColor || "#ccc",
-                    0.1,
-                  ),
-                  color: row.original.categoryColor,
-                  fontWeight: 600,
-                  maxWidth: "200px",
-                }}
-              />
-            ) : (
-              <Typography
-                noWrap
-                sx={{
-                  fontSize: "0.85rem",
-                  fontWeight: row.depth === 0 ? 700 : 500,
-                }}
-              >
-                {cell.getValue<string>()}
-              </Typography>
-            )}
-          </Box>
-        ),
-      },
-      {
-        accessorKey: "statusLabel",
-        header: "STATUS",
-        size: 100,
-        Cell: ({ row }) => {
-          const s = row.original.statusLabel;
-          if (!s || row.original.type !== "absence") return null;
-          let c: any =
-            s === "Pending"
-              ? "warning"
-              : s === "Approved"
-                ? "success"
-                : "error";
-          return (
-            <Chip
-              label={s}
-              color={c}
-              variant="outlined"
-              sx={{ height: 18, fontSize: "0.65rem" }}
-            />
-          );
-        },
-      },
-      {
-        accessorKey: "days",
-        header: "DAG",
-        size: 80,
-        muiTableHeadCellProps: { align: "right" },
-        muiTableBodyCellProps: { align: "right" },
-        Cell: ({ row }) => (
-          <Typography
-            sx={{ fontSize: "0.85rem", fontWeight: row.depth < 2 ? 700 : 400 }}
-          >
-            {row.original.totalDays ?? row.original.days}
-          </Typography>
-        ),
-      },
-    ],
-    [],
-  );
-
-  const table = useMaterialReactTable({
-    columns,
-    data: tableData,
-    enableExpanding: true,
-    enableStickyHeader: true, // STICKY HEADER
-    enableTopToolbar: false,
-    enableBottomToolbar: false,
-    enableColumnActions: false,
-    enableColumnFilters: false,
-    enableSorting: false,
-    layoutMode: "grid", // CRITICAL: Ensures columns respect 'size' and don't squish
-    displayColumnDefOptions: {
-      "mrt-row-expand": {
-        size: 0,
-        muiTableHeadCellProps: { sx: { display: "none" } },
-        muiTableBodyCellProps: { sx: { display: "none" } },
-      },
-    },
-    positionExpandColumn: "none" as any,
-    initialState: { expanded: true, density: "compact" },
-
-    // SCROLLBAR AND HEIGHT FIX
-    muiTableContainerProps: {
-      sx: {
-        height: "500px", // Fixed height
-        overflow: "auto", // Shows both vertical and horizontal scrollbars if needed
-        backgroundColor: "#fff",
-      },
-    },
-
-    muiTablePaperProps: {
-      elevation: 0,
-      sx: { border: "none", backgroundColor: "#fff" },
-    },
-    muiTableBodyCellProps: {
-      sx: { backgroundColor: "#fff", borderBottom: "1px solid #f0f0f0" },
-    },
-    muiTableHeadCellProps: { sx: { backgroundColor: "#fff", zIndex: 2 } },
-  });
-
   return (
-    <Box sx={{ backgroundColor: "#fff", width: "100%", p: 2 }}>
-      <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
-        FRÅNVARO ANALYS
-      </Typography>
+    <div className={styles.container}>
+      <h2 className={styles.title}>Frånvaroanalys</h2>
 
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: { xs: "column", lg: "row" }, // Side-by-side on desktop
-          gap: 4,
-          width: "100%",
-          alignItems: "flex-start",
-        }}
-      >
+      <div className={styles.layout}>
         {/* CHART SECTION */}
-        <Box
-          sx={{
-            width: { xs: "100%", lg: "300px" },
-            height: 300,
-            flexShrink: 0,
-            position: { lg: "sticky" },
-            top: 20,
-          }}
-        >
-          <ResponsiveContainer>
+        <div className={styles.chartSection}>
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={chartData}
@@ -344,20 +237,33 @@ export function AbsenceByTypeChart({
                 innerRadius={70}
                 paddingAngle={2}
               >
-                {chartData.map((e: any, i) => (
+                {chartData.map((e: any, i: number) => (
                   <Cell key={i} fill={e.color} stroke="#fff" strokeWidth={2} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "none",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
-        </Box>
+        </div>
 
         {/* TABLE SECTION */}
-        <Box sx={{ flex: 1, width: "100%", minWidth: 0 }}>
-          <MaterialReactTable table={table} />
-        </Box>
-      </Box>
-    </Box>
+        <div className={styles.tableContainer}>
+          <div className={styles.tableHeader}>
+            <div>NAMN</div>
+            <div>STATUS</div>
+            <div style={{ textAlign: "right" }}>DAGAR</div>
+          </div>
+          {tableData.map((team) => (
+            <TableRow key={team.id} row={team} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

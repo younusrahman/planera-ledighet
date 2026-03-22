@@ -1,6 +1,6 @@
 import dayjs from "dayjs";
 import type { Absence } from "../types";
-import { CELL_WIDTH } from "../utils";
+import { getCellWidth } from "../services/stores/uiStore";
 
 // HELPERS
 export const getDaysArray = (start: dayjs.Dayjs, count: number) => {
@@ -19,7 +19,7 @@ export const getDateOffset = (
 ) => {
   const start = dayjs(startDate).startOf("day");
   const base = timelineStart.startOf("day");
-  return start.diff(base, "day") * CELL_WIDTH;
+  return start.diff(base, "day") * getCellWidth();
 };
 
 export const checkCollision = (
@@ -36,7 +36,10 @@ export const checkCollision = (
 
   return items.some((item) => {
     // Skip self and items in other rows
-    if (item.id === targetItem.id || item.employeeId !== targetItem.employeeId) {
+    if (
+      item.id === targetItem.id ||
+      item.employeeId !== targetItem.employeeId
+    ) {
       return false;
     }
 

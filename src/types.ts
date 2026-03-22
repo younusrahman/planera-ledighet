@@ -91,3 +91,4 @@ export type ChangeAbsenceStatusPayload = {
   status: AbsenceStatus;
   rejectionReason?: string | null;
 };
+export type SidebarMode = "full" | "compact" | "hidden";

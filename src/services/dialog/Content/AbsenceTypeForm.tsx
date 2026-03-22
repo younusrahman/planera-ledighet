@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  TextField,
-  Box,
-  Typography,
-  Button,
-  DialogActions,
-  DialogTitle,
-  useTheme,
-  Alert,
-} from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ColorLensIcon from "@mui/icons-material/ColorLens";
-import CheckIcon from "@mui/icons-material/Check";
+import styles from "./AbsenceTypeForm.module.css";
 
 export const PREDEFINED_COLORS = [
   "#1976d2",
@@ -39,7 +27,7 @@ export const PREDEFINED_COLORS = [
 export interface AbsenceTypeFormProps {
   initialLabel?: string;
   initialColor?: string;
-  typeId?: string; // ID på den post vi redigerar
+  typeId?: string;
   absenceTypes: { id: string; color: string; label: string }[];
   isEditMode?: boolean;
   onSave: (label: string, color: string) => void;
@@ -57,8 +45,6 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
   onDelete,
   onClose,
 }) => {
-  const theme = useTheme();
-
   const [label, setLabel] = useState(initialLabel);
   const [color, setColor] = useState(initialColor || PREDEFINED_COLORS[0]);
   const [touched, setTouched] = useState(false);
@@ -70,7 +56,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     setTouched(false);
   }, [initialLabel, initialColor, typeId]);
 
-  // Kontrollera om namnet är upptaget (exkludera den vi redigerar)
+  // Validation Logic
   const isLabelTaken = useMemo(() => {
     const currentLabel = label.trim().toLowerCase();
     if (currentLabel.length === 0) return false;
@@ -79,7 +65,6 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     );
   }, [label, absenceTypes, typeId]);
 
-  // Kontrollera om färgen är upptagen (exkludera den vi redigerar)
   const isColorTakenByOther = useMemo(() => {
     const currentColor = color.toLowerCase();
     return absenceTypes.some(
@@ -87,7 +72,6 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     );
   }, [color, absenceTypes, typeId]);
 
-  // Kontrollera om ändringar gjorts (viktigt för redigering)
   const hasChanges = useMemo(() => {
     return (
       label.trim() !== initialLabel.trim() ||
@@ -95,14 +79,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     );
   }, [label, color, initialLabel, initialColor]);
 
-  // Validera längd (Minst 3 tecken)
   const isLabelValid = label.trim().length >= 3;
-
-  // Spara-knappen aktiveras om:
-  // 1. Namnet är giltigt (3+ tecken)
-  // 2. Namnet inte är upptaget
-  // 3. Färgen inte är upptagen
-  // 4. Om vi redigerar: något måste ha ändrats. Om ny: alltid true.
   const canSave =
     isLabelValid &&
     !isLabelTaken &&
@@ -129,119 +106,109 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
   };
 
   return (
-    <Box>
-      <DialogTitle
-        sx={{
-          p: 0,
-          mb: 3,
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-          fontWeight: 600,
-        }}
-      >
-        <ColorLensIcon color="primary" />
+    <div className={styles.container}>
+      <h2 className={styles.title}>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v8M8 12h8" />
+        </svg>
         {isEditMode ? "Redigera frånvarotyp" : "Ny frånvarotyp"}
-      </DialogTitle>
+      </h2>
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            Namn på frånvarotyp (minst 3 tecken)
-          </Typography>
-          <TextField
-            fullWidth
-            value={label}
-            disabled={isSaving}
-            onChange={(e) => setLabel(e.target.value)}
-            onBlur={() => setTouched(true)}
-            error={touched && (!isLabelValid || isLabelTaken)}
-            helperText={
-              touched && !isLabelValid
-                ? "Minst 3 tecken krävs"
-                : isLabelTaken
-                  ? "Detta namn används redan"
-                  : " "
-            }
-          />
-        </Box>
+      <div className={styles.formGroup}>
+        <label className={styles.label}>
+          Namn på frånvarotyp (minst 3 tecken)
+        </label>
+        <input
+          className={`${styles.input} ${touched && (!isLabelValid || isLabelTaken) ? styles.inputError : ""}`}
+          value={label}
+          disabled={isSaving}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => setTouched(true)}
+          placeholder="T.ex. Semester eller Sjukfrånvaro"
+        />
+        <div className={styles.errorText}>
+          {touched && !isLabelValid
+            ? "Minst 3 tecken krävs"
+            : isLabelTaken
+              ? "Detta namn används redan"
+              : ""}
+        </div>
+      </div>
 
-        <Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
-            Välj färg
-          </Typography>
+      <div className={styles.formGroup}>
+        <label className={styles.label}>Välj färg</label>
+        {isColorTakenByOther && (
+          <div className={styles.alert}>
+            Denna färg används redan. Välj en annan cirkel.
+          </div>
+        )}
+        <div className={styles.colorGrid}>
+          {PREDEFINED_COLORS.map((c) => {
+            const isSelected = color.toLowerCase() === c.toLowerCase();
+            const isUsedByOther = absenceTypes.some(
+              (t) =>
+                t.id !== typeId && t.color.toLowerCase() === c.toLowerCase(),
+            );
 
-          {isColorTakenByOther && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Denna färg används redan. Välj en annan färg-cirkel.
-            </Alert>
-          )}
+            return (
+              <div
+                key={c}
+                onClick={() => !isUsedByOther && setColor(c)}
+                className={`${styles.colorCircle} ${isSelected ? styles.selected : ""} ${isUsedByOther ? styles.disabled : ""}`}
+                style={{ backgroundColor: c }}
+              >
+                {isSelected && (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke={getColorContrast(c)}
+                    strokeWidth="3"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
-            {PREDEFINED_COLORS.map((c) => {
-              const isSelected = color.toLowerCase() === c.toLowerCase();
-              const isUsedByOther = absenceTypes.some(
-                (t) =>
-                  t.id !== typeId && t.color.toLowerCase() === c.toLowerCase(),
-              );
-
-              return (
-                <Box
-                  key={c}
-                  onClick={() => !isUsedByOther && setColor(c)}
-                  sx={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: "50%",
-                    bgcolor: c,
-                    cursor: isUsedByOther ? "not-allowed" : "pointer",
-                    opacity: isUsedByOther ? 0.3 : 1,
-                    border: isSelected
-                      ? `3px solid ${theme.palette.primary.main}`
-                      : "2px solid transparent",
-                    boxShadow: isSelected ? theme.shadows[3] : "none",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    "&:hover": {
-                      transform: isUsedByOther ? "none" : "scale(1.1)",
-                    },
-                  }}
-                >
-                  {isSelected && (
-                    <CheckIcon
-                      sx={{ fontSize: 20, color: getColorContrast(c) }}
-                    />
-                  )}
-                </Box>
-              );
-            })}
-          </Box>
-        </Box>
-
-        <DialogActions sx={{ px: 0, mt: 2 }}>
-          {isEditMode && onDelete && (
-            <Button
-              color="error"
-              onClick={onDelete}
-              startIcon={<DeleteIcon />}
-              variant="outlined"
-            >
-              Ta bort
-            </Button>
-          )}
-          <Box sx={{ flexGrow: 1 }} />
-          <Button onClick={onClose} variant="outlined" sx={{ mr: 1 }}>
-            Avbryt
-          </Button>
-          <Button variant="contained" onClick={handleSave} disabled={!canSave}>
-            {isSaving ? "Sparar..." : isEditMode ? "Spara" : "Skapa"}
-          </Button>
-        </DialogActions>
-      </Box>
-    </Box>
+      <div className={styles.actions}>
+        {isEditMode && onDelete && (
+          <button
+            className={`${styles.btn} styles.btnDelete`}
+            onClick={onDelete}
+          >
+            Ta bort
+          </button>
+        )}
+        <div className={styles.spacer} />
+        <button
+          className={`${styles.btn} ${styles.btnSecondary}`}
+          onClick={onClose}
+        >
+          Avbryt
+        </button>
+        <button
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={handleSave}
+          disabled={!canSave}
+        >
+          {isSaving ? "Sparar..." : isEditMode ? "Spara" : "Skapa"}
+        </button>
+      </div>
+    </div>
   );
 };
 
 export default AbsenceTypeForm;
-export { PREDEFINED_COLORS as predefinedColors };

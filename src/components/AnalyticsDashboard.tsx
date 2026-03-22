@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { Box, Tab, Tabs } from "@mui/material";
+import React, { useState, useMemo } from "react";
 import { useEmployees, useAbsenceCategories } from "../services/hooks/useData";
 import { absence } from "../services/stores/absenceDataStore";
 import useFilterStore from "../services/stores/analyticsStore";
@@ -7,6 +6,8 @@ import { FilterBar } from "./Analytics/FilterBar";
 import { AbsenceByTypeChart } from "./Recharts/AbsenceByTypeChart";
 import { TeamAbsenceStackedChart } from "./Recharts/TeamAbsenceStackedChart";
 import { TopAbsenceReasonsChart } from "./Recharts/TopAbsenceReasonsChart";
+import styles from "./AnalyticsDashboard.module.css";
+import { AbsenceTrendsChart } from "./Recharts/AbsenceTrendsChart";
 
 const formatDate = (date: Date): string => {
   const year = date.getFullYear();
@@ -27,12 +28,12 @@ export function AnalyticsDashboard() {
   const absences = absence.useItems();
   const { selectedTeamIds, selectedEmployeeIds, selectedStatuses } =
     useFilterStore();
+
   const [activeTab, setActiveTab] = useState(0);
   const [startDate, setStartDate] = useState<string>(defaultStartDate);
   const [endDate, setEndDate] = useState<string>(defaultEndDate);
 
   const availableCategories = useMemo(() => {
-    // 1. Which employees to consider (team/employee filter)
     let targetEmployeeIds: string[];
     if (!selectedEmployeeIds.includes("ALL")) {
       targetEmployeeIds = selectedEmployeeIds;
@@ -44,17 +45,14 @@ export function AnalyticsDashboard() {
             .map((emp) => emp.id);
     }
 
-    // 2. Start with absences of those employees
     let filteredAbsences = absences.filter((abs) =>
       targetEmployeeIds.includes(abs.employeeId),
     );
 
-    // 3. Apply status filter
     filteredAbsences = filteredAbsences.filter((abs) =>
       selectedStatuses.includes(abs.status),
     );
 
-    // 4. Apply date range filter (interval overlap)
     if (startDate && endDate) {
       const filterStart = new Date(startDate);
       const filterEnd = new Date(endDate);
@@ -69,7 +67,6 @@ export function AnalyticsDashboard() {
       });
     }
 
-    // 5. Unique category ids from the filtered absences
     const uniqueCatIds = new Set(
       filteredAbsences.map((abs) => abs.absenceCategoryId),
     );
@@ -87,8 +84,15 @@ export function AnalyticsDashboard() {
     categories,
   ]);
 
+  const tabs = [
+    "Frånvarofördelning",
+    "Närvaro per team på helgdag",
+    "Frånvaroanalys – Orsaker & Påverkan",
+    "Frånvarotrender",
+  ];
+
   return (
-    <Box>
+    <div className={styles.container}>
       <FilterBar
         startDate={startDate}
         endDate={endDate}
@@ -97,25 +101,32 @@ export function AnalyticsDashboard() {
         availableCategories={availableCategories}
       />
 
-      <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
-        <Tab label="Frånvarofördelning" />
-        <Tab label="Närvaro per team på helgdag" />
-        <Tab label="Frånvaroanalys – Orsaker & Påverkan" />
-      </Tabs>
+      {/* CUSTOM TABS */}
+      <div className={styles.tabsHeader}>
+        {tabs.map((label, index) => (
+          <button
+            key={label}
+            className={`${styles.tab} ${activeTab === index ? styles.activeTab : ""}`}
+            onClick={() => setActiveTab(index)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      {activeTab === 0 && (
-        <Box>
-          <AbsenceByTypeChart
-            startDate={startDate}
-            endDate={endDate}
-          />
-        </Box>
-      )}
+      {/* CONTENT AREA */}
+      <div className={styles.chartContainer}>
+        {activeTab === 0 && (
+          <AbsenceByTypeChart startDate={startDate} endDate={endDate} />
+        )}
 
-      {activeTab === 1 && <TeamAbsenceStackedChart />}
-      {activeTab === 2 && (
-        <TopAbsenceReasonsChart startDate={startDate} endDate={endDate} />
-      )}
-    </Box>
+        {activeTab === 1 && <TeamAbsenceStackedChart />}
+
+        {activeTab === 2 && (
+          <TopAbsenceReasonsChart startDate={startDate} endDate={endDate} />
+        )}
+        {activeTab === 3 && <AbsenceTrendsChart />}
+      </div>
+    </div>
   );
 }

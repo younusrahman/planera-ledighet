@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import dayjs from "dayjs";
-import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { AbsenceStatus, type Absence } from "../types";
 import {
   useAbsenceBlockIsResizing,
@@ -10,6 +9,7 @@ import {
   useAbsenceBlockIsTooltipOpen,
   useAbsenceBlockActions,
 } from "../services/stores/absenceUIStore";
+import { useCellWidth, useRowHeight } from "../services/stores/uiStore";
 
 // --- UTILS ---
 const alpha = (hex: string, opacity: number) => {
@@ -146,8 +146,6 @@ interface Props {
   employeeId?: string;
 }
 
-const TOOLTIP_DELAY_MS = 3000;
-
 const AbsenceBlock = ({
   absenceDetails,
   left = 0,
@@ -170,7 +168,9 @@ const AbsenceBlock = ({
     isPastDaysBlocked &&
     dayjs(absenceDetails.startDate).isBefore(dayjs().startOf("day"));
   const isLocked = absenceDetails.status === AbsenceStatus.Approved;
-
+  const CELL_WIDTH = useCellWidth();
+  const ROW_HEIGHT = useRowHeight();
+  const TOOLTIP_DELAY_MS = 3000;
   const [countdown, setCountdown] = useState<number | null>(null);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({

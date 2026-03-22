@@ -9,8 +9,12 @@ import React, {
 import { Box, Typography } from "@mui/material";
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { CELL_WIDTH } from "../utils";
-import { useSidebarMode } from "../services/stores/uiStore";
+import {
+  useCellWidth,
+  useCurrentSidebarWidth,
+  useRowHeight,
+  useSidebarMode,
+} from "../services/stores/uiStore";
 import {
   AbsenceStatus,
   type Absence,
@@ -41,6 +45,8 @@ const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
 export const Timeline = () => {
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
+  const CELL_WIDTH = useCellWidth();
+  const ROW_HEIGHT = useRowHeight();
   const changeAbsenceStatus = useAbsenceStatusMutation();
   const {
     createEmployee: createEmployee,
@@ -890,12 +896,11 @@ export const Timeline = () => {
     const dateStr = day.format("YYYY-MM-DD");
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
-
+  const SIDEBAR_WIDTH = useCurrentSidebarWidth();
   const MemoizedHeader = useMemo(() => {
-    // Calculate the "left" position where labels should stick.
-    // It must match the current width of your sidebar.
     const stickyLeftOffset =
-      sidebarMode === "full" ? 200 : sidebarMode === "initials" ? 70 : 0;
+      sidebarMode === "full" ? 200 : sidebarMode === "compact" ? 70 : 0;
+    const todayStr = dayjs().format("YYYY-MM-DD");
 
     return (
       <Box
@@ -912,27 +917,26 @@ export const Timeline = () => {
         <Box
           sx={{ display: "flex", height: 40, borderBottom: "1px solid #eee" }}
         >
-          {monthBlocks.map((m) => (
+          {monthBlocks.map((m, index) => (
             <Box
               key={m.key}
               sx={{
-                position: "relative", // Needed so the sticky child stays within this block
+                position: "relative",
                 width: m.days.length * CELL_WIDTH,
                 height: "100%",
                 flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.1)",
+                ml: index === 0 ? "2px" : 0,
               }}
             >
               <Typography
                 variant="subtitle2"
                 sx={{
                   position: "sticky",
-                  left: stickyLeftOffset + 8, // Sticks to sidebar edge + 10px padding
+                  left: stickyLeftOffset + 8,
                   fontWeight: 700,
                   color: "primary.main",
                   whiteSpace: "nowrap",
-                  width: "fit-content",
-                  display: "block",
                   lineHeight: "40px",
                 }}
               >
@@ -951,31 +955,29 @@ export const Timeline = () => {
             borderBottom: "1px solid #eee",
           }}
         >
-          {weekBlocks.map((w) => (
+          {weekBlocks.map((w, index) => (
             <Box
               key={w.key}
               sx={{
-                position: "relative", // This block acts as the "boundary" for the sticky label
+                position: "relative",
                 width: w.days.length * CELL_WIDTH,
                 height: "100%",
                 flexShrink: 0,
                 borderRight: "1px solid rgba(0,0,0,0.05)",
+                ml: index === 0 ? "2px" : 0,
               }}
             >
               <Typography
                 variant="caption"
                 sx={{
                   position: "sticky",
-                  left: stickyLeftOffset + 8, // Sticks to sidebar edge + 8px padding
+                  left: stickyLeftOffset + 8,
                   fontWeight: 800,
                   color: "text.secondary",
                   whiteSpace: "nowrap",
-                  width: "fit-content",
-                  display: "block",
                   lineHeight: "25px",
                 }}
               >
-                {/* Added Year here as well if the user scrolls far */}
                 {w.label}{" "}
                 {w.days[0].format("YYYY") !== dayjs().format("YYYY")
                   ? w.days[0].format("YYYY")
@@ -986,46 +988,65 @@ export const Timeline = () => {
         </Box>
 
         {/* --- 3. Individual Days Row --- */}
-        <Box sx={{ display: "flex", height: 40 }}>
+        <Box sx={{ display: "flex", height: 46 }}>
           {days.map((day) => {
+            const dateStr = day.format("YYYY-MM-DD");
+            const holidayName = holidays[dateStr]?.name || "";
             const isRed = isRedDay(day);
-            return (
-              <ProTooltip
-                key={day.format("YYYY-MM-DD")}
-                title={holidays[day.format("YYYY-MM-DD")]?.name || ""}
-              >
-                <Box
-                  sx={{
-                    width: CELL_WIDTH,
-                    minWidth: CELL_WIDTH,
-                    textAlign: "center",
-                    pt: 0.5,
-                    borderRight: "1px solid #eee",
-                    borderBottom: "1px solid #ddd",
-                    bgcolor: day.isSame(new Date(), "day")
+
+            const DayContent = (
+              <Box
+                sx={{
+                  width: CELL_WIDTH,
+                  minWidth: CELL_WIDTH,
+                  height: 46,
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  borderRight: "1px solid #eee",
+                  borderBottom: "1px solid #ddd",
+                  bgcolor:
+                    dateStr === todayStr
                       ? "#fff9c4"
                       : isRed
                         ? "rgba(244, 67, 54, 0.15)"
                         : "white",
-                    color: isRed ? "error.main" : "text.primary",
+                  color: isRed ? "error.main" : "text.primary",
+                  boxSizing: "border-box",
+                  // --- ADDED SPACE HERE ---
+                  py: 0.5, // Padding top and bottom
+                  gap: "2px", // Space between the Day Name and the Number
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: "0.6rem",
+                    fontWeight: isRed ? 700 : 500,
+                    lineHeight: 1,
                   }}
                 >
-                  <Typography
-                    sx={{ fontSize: "0.6rem", fontWeight: isRed ? 700 : 500 }}
-                  >
-                    {day.format("ddd").toUpperCase()}
-                  </Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {day.format("D")}
-                  </Typography>
-                </Box>
+                  {day.format("ddd").toUpperCase()}
+                </Typography>
+                <Typography sx={{ fontWeight: 800, lineHeight: 1 }}>
+                  {day.format("D")}
+                </Typography>
+              </Box>
+            );
+
+            return holidayName ? (
+              <ProTooltip key={dateStr} title={holidayName}>
+                {DayContent}
               </ProTooltip>
+            ) : (
+              <Box key={dateStr}>{DayContent}</Box>
             );
           })}
         </Box>
       </Box>
     );
-  }, [days, monthBlocks, weekBlocks, holidays, sidebarMode]); // Added sidebarMode to dependencies
+  }, [days, monthBlocks, weekBlocks, holidays, sidebarMode, CELL_WIDTH]);
   return (
     <div
       style={{
@@ -1042,15 +1063,12 @@ export const Timeline = () => {
         datePickerAnchorRef={datePickerAnchorRef as any}
         groups={teamsWithEmployees}
         sidebarMode={sidebarMode}
-        disableDeletion={disableDeletion}
         openConfig={openConfig}
         openDataManagement={openDataManagement}
         openAnalyticsDashboard={openAnalyticsDashboard}
         onOpenDatePicker={() => setIsDatePickerOpen(true)}
         onCloseDatePicker={() => setIsDatePickerOpen(false)}
         onDateChange={(newDate: any) => jumpToDate(newDate)}
-        handleDeleteResource={handleDeleteEmployee}
-        handleDeleteGroup={handleDeleteTeam}
         handleDialogGroupTrigger={handleDialogGroupTrigger}
         handleDialogAbsenceTypeTrigger={handleDialogAbsenceTypeTrigger}
         handleDialogResourceTrigger={handleDialogEmployeeTrigger}

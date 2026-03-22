@@ -3,7 +3,6 @@ import "dayjs/locale/sv";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import isoWeek from "dayjs/plugin/isoWeek";
 import updateLocale from "dayjs/plugin/updateLocale";
-
 // --- PLUGINS ---
 dayjs.extend(weekOfYear);
 dayjs.extend(isoWeek);
@@ -14,7 +13,3 @@ dayjs.locale("sv");
 dayjs.updateLocale("sv", {
   weekStart: 1,
 });
-
-// CONSTANTS
-export const CELL_WIDTH = 45;
-export const ROW_HEIGHT = 28;

@@ -1,8 +1,8 @@
 import React, { memo, useState, useRef, useEffect } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
-import { type Team, type TeamWithEmployees } from "../types";
-import { useUIActions, type SidebarMode } from "../services/stores/uiStore";
+import type { Team, TeamWithEmployees, SidebarMode } from "../types";
+import { useConfigActions } from "../services/stores/uiStore";
 
 dayjs.extend(isoWeek);
 
@@ -160,6 +160,7 @@ function getSwedishHolidays(year: number) {
     { name: "Juldagen", date: dayjs(`${year}-12-25`) },
     { name: "Annandag jul", date: dayjs(`${year}-12-26`) },
   ];
+
   const f = Math.floor;
   const G = year % 19;
   const C = f(year / 100);
@@ -169,6 +170,7 @@ function getSwedishHolidays(year: number) {
   const month = day > 31 ? 4 : 3;
   const date = day > 31 ? day - 31 : day;
   const easter = dayjs(`${year}-${month}-${date}`);
+
   return [
     ...FIXED,
     { name: "Långfredagen", date: easter.subtract(2, "day") },
@@ -223,17 +225,29 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
   doseHaveAbsenceTypes,
   sidebarMode,
 }) => {
-  const { setSidebarMode } = useUIActions();
+  const { setSidebarMode } = useConfigActions();
   const [showMainMenu, setShowMainMenu] = useState(false);
   const [viewDate, setViewDate] = useState(pickerDate);
+  const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
 
   const mainMenuRef = useRef<HTMLDivElement>(null);
   const datePopoverRef = useRef<HTMLDivElement>(null);
-  const modes: SidebarMode[] = ["full", "initials", "hidden"];
+  const modes: SidebarMode[] = ["full", "compact", "hidden"];
+
+  const isMobile = windowWidth <= 768;
+  const isSmallMobile = windowWidth <= 640;
 
   useEffect(() => {
-    if (isDatePickerOpen) setViewDate(pickerDate);
-  }, [isDatePickerOpen]);
+    if (isDatePickerOpen) {
+      setViewDate(pickerDate);
+    }
+  }, [isDatePickerOpen, pickerDate]);
+
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -241,27 +255,55 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
         showMainMenu &&
         mainMenuRef.current &&
         !mainMenuRef.current.contains(e.target as Node)
-      )
+      ) {
         setShowMainMenu(false);
+      }
+
       if (
         isDatePickerOpen &&
         datePopoverRef.current &&
-        !datePopoverRef.current.contains(e.target as Node) &&
-        !datePickerAnchorRef.current?.contains(e.target as Node)
-      )
+        !datePopoverRef.current.contains(e.target as Node)
+      ) {
         onCloseDatePicker();
+      }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showMainMenu, isDatePickerOpen, onCloseDatePicker, datePickerAnchorRef]);
+  }, [showMainMenu, isDatePickerOpen, onCloseDatePicker]);
 
-  // Kalender-grid beräkning
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowMainMenu(false);
+        onCloseDatePicker();
+      }
+    };
+
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [onCloseDatePicker]);
+
   const startOfMonth = viewDate.startOf("month");
   const daysInMonth = viewDate.daysInMonth();
   const startDayOfWeek = (startOfMonth.day() + 6) % 7;
+
   const calendarDays = Array.from({ length: 42 }, (_, i) => {
     const day = i - startDayOfWeek + 1;
     return day > 0 && day <= daysInMonth ? startOfMonth.date(day) : null;
+  });
+
+  const calendarWeeks = Array.from({ length: 6 }, (_, weekIndex) => {
+    const firstDayIndex = weekIndex * 7;
+    const firstDayInRow = calendarDays[firstDayIndex];
+
+    if (firstDayInRow) return firstDayInRow.isoWeek();
+
+    const fallbackDate = startOfMonth
+      .subtract(startDayOfWeek, "day")
+      .add(firstDayIndex, "day");
+
+    return fallbackDate.isoWeek();
   });
 
   const months = [
@@ -278,6 +320,7 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
     "November",
     "December",
   ];
+
   const years = Array.from({ length: 21 }, (_, i) => dayjs().year() - 10 + i);
 
   const getDaysLeft = (targetDate: Dayjs) => {
@@ -288,22 +331,522 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
     return `${diff} dagar kvar`;
   };
 
-  return (
-    <header className="timeline-header">
-      <h1 className="header-title">Planera ledighet</h1>
-      <div style={{ flexGrow: 1 }} />
+  const stylesObj: Record<string, React.CSSProperties> = {
+    header: {
+      background: "white",
+      borderBottom: "1px solid #ddd",
+      minHeight: 64,
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "1fr auto 1fr",
+      alignItems: "center",
+      gap: isMobile ? 12 : 16,
+      padding: isMobile ? "12px 14px" : "10px 24px",
+      position: "relative",
+      zIndex: 1100,
+    },
+    left: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: isMobile ? "center" : "flex-start",
+      minWidth: 0,
+    },
+    center: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    right: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: isMobile ? "center" : "flex-end",
+      width: isMobile ? "100%" : undefined,
+    },
+    title: {
+      fontSize: isMobile ? "1rem" : "1.15rem",
+      fontWeight: 800,
+      color: "#111",
+      margin: 0,
+      whiteSpace: isMobile ? "normal" : "nowrap",
+      textAlign: isMobile ? "center" : "left",
+    },
+    dateNav: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      width: isMobile ? "100%" : undefined,
+      justifyContent: "center",
+      flexWrap: isMobile ? "wrap" : "nowrap",
+    },
+    navBtn: {
+      background: "white",
+      border: "1px solid #e5e7eb",
+      borderRadius: 10,
+      padding: 10,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+    },
+    pickerTrigger: {
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+      padding: "8px 16px",
+      border: "1px solid #ddd",
+      borderRadius: 10,
+      background: "white",
+      cursor: "pointer",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      minWidth: isMobile ? 0 : undefined,
+    },
+    triggerIcon: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    triggerText: {
+      display: "flex",
+      flexDirection: "column",
+    },
+    dateDisplay: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#333",
+      display: "block",
+    },
+    weekDisplay: {
+      fontSize: 10,
+      color: "#888",
+      fontWeight: 500,
+    },
+    menuBtn: {
+      background: "linear-gradient(135deg, #1976d2 0%, #0d5db8 100%)",
+      color: "white",
+      border: "none",
+      borderRadius: 10,
+      padding: "10px 20px",
+      fontWeight: 700,
+      cursor: "pointer",
+      boxShadow: "0 8px 18px rgba(25, 118, 210, 0.22)",
+      width: isMobile ? "100%" : undefined,
+      maxWidth: isMobile ? 240 : undefined,
+    },
 
-      <div style={{ position: "relative" }} ref={mainMenuRef}>
-        <button
-          onClick={() => setShowMainMenu(!showMainMenu)}
-          className="btn-menu"
-        >
-          Meny
-        </button>
-        {showMainMenu && (
-          <div className="dropdown-anim dropdown-box">
+    overlayRoot: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 5000,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: isSmallMobile ? 10 : 20,
+    },
+    overlayRootCentered: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 5000,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: isSmallMobile ? 10 : 24,
+    },
+    overlayBackdrop: {
+      position: "fixed",
+      inset: 0,
+      background:
+        "radial-gradient(circle at top, rgba(25,118,210,0.08), transparent 35%), rgba(15,23,42,0.42)",
+      backdropFilter: "blur(6px)",
+      animation: "fadeBackdrop 0.22s ease",
+    },
+    overlayPanel: {
+      position: "relative",
+      zIndex: 1,
+      width: "min(92vw, 760px)",
+      background: "rgba(255,255,255,0.94)",
+      backdropFilter: "blur(14px)",
+      border: "1px solid rgba(255,255,255,0.7)",
+      borderRadius: isSmallMobile ? 16 : 20,
+      boxShadow: "0 30px 70px rgba(0,0,0,0.18), 0 10px 20px rgba(0,0,0,0.08)",
+      overflow: "hidden",
+      animation: "panelIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)",
+      transformOrigin: "center center",
+    },
+    menuPanel: {
+      width: "min(92vw, 360px)",
+      maxWidth: isSmallMobile ? 420 : undefined,
+    },
+    datePanel: {
+      width: isSmallMobile ? "100%" : "min(96vw, 760px)",
+      marginTop: 0,
+      maxHeight: "calc(100vh - 20px)",
+      overflow: "hidden",
+    },
+    panelHeader: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "16px 18px",
+      borderBottom: "1px solid rgba(0,0,0,0.06)",
+      background:
+        "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,250,252,0.85))",
+    },
+    overlayTitle: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: "#334155",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+    },
+    closeBtn: {
+      background: "#111827",
+      color: "white",
+      border: "none",
+      padding: "8px 12px",
+      borderRadius: 8,
+      fontSize: 10,
+      fontWeight: 800,
+      cursor: "pointer",
+    },
+
+    menuItem: {
+      padding: "12px 18px",
+      display: "flex",
+      alignItems: "center",
+      cursor: "pointer",
+      fontSize: 14,
+      gap: 12,
+      color: "#334155",
+    },
+    menuSep: {
+      height: 1,
+      background: "rgba(0,0,0,0.06)",
+      margin: "8px 0",
+    },
+    sidebarModeToggle: {
+      padding: 16,
+      background: "rgba(248,250,252,0.8)",
+      borderTop: "1px solid rgba(0,0,0,0.05)",
+    },
+    toggleTrack: {
+      display: "flex",
+      background: "#e5e7eb",
+      borderRadius: 10,
+      padding: 4,
+      position: "relative",
+    },
+    toggleThumb: {
+      position: "absolute",
+      top: 4,
+      bottom: 4,
+      width: "32%",
+      background: "white",
+      borderRadius: 8,
+      boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+      transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    },
+    toggleBtn: {
+      flex: 1,
+      border: "none",
+      background: "none",
+      fontSize: 11,
+      fontWeight: 600,
+      zIndex: 1,
+      padding: "8px 0",
+      cursor: "pointer",
+      color: "#64748b",
+    },
+    toggleBtnActive: {
+      fontWeight: 800,
+      color: "#1976d2",
+    },
+
+    popoverContent: {
+      display: "flex",
+      flexDirection: windowWidth <= 900 ? "column" : "row",
+      alignItems: "stretch",
+      maxHeight: "calc(100vh - 90px)",
+      overflow: "hidden",
+    },
+
+    calendarSection: {
+      width: windowWidth <= 900 ? "auto" : 340,
+      padding: isSmallMobile ? 14 : 18,
+      borderRight: windowWidth <= 900 ? "none" : "1px solid rgba(0,0,0,0.06)",
+      borderBottom: windowWidth <= 900 ? "1px solid rgba(0,0,0,0.06)" : "none",
+      background: "rgba(255,255,255,0.7)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+    },
+
+    calendarTopNav: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+      flexDirection: "row",
+    },
+
+    miniNavBtn: {
+      width: isSmallMobile ? 32 : 36,
+      height: isSmallMobile ? 32 : 36,
+      border: "1px solid #ddd",
+      borderRadius: 10,
+      background: "white",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      cursor: "pointer",
+      flexShrink: 0,
+    },
+
+    calendarSelectors: {
+      display: "flex",
+      gap: 8,
+      flex: 1,
+      flexDirection: "row",
+      minWidth: 0,
+    },
+
+    monthSelect: {
+      flex: 1,
+      minWidth: 0,
+      padding: isSmallMobile ? "7px 8px" : "8px 10px",
+      borderRadius: 8,
+      border: "1px solid #ddd",
+      fontWeight: 600,
+      fontSize: isSmallMobile ? 12 : 14,
+      outline: "none",
+      cursor: "pointer",
+      background: "white",
+    },
+
+    yearSelect: {
+      width: isSmallMobile ? 78 : 88,
+      padding: isSmallMobile ? "7px 8px" : "8px 10px",
+      borderRadius: 8,
+      border: "1px solid #ddd",
+      fontWeight: 600,
+      fontSize: isSmallMobile ? 12 : 14,
+      outline: "none",
+      cursor: "pointer",
+      background: "white",
+      flexShrink: 0,
+    },
+
+    calendarGrid: {
+      display: "grid",
+      gridTemplateColumns: "28px repeat(7, 1fr)",
+      gap: 4,
+      alignItems: "center",
+    },
+    gridWeekLabel: {
+      textAlign: "center",
+      fontSize: 10,
+      fontWeight: 800,
+      color: "#bbb",
+    },
+    gridWeekday: {
+      textAlign: "center",
+      fontSize: 11,
+      fontWeight: 800,
+      color: "#cbd5e1",
+    },
+    weekNumberCell: {
+      height: 34,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontSize: 10,
+      fontWeight: 700,
+      color: "#64748b",
+      borderRadius: 8,
+      background: "#f8fafc",
+    },
+    gridDayBase: {
+      position: "relative",
+      aspectRatio: "1",
+      border: "1px solid transparent",
+      background: "none",
+      borderRadius: 10,
+      fontSize: 12,
+      cursor: "pointer",
+      fontWeight: 700,
+      color: "#334155",
+    },
+    gridDaySelected: {
+      background: "#1976d2",
+      color: "white",
+      borderColor: "#1976d2",
+      boxShadow: "0 8px 18px rgba(25,118,210,0.22)",
+    },
+    gridDayToday: {
+      borderColor: "#1976d2",
+    },
+    btnToday: {
+      width: "100%",
+      border: "1px solid #1976d2",
+      color: "#1976d2",
+      background: "white",
+      padding: "9px 10px",
+      borderRadius: 10,
+      fontSize: 11,
+      fontWeight: 800,
+      cursor: "pointer",
+    },
+
+    holidaySection: {
+      flex: 1,
+      minWidth: 0,
+      background: "rgba(248,250,252,0.75)",
+    },
+    holidayHeader: {
+      padding: isSmallMobile ? "10px 12px" : "12px 16px",
+      fontSize: 11,
+      fontWeight: 800,
+      color: "#1976d2",
+      borderBottom: "1px solid rgba(0,0,0,0.05)",
+    },
+    holidayList: {
+      maxHeight: windowWidth <= 900 ? 220 : 280,
+      overflowY: "auto",
+      padding: "6px 0",
+    },
+    holidayItem: {
+      padding: isSmallMobile ? "10px 12px" : "10px 16px",
+      cursor: "pointer",
+      borderBottom: "1px solid rgba(250,250,250,0.9)",
+      display: "flex",
+    },
+    holidayItemSelected: {
+      background: "#f0f7ff",
+      borderLeft: "4px solid #1976d2",
+      paddingLeft: isSmallMobile ? 8 : 12,
+    },
+    holidayRowContent: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      width: "100%",
+      gap: 10,
+    },
+    hInfo: {
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+      minWidth: 0,
+    },
+    hName: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: "#333",
+    },
+    hDateUnder: {
+      fontSize: 11,
+      color: "#999",
+      marginTop: 2,
+    },
+    daysLeftBadge: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: "#1976d2",
+      background: "#e3f2fd",
+      padding: "2px 8px",
+      borderRadius: 10,
+      whiteSpace: "nowrap",
+    },
+    daysLeftPassed: {
+      color: "#999",
+      background: "#eee",
+    },
+    daysLeftToday: {
+      color: "#d32f2f",
+      background: "#ffebee",
+    },
+    todayDot: {
+      position: "absolute",
+      bottom: 4,
+      left: "50%",
+      transform: "translateX(-50%)",
+      width: 4,
+      height: 4,
+      background: "#d32f2f",
+      borderRadius: "50%",
+    },
+  };
+
+  return (
+    <>
+      <header style={stylesObj.header}>
+        <div style={stylesObj.left}>
+          <h1 style={stylesObj.title}>Planera ledighet</h1>
+        </div>
+
+        <div style={stylesObj.center}>
+          <div style={stylesObj.dateNav}>
+            <button onClick={onPrevMonth} style={stylesObj.navBtn}>
+              <Icon.Back />
+            </button>
+
+            <div style={{ position: "relative" }}>
+              <button
+                ref={datePickerAnchorRef}
+                onClick={onOpenDatePicker}
+                style={stylesObj.pickerTrigger}
+              >
+                <div style={stylesObj.triggerIcon}>
+                  <Icon.Calendar />
+                </div>
+                <div style={stylesObj.triggerText}>
+                  <span style={stylesObj.dateDisplay}>
+                    {pickerDate.format("D MMM YYYY")}
+                  </span>
+                  <span style={stylesObj.weekDisplay}>
+                    Vecka {pickerDate.isoWeek()}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <button onClick={onNextMonth} style={stylesObj.navBtn}>
+              <Icon.Forward />
+            </button>
+          </div>
+        </div>
+
+        <div style={stylesObj.right}>
+          <button
+            onClick={() => setShowMainMenu(true)}
+            style={stylesObj.menuBtn}
+            aria-expanded={showMainMenu}
+          >
+            Meny
+          </button>
+        </div>
+      </header>
+
+      {showMainMenu && (
+        <div style={stylesObj.overlayRootCentered}>
+          <div
+            style={stylesObj.overlayBackdrop}
+            onClick={() => setShowMainMenu(false)}
+          />
+          <div
+            ref={mainMenuRef}
+            style={{ ...stylesObj.overlayPanel, ...stylesObj.menuPanel }}
+          >
+            <div style={stylesObj.panelHeader}>
+              <span style={stylesObj.overlayTitle}>Meny</span>
+              <button
+                style={stylesObj.closeBtn}
+                onClick={() => setShowMainMenu(false)}
+              >
+                STÄNG
+              </button>
+            </div>
+
             <div
-              className="menu-item"
+              style={stylesObj.menuItem}
               onClick={() => {
                 setShowMainMenu(false);
                 handleDialogAbsenceTypeTrigger();
@@ -311,9 +854,12 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.EventBusy /> Frånvarotyper
             </div>
+
             <div
-              className="menu-item"
-              style={{ opacity: doseHaveAbsenceTypes ? 1 : 0.5 }}
+              style={{
+                ...stylesObj.menuItem,
+                opacity: doseHaveAbsenceTypes ? 1 : 0.5,
+              }}
               onClick={() => {
                 if (doseHaveAbsenceTypes) {
                   setShowMainMenu(false);
@@ -323,9 +869,12 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.Group /> Lägg till grupp
             </div>
+
             <div
-              className="menu-item"
-              style={{ opacity: groups.length > 0 ? 1 : 0.5 }}
+              style={{
+                ...stylesObj.menuItem,
+                opacity: groups.length > 0 ? 1 : 0.5,
+              }}
               onClick={() => {
                 if (groups.length > 0) {
                   setShowMainMenu(false);
@@ -335,9 +884,11 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.User /> Lägg till anställda
             </div>
-            <div className="menu-sep" />
+
+            <div style={stylesObj.menuSep} />
+
             <div
-              className="menu-item"
+              style={stylesObj.menuItem}
               onClick={() => {
                 setShowMainMenu(false);
                 openDataManagement();
@@ -345,8 +896,9 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.Table /> Data Management
             </div>
+
             <div
-              className="menu-item"
+              style={stylesObj.menuItem}
               onClick={() => {
                 setShowMainMenu(false);
                 openAnalyticsDashboard();
@@ -354,8 +906,9 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.Chart /> Analytics
             </div>
+
             <div
-              className="menu-item"
+              style={stylesObj.menuItem}
               onClick={() => {
                 setShowMainMenu(false);
                 openConfig();
@@ -363,8 +916,9 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.Settings /> Konfigurera
             </div>
+
             <div
-              className="menu-item"
+              style={stylesObj.menuItem}
               onClick={() => {
                 setShowMainMenu(false);
                 handleDialogDatabaseSystemTrigger();
@@ -372,11 +926,12 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
             >
               <Icon.Database /> Databassystem
             </div>
-            <div className="sidebar-mode-toggle">
-              <div className="toggle-track">
+
+            <div style={stylesObj.sidebarModeToggle}>
+              <div style={stylesObj.toggleTrack}>
                 <div
-                  className="toggle-thumb"
                   style={{
+                    ...stylesObj.toggleThumb,
                     left: `${modes.indexOf(sidebarMode) * 33.33 + 0.5}%`,
                   }}
                 />
@@ -384,9 +939,14 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                   <button
                     key={mode}
                     onClick={() => setSidebarMode(mode)}
-                    className={`toggle-btn ${sidebarMode === mode ? "active" : ""}`}
+                    style={{
+                      ...stylesObj.toggleBtn,
+                      ...(sidebarMode === mode
+                        ? stylesObj.toggleBtnActive
+                        : {}),
+                    }}
                   >
-                    {mode === "initials"
+                    {mode === "compact"
                       ? "Compact"
                       : mode.charAt(0).toUpperCase() + mode.slice(1)}
                   </button>
@@ -394,45 +954,36 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div style={{ width: "20px" }} />
-
-      <div className="date-nav-container">
-        <button onClick={onPrevMonth} className="nav-icon-btn">
-          <Icon.Back />
-        </button>
-        <div style={{ position: "relative" }}>
-          <button
-            ref={datePickerAnchorRef}
-            onClick={onOpenDatePicker}
-            className="picker-trigger"
+      {isDatePickerOpen && (
+        <div style={stylesObj.overlayRoot}>
+          <div style={stylesObj.overlayBackdrop} onClick={onCloseDatePicker} />
+          <div
+            ref={datePopoverRef}
+            style={{ ...stylesObj.overlayPanel, ...stylesObj.datePanel }}
           >
-            <div className="trigger-icon">
-              <Icon.Calendar />
+            <div style={stylesObj.panelHeader}>
+              <span style={stylesObj.overlayTitle}>Navigera kalender</span>
+              <button style={stylesObj.closeBtn} onClick={onCloseDatePicker}>
+                STÄNG
+              </button>
             </div>
-            <div className="trigger-text">
-              <span className="date-display">
-                {pickerDate.format("D MMM YYYY")}
-              </span>
-              <span className="week-display">Vecka {pickerDate.isoWeek()}</span>
-            </div>
-          </button>
 
-          {isDatePickerOpen && (
-            <div ref={datePopoverRef} className="dropdown-anim date-popover">
-              <div className="popover-header">
-                <span className="header-label">NAVIGERA</span>
-                <button onClick={onCloseDatePicker} className="close-btn">
-                  STÄNG
-                </button>
-              </div>
+            <div style={stylesObj.popoverContent}>
+              <div style={stylesObj.calendarSection}>
+                <div style={stylesObj.calendarTopNav}>
+                  <button
+                    style={stylesObj.miniNavBtn}
+                    onClick={() => setViewDate(viewDate.subtract(1, "month"))}
+                  >
+                    <Icon.Back />
+                  </button>
 
-              <div className="popover-content">
-                <div className="calendar-section">
-                  <div className="calendar-selectors">
+                  <div style={stylesObj.calendarSelectors}>
                     <select
+                      style={stylesObj.monthSelect}
                       value={viewDate.month()}
                       onChange={(e) =>
                         setViewDate(viewDate.month(parseInt(e.target.value)))
@@ -444,7 +995,9 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                         </option>
                       ))}
                     </select>
+
                     <select
+                      style={stylesObj.yearSelect}
                       value={viewDate.year()}
                       onChange={(e) =>
                         setViewDate(viewDate.year(parseInt(e.target.value)))
@@ -457,138 +1010,148 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                       ))}
                     </select>
                   </div>
-                  <div className="calendar-grid">
-                    {["M", "T", "O", "T", "F", "L", "S"].map((d) => (
-                      <span key={d} className="grid-weekday">
-                        {d}
-                      </span>
-                    ))}
-                    {calendarDays.map((d, i) => {
-                      const isSelected = d?.isSame(pickerDate, "day");
-                      const isToday = d?.isSame(realToday, "day");
-                      return (
-                        <button
-                          key={i}
-                          disabled={!d}
-                          onClick={() => {
-                            if (d) {
-                              onDateChange(d);
-                            }
-                          }}
-                          className={`grid-day ${isSelected ? "selected" : ""} ${isToday ? "is-today" : ""}`}
-                        >
-                          {d?.date()}
-                        </button>
-                      );
-                    })}
-                  </div>
+
                   <button
-                    onClick={() => setViewDate(realToday)}
-                    className="btn-today"
+                    style={stylesObj.miniNavBtn}
+                    onClick={() => setViewDate(viewDate.add(1, "month"))}
                   >
-                    VISA IDAG I KALENDERN
+                    <Icon.Forward />
                   </button>
                 </div>
 
-                <div className="holiday-section">
-                  <div className="holiday-header">
-                    HELGDAGAR {viewDate.year()}
-                  </div>
-                  <div className="holiday-list custom-scroll">
-                    {getSwedishHolidays(viewDate.year()).map((h) => {
-                      const daysLeftText = getDaysLeft(h.date);
-                      const isUpcoming = !daysLeftText.includes("Passerad");
-                      return (
-                        <div
-                          key={h.name}
-                          onClick={() => onDateChange(h.date)}
-                          className={`holiday-item ${h.date.isSame(pickerDate, "day") ? "selected-holiday" : ""}`}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              width: "100%",
-                            }}
-                          >
-                            <div className="h-info">
-                              <span className="h-name">{h.name}</span>
-                              <span className="h-date-under">
-                                {h.date.format("dddd D MMMM")}
-                              </span>
-                            </div>
-                            <span
-                              className={`days-left-badge ${!isUpcoming ? "passed" : daysLeftText === "Idag" ? "today" : ""}`}
+                <div style={stylesObj.calendarGrid}>
+                  <span style={stylesObj.gridWeekLabel}>v</span>
+                  {["M", "T", "O", "T", "F", "L", "S"].map((d, i) => (
+                    <span key={`${d}-${i}`} style={stylesObj.gridWeekday}>
+                      {d}
+                    </span>
+                  ))}
+
+                  {Array.from({ length: 6 }, (_, weekIndex) => (
+                    <React.Fragment key={weekIndex}>
+                      <div style={stylesObj.weekNumberCell}>
+                        {calendarWeeks[weekIndex]}
+                      </div>
+
+                      {calendarDays
+                        .slice(weekIndex * 7, weekIndex * 7 + 7)
+                        .map((d, i) => {
+                          const isSelected = d?.isSame(pickerDate, "day");
+                          const isToday = d?.isSame(realToday, "day");
+
+                          return (
+                            <button
+                              key={`${weekIndex}-${i}`}
+                              disabled={!d}
+                              onClick={() => {
+                                if (d) {
+                                  onDateChange(d);
+                                  onCloseDatePicker();
+                                }
+                              }}
+                              style={{
+                                ...stylesObj.gridDayBase,
+                                ...(isSelected
+                                  ? stylesObj.gridDaySelected
+                                  : {}),
+                                ...(isToday ? stylesObj.gridDayToday : {}),
+                              }}
                             >
-                              {daysLeftText}
+                              {d?.date()}
+                              {isToday && <span style={stylesObj.todayDot} />}
+                            </button>
+                          );
+                        })}
+                    </React.Fragment>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setViewDate(realToday);
+                    onDateChange(realToday);
+                    onCloseDatePicker();
+                  }}
+                  style={stylesObj.btnToday}
+                >
+                  VISA IDAG I KALENDERN
+                </button>
+              </div>
+
+              <div style={stylesObj.holidaySection}>
+                <div style={stylesObj.holidayHeader}>
+                  HELGDAGAR {viewDate.year()}
+                </div>
+
+                <div style={stylesObj.holidayList}>
+                  {getSwedishHolidays(viewDate.year()).map((h) => {
+                    const daysLeftText = getDaysLeft(h.date);
+                    const isUpcoming = !daysLeftText.includes("Passerad");
+
+                    return (
+                      <div
+                        key={h.name}
+                        onClick={() => {
+                          onDateChange(h.date);
+                          onCloseDatePicker();
+                        }}
+                        style={{
+                          ...stylesObj.holidayItem,
+                          ...(h.date.isSame(pickerDate, "day")
+                            ? stylesObj.holidayItemSelected
+                            : {}),
+                        }}
+                      >
+                        <div style={stylesObj.holidayRowContent}>
+                          <div style={stylesObj.hInfo}>
+                            <span style={stylesObj.hName}>{h.name}</span>
+                            <span style={stylesObj.hDateUnder}>
+                              {h.date.format("dddd D MMMM")} • v.
+                              {h.date.isoWeek()}
                             </span>
                           </div>
+
+                          <span
+                            style={{
+                              ...stylesObj.daysLeftBadge,
+                              ...(!isUpcoming
+                                ? stylesObj.daysLeftPassed
+                                : daysLeftText === "Idag"
+                                  ? stylesObj.daysLeftToday
+                                  : {}),
+                            }}
+                          >
+                            {daysLeftText}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
-        <button onClick={onNextMonth} className="nav-icon-btn">
-          <Icon.Forward />
-        </button>
-      </div>
+      )}
 
       <style>{`
-        .timeline-header { background: white; border-bottom: 1px solid #ddd; height: 64px; display: flex; align-items: center; padding: 0 24px; position: relative; z-index: 2000; }
-        .header-title { font-size: 1.15rem; font-weight: 800; color: #111; margin: 0; }
-        .btn-menu { background: #1976d2; color: white; border: none; border-radius: 6px; padding: 10px 20px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-        .dropdown-box { position: absolute; top: calc(100% + 10px); right: 0; width: 280px; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #ddd; overflow: hidden; }
-        .menu-item { padding: 10px 16px; display: flex; align-items: center; cursor: pointer; font-size: 14px; gap: 12px; transition: 0.2s; color: #333; }
-        .menu-item:hover { background: #f0f7ff; color: #1976d2; padding-left: 20px; }
-        .sidebar-mode-toggle { padding: 16px; background: #fcfcfc; border-top: 1px solid #eee; }
-        .toggle-track { display: flex; background: #eee; border-radius: 6px; padding: 3px; position: relative; }
-        .toggle-thumb { position: absolute; top: 3px; bottom: 3px; width: 32%; background: white; border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .toggle-btn { flex: 1; border: none; background: none; font-size: 11px; font-weight: 500; z-index: 1; padding: 8px 0; cursor: pointer; color: #777; }
-        .toggle-btn.active { font-weight: 800; color: #1976d2; }
-        .date-nav-container { display: flex; align-items: center; gap: 10px; }
-        .nav-icon-btn { background: none; border: 1px solid #eee; border-radius: 6px; padding: 10px; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
-        .picker-trigger { display: flex; align-items: center; gap: 14px; padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; }
-        .date-display { font-size: 13px; font-weight: 700; color: #333; display: block; }
-        .week-display { font-size: 10px; color: #888; font-weight: 500; }
-        .date-popover { position: absolute; top: calc(100% + 10px); right: 0; width: 680px; background: white; border-radius: 12px; box-shadow: 0 15px 45px rgba(0,0,0,0.18); border: 1px solid #ddd; overflow: hidden; z-index: 3000; }
-        .popover-header { padding: 10px 16px; background: #f9f9f9; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; }
-        .close-btn { background: #333; color: white; border: none; padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 800; cursor: pointer; }
-        .close-btn:hover { background: #000; }
-        .popover-content { display: flex; }
-        .calendar-section { width: 300px; padding: 20px; border-right: 1px solid #eee; }
-        .calendar-selectors { display: flex; gap: 10px; margin-bottom: 15px; }
-        .calendar-selectors select { flex: 1; padding: 5px; border-radius: 4px; border: 1px solid #ddd; font-weight: 600; outline: none; cursor: pointer; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .grid-weekday { text-align: center; font-size: 11px; font-weight: 800; color: #ccc; }
-        .grid-day { position: relative; aspect-ratio: 1; border: none; background: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; color: #444; }
-        .grid-day:hover:not(:disabled) { background: #f0f7ff; color: #1976d2; }
-        .grid-day.selected { background: #1976d2; color: white; }
-        .grid-day.is-today::after { content: ""; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #d32f2f; border-radius: 50%; }
-        .btn-today { margin-top: 15px; width: 100%; border: 1px solid #1976d2; color: #1976d2; background: white; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 800; cursor: pointer; }
-        .holiday-section { flex: 1; background: #fdfdfd; }
-        .holiday-header { padding: 15px 20px; font-size: 11px; font-weight: 800; color: #1976d2; border-bottom: 1px solid #f5f5f5; }
-        .holiday-list { max-height: 320px; overflow-y: auto; padding: 10px 0; }
-        .holiday-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid #fafafa; display: flex; transition: 0.2s; }
-        .holiday-item:hover { background: #f8faff; padding-left: 28px; }
-        .holiday-item.selected-holiday { background: #f0f7ff; border-left: 4px solid #1976d2; padding-left: 16px; }
-        .h-info { display: flex; flex-direction: column; flex: 1; }
-        .h-name { font-size: 13px; font-weight: 700; color: #333; }
-        .h-date-under { font-size: 11px; color: #999; margin-top: 2px; }
-        .days-left-badge { font-size: 10px; font-weight: 700; color: #1976d2; background: #e3f2fd; padding: 2px 8px; border-radius: 10px; white-space: nowrap; margin-left: 10px; }
-        .days-left-badge.passed { color: #999; background: #eee; }
-        .days-left-badge.today { color: #d32f2f; background: #ffebee; }
-        .dropdown-anim { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); transform-origin: top right; }
-        @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-        .custom-scroll::-webkit-scrollbar { width: 5px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+        @keyframes fadeBackdrop {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes panelIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.96);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
       `}</style>
-    </header>
+    </>
   );
 };
 

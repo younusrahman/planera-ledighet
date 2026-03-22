@@ -14,13 +14,13 @@ import {
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import dayjs, { Dayjs } from "dayjs";
-import { CELL_WIDTH, ROW_HEIGHT } from "../utils";
 import { getDateOffset } from "../utils/Helper";
 
 import { PastDaysOverlay } from "./PastDaysOverlay";
 import type { Absence, TeamWithEmployees } from "../types";
 import { getSwedishHolidays } from "../utils/holidayHelper";
 import AbsenceBlock from "./AbsenceBlock";
+import { useCellWidth, useRowHeight } from "../services/stores/uiStore";
 
 // --- HELPERS ---
 const rgba = (hex: string, opacity: number) => {
@@ -45,13 +45,6 @@ const rgba = (hex: string, opacity: number) => {
   );
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
-
-const ArrowRightSvg = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M16.01 11H4v2h12.01v3L20 12l-3.99-4z" />
-  </svg>
-);
-
 interface TimelineDndContextProps {
   days: Dayjs[];
   daysCount: number;
@@ -141,7 +134,8 @@ export const TimelineDndContext = forwardRef<
   const [isDragging, setIsDragging] = useState(false);
   const scrollIntervalRef = useRef<number | null>(null);
   const mousePosRef = useRef({ x: 0, y: 0 });
-
+  const CELL_WIDTH = useCellWidth();
+  const ROW_HEIGHT = useRowHeight();
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       setIsDragging(true);
@@ -347,9 +341,18 @@ export const TimelineDndContext = forwardRef<
                             {(team.employees || []).map((emp) => (
                               <div
                                 key={emp.id}
-                                onPointerDown={(e) =>
-                                  onGridPointerDown(e, emp.id)
-                                }
+                                onPointerDown={(e) => {
+                                  const rect =
+                                    e.currentTarget.getBoundingClientRect();
+                                  const y = e.clientY - rect.top;
+
+                                  const activeTop = 5;
+                                  const activeBottom = ROW_HEIGHT - 5;
+
+                                  if (y < activeTop || y > activeBottom) return;
+
+                                  onGridPointerDown(e, emp.id);
+                                }}
                                 onPointerMove={onGridPointerMove}
                                 onPointerUp={onGridPointerUp}
                                 style={{

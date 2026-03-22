@@ -1,30 +1,6 @@
-import React, { useState, useEffect } from "react";
-import {
-  Box,
-  Button,
-  DialogActions,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Stack,
-  TextField,
-  Typography,
-  Chip,
-  InputAdornment,
-  Fade,
-  useTheme,
-  alpha,
-  FormHelperText,
-  Paper,
-} from "@mui/material";
-import { DatePicker } from "@mui/x-date-pickers";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import EventAvailableIcon from "@mui/icons-material/EventAvailable";
-import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import TodayIcon from "@mui/icons-material/Today";
-import EventIcon from "@mui/icons-material/Event";
+import React, { useState } from "react";
+import dayjs from "dayjs";
+import styles from "./AbsenceForm.module.css";
 
 export interface AbsenceFormProps {
   title: string;
@@ -51,357 +27,152 @@ export default function AbsenceForm({
   onSave,
   onClose,
 }: AbsenceFormProps) {
-  const theme = useTheme();
-  const [state, setState] = useState(data);
-  const [touched, setTouched] = useState({
-    typeId: false,
-    startDate: false,
-    duration: false,
+  const [errors, setErrors] = useState<Record<string, string>>({});
+ const [state, setState] = useState({
+    ...data,
+    startDate: dayjs(data.startDate) 
   });
 
-  const isFormValid = state.typeId !== "" && state.duration > 0;
-  const selectedType = absenceTypes.find((t) => t.id === state.typeId);
-  const endDate = state.startDate.add(state.duration - 1, "day");
+  // Calculate endDate safely
+  const startDateObj = dayjs(state.startDate);
+  const endDate = startDateObj.add(state.duration - 1, "day");
+  const isPast = state.startDate.isBefore(today, "day");
 
-  useEffect(() => {
-    setState(data);
-    setTouched({ typeId: false, startDate: false, duration: false });
-  }, [data]);
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!state.typeId) newErrors.typeId = "Välj en frånvarotyp";
+    if (blockPastDays && isPast)
+      newErrors.startDate = "Datum kan inte vara i dåtid";
+    if (state.duration < 1) newErrors.duration = "Minst 1 dag krävs";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSave = () => {
-    if (!isFormValid) {
-      setTouched({ typeId: true, startDate: true, duration: true });
-      return;
-    }
-    onSave(state);
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && isFormValid) {
-      handleSave();
+    if (validate()) {
+      onSave(state);
     }
   };
 
-  const handleTypeChange = (e: any) => {
-    setState((prev) => ({
-      ...prev,
-      typeId: e.target.value,
-    }));
-    if (touched.typeId) setTouched((prev) => ({ ...prev, typeId: false }));
-  };
+  // Logic: When start date changes, we keep the end date if possible, otherwise adjust duration
+  const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStart = dayjs(e.target.value);
+    if (!newStart.isValid()) return;
 
-  const handleStartDateChange = (date: any) => {
-    if (!date) return;
-    const newStart = date.startOf("day");
+    // Strict validation for past days
+    if (blockPastDays && newStart.isBefore(today, "day")) {
+      setErrors((p) => ({ ...p, startDate: "Datum kan inte vara i dåtid" }));
+    } else {
+      setErrors((p) => ({ ...p, startDate: "" }));
+    }
+
     const diff = endDate.diff(newStart, "day") + 1;
-
     setState((prev) => ({
       ...prev,
       startDate: newStart,
       duration: Math.max(1, diff),
     }));
-    if (touched.startDate)
-      setTouched((prev) => ({ ...prev, startDate: false }));
-  };
-
-  const handleEndDateChange = (date: any) => {
-    if (!date) return;
-    const newEnd = date.startOf("day");
-    const diff = newEnd.diff(state.startDate, "day") + 1;
-
-    setState((prev) => ({
-      ...prev,
-      duration: Math.max(1, diff),
-      ...(diff < 1 && { startDate: newEnd }),
-    }));
-  };
-
-  const handleDurationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const d = parseInt(e.target.value) || 1;
-    setState((prev) => ({
-      ...prev,
-      duration: Math.max(1, d),
-    }));
-    if (touched.duration) setTouched((prev) => ({ ...prev, duration: false }));
   };
 
   return (
-    <>
-      <DialogTitle
-        sx={{
-          m: 0,
-          px: 0,
-          fontWeight: 600,
-          fontSize: "1.25rem",
-          display: "flex",
-          alignItems: "center",
-          gap: 1.5,
-        }}
-      >
-        <EventAvailableIcon
-          sx={{ color: "primary.main", fontSize: "1.5rem" }}
-        />
-        {title}
-      </DialogTitle>
+    <div className={styles.container}>
+      <h2 className={styles.title}>{title}</h2>
 
-      <Stack spacing={3}>
-        {/* TYPE SELECT */}
-        <FormControl
-          fullWidth
-          error={touched.typeId && !state.typeId}
-          variant="filled"
-          sx={{
-            "& .MuiFilledInput-root": {
-              borderRadius: 1,
-              backgroundColor: "action.hover",
-              "&:hover": {
-                backgroundColor: "action.selected",
-              },
-              "&.Mui-focused": {
-                backgroundColor: "action.selected",
-              },
-            },
-          }}
+      {/* Type Selector */}
+      <div className={styles.field}>
+        <label className={styles.label}>Frånvarotyp</label>
+        <select
+          className={`${styles.select} ${errors.typeId ? styles.inputError : ""}`}
+          value={state.typeId}
+          onChange={(e) => setState((p) => ({ ...p, typeId: e.target.value }))}
         >
-          <InputLabel>Typ av frånvaro</InputLabel>
-          <Select
-            value={state.typeId}
-            label="Typ av frånvaro"
-            onChange={handleTypeChange}
-            onBlur={() => setTouched((prev) => ({ ...prev, typeId: true }))}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  borderRadius: 1,
-                  mt: 0.5,
-                },
-              },
-            }}
-          >
-            {absenceTypes.map((opt) => (
-              <MenuItem key={opt.id} value={opt.id}>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Box
-                    sx={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      backgroundColor: opt.color,
-                    }}
-                  />
-                  <Typography>{opt.label}</Typography>
-                </Stack>
-              </MenuItem>
-            ))}
-          </Select>
-          {touched.typeId && !state.typeId && (
-            <FormHelperText>Välj en frånvarotyp</FormHelperText>
-          )}
-        </FormControl>
+          <option value="">Välj typ...</option>
+          {absenceTypes.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        {errors.typeId && (
+          <span className={styles.errorText}>{errors.typeId}</span>
+        )}
+      </div>
 
-        {/* DATE RANGE */}
-        <Box>
-          <Typography
-            variant="subtitle2"
-            sx={{
+      {/* Date Grid */}
+      <div className={styles.grid}>
+        <div className={styles.field}>
+          <label className={styles.label}>Startdatum</label>
+          <input
+            type="date"
+            className={`${styles.input} ${errors.startDate ? styles.inputError : ""}`}
+            min={blockPastDays ? today.format("YYYY-MM-DD") : undefined}
+            value={state.startDate.format("YYYY-MM-DD")}
+            onChange={handleStartChange}
+          />
+          {errors.startDate && (
+            <span className={styles.errorText}>{errors.startDate}</span>
+          )}
+        </div>
+
+        <div className={styles.field}>
+          <label className={styles.label}>Slutdatum (beräknat)</label>
+          <input
+            type="date"
+            className={styles.input}
+            value={endDate.format("YYYY-MM-DD")}
+            min={state.startDate.format("YYYY-MM-DD")}
+            onChange={(e) => {
+              const diff =
+                dayjs(e.target.value).diff(state.startDate, "day") + 1;
+              setState((p) => ({ ...p, duration: Math.max(1, diff) }));
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Summary Area */}
+      <div className={styles.summary}>
+        <div>
+          <div style={{ fontWeight: 600 }}>
+            {state.duration} {state.duration === 1 ? "dag" : "dagar"}
+          </div>
+          <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+            {state.startDate.format("D MMM")} - {endDate.format("D MMM YYYY")}
+          </div>
+        </div>
+        {state.typeId && (
+          <div
+            style={{
+              backgroundColor: absenceTypes.find((t) => t.id === state.typeId)
+                ?.color,
+              color: "white",
+              padding: "4px 10px",
+              borderRadius: "20px",
+              fontSize: "0.75rem",
               fontWeight: 600,
-              mb: 2,
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              color: "text.primary",
             }}
           >
-            <CalendarTodayIcon sx={{ fontSize: 18, color: "action.active" }} />
-            Datumperiod
-          </Typography>
+            {absenceTypes.find((t) => t.id === state.typeId)?.label}
+          </div>
+        )}
+      </div>
 
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <DatePicker
-              label="Startdatum"
-              value={state.startDate}
-              minDate={blockPastDays ? today : undefined}
-              onChange={handleStartDateChange}
-              onOpen={() =>
-                setTouched((prev) => ({ ...prev, startDate: true }))
-              }
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                  size: "small",
-                  sx: {
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 1,
-                    },
-                  },
-                  InputProps: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <TodayIcon
-                          sx={{ color: "action.active", fontSize: "1.25rem" }}
-                        />
-                      </InputAdornment>
-                    ),
-                  },
-                },
-                actionBar: {
-                  actions: ["today", "cancel", "accept"],
-                },
-              }}
-            />
-
-            <DatePicker
-              label="Slutdatum"
-              value={endDate}
-              minDate={state.startDate}
-              onChange={handleEndDateChange}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                  size: "small",
-                  sx: {
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 1,
-                    },
-                  },
-                  InputProps: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EventIcon
-                          sx={{ color: "action.active", fontSize: "1.25rem" }}
-                        />
-                      </InputAdornment>
-                    ),
-                  },
-                },
-                actionBar: {
-                  actions: ["today", "cancel", "accept"],
-                },
-              }}
-            />
-          </Stack>
-
-          {/* Duration Summary */}
-          {state.duration > 0 && (
-            <Fade in={state.duration > 0}>
-              <Paper
-                elevation={0}
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  borderRadius: 1,
-                  backgroundColor: alpha(theme.palette.primary.main, 0.04),
-                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-                }}
-              >
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    <Box component="span" sx={{ fontWeight: 600 }}>
-                      {state.duration} {state.duration === 1 ? "dag" : "dagar"}
-                    </Box>
-                    {" från "}
-                    {state.startDate.format("D MMM")}
-                    {" till "}
-                    {endDate.format("D MMM YYYY")}
-                  </Typography>
-                  {selectedType && (
-                    <Chip
-                      label={selectedType.label}
-                      size="small"
-                      sx={{
-                        bgcolor: selectedType.color,
-                        color: theme.palette.getContrastText(
-                          selectedType.color
-                        ),
-                        fontWeight: 600,
-                        fontSize: "0.75rem",
-                      }}
-                    />
-                  )}
-                </Stack>
-              </Paper>
-            </Fade>
-          )}
-        </Box>
-
-        {/* DURATION INPUT */}
-        <TextField
-          label="Antal dagar"
-          type="number"
-          value={state.duration}
-          onChange={handleDurationChange}
-          onKeyPress={handleKeyPress}
-          onBlur={() => setTouched((prev) => ({ ...prev, duration: true }))}
-          error={touched.duration && state.duration < 1}
-          fullWidth
-          size="small"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <AccessTimeIcon
-                  sx={{ color: "action.active", fontSize: "1.25rem" }}
-                />
-              </InputAdornment>
-            ),
-            inputProps: { min: 1, step: 1 },
-            sx: { borderRadius: 1 },
-          }}
-          helperText={
-            touched.duration && state.duration < 1
-              ? "Antal dagar måste vara minst 1"
-              : "Ange totalt antal dagar för frånvaron"
-          }
-        />
-      </Stack>
-
-      <DialogActions sx={{ px: 0, pb: 3, pt: 1, gap: 1 }}>
-        <Button
+      <div className={styles.footer}>
+        <button
+          className={`${styles.btn} ${styles.btnSecondary}`}
           onClick={onClose}
-          variant="outlined"
-          sx={{
-            borderRadius: 1,
-            px: 3,
-            borderColor: "divider",
-            color: "text.secondary",
-            "&:hover": {
-              borderColor: "action.active",
-              backgroundColor: alpha(theme.palette.action.active, 0.04),
-            },
-          }}
         >
           Avbryt
-        </Button>
-        <Button
-          variant="contained"
+        </button>
+        <button
+          className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={handleSave}
-          disabled={!isFormValid}
-          sx={{
-            borderRadius: 1,
-            px: 3,
-            fontWeight: 600,
-            boxShadow: "none",
-            "&:hover": {
-              boxShadow: theme.shadows[2],
-            },
-            "&.Mui-disabled": {
-              backgroundColor: "action.disabledBackground",
-              color: "action.disabled",
-              boxShadow: "none",
-            },
-            "&:not(.Mui-disabled)": {
-              background: `linear-gradient(135deg, ${
-                theme.palette.primary.main
-              } 0%, ${alpha(theme.palette.primary.dark, 0.9)} 100%)`,
-            },
-          }}
+          disabled={blockPastDays && isPast}
         >
-          {mode === "create" ? "Registrera" : "Spara ändringar"}
-        </Button>
-      </DialogActions>
-    </>
+          {mode === "create" ? "Skapa" : "Spara"}
+        </button>
+      </div>
+    </div>
   );
 }

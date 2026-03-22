@@ -1,21 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
-  Box,
-  DialogActions,
-  DialogTitle,
-  Typography,
-  InputAdornment,
-  useTheme,
-} from "@mui/material";
-import PersonIcon from "@mui/icons-material/Person";
-import GroupsIcon from "@mui/icons-material/Groups";
-import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import styles from "./TeamForm.module.css";
 
 export interface ResourceFormProps {
   title?: string;
@@ -34,19 +18,15 @@ const TeamForm: React.FC<ResourceFormProps> = ({
   onSave,
   onClose,
 }) => {
-  const theme = useTheme();
   const [name, setName] = useState(initialName);
   const [groupId, setGroupId] = useState(initialGroupId);
   const [touched, setTouched] = useState({ name: false, group: false });
   const [isFocused, setIsFocused] = useState(false);
 
-  // VALIDERING
+  // Validation
   const isNameValid = name.trim().length > 0;
-  // Kontrollerar att groupId inte är en tom sträng, null eller undefined
   const isGroupValid =
     groupId !== "" && groupId !== null && groupId !== undefined;
-
-  // Formuäret är giltigt endast om BÅDE namn och grupp är korrekt ifyllda
   const isFormValid = isNameValid && isGroupValid;
 
   const showNameError = touched.name && !isNameValid;
@@ -66,150 +46,135 @@ const TeamForm: React.FC<ResourceFormProps> = ({
     }
   };
 
-
-  const handleNameBlur = () => {
-    setTouched((prev) => ({ ...prev, name: true }));
-  };
-
-  const handleGroupBlur = () => {
-    setTouched((prev) => ({ ...prev, group: true }));
-  };
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-    if (touched.name) setTouched((prev) => ({ ...prev, name: false }));
-  };
-
-  const handleGroupChange = (e: any) => {
-    setGroupId(e.target.value);
-    if (touched.group) setTouched((prev) => ({ ...prev, group: false }));
-  };
-
   return (
-    <Box>
-      <DialogTitle
-        component="div"
-        sx={{ p: 0, mb: 3, display: "flex", alignItems: "center", gap: 1.5 }}
-      >
-        <PersonIcon sx={{ color: "primary.main", fontSize: "1.5rem" }} />
-        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1.25rem" }}>
-          {title}
-        </Typography>
-      </DialogTitle>
-
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-        <TextField
-          autoFocus
-          label="Namn på anställd"
-          fullWidth
-          value={name}
-          onChange={handleNameChange}
-          onBlur={handleNameBlur}
-          onFocus={() => setIsFocused(true)}
-          error={showNameError}
-          helperText={showNameError ? "Namn krävs" : " "}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <PersonIcon
-                  sx={{ color: isFocused ? "primary.main" : "action.active" }}
-                />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        <FormControl
-          fullWidth
-          error={showGroupError}
-          sx={{
-            "& .MuiOutlinedInput-root": {
-              borderRadius: 1,
-              // ... dina övriga stilar
-            },
-          }}
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth="2"
         >
-          {/* shrink={true} är nyckeln här, annars täcker labeln placeholder-texten */}
-          <InputLabel shrink id="group-select-label">
-            Grupp
-          </InputLabel>
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+          <circle cx="12" cy="7" r="4" />
+        </svg>
+        <h2 className={styles.title}>{title}</h2>
+      </header>
 
-          <Select
-            labelId="group-select-label"
+      {/* Name Input */}
+      <div className={styles.formGroup}>
+        <label className={styles.label}>Namn på anställd</label>
+        <div className={styles.inputWrapper}>
+          <div
+            className={`${styles.inputIcon} ${isFocused ? styles.iconActive : ""}`}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </div>
+          <input
+            autoFocus
+            className={`${styles.input} ${showNameError ? styles.inputError : ""}`}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (touched.name) setTouched((p) => ({ ...p, name: false }));
+            }}
+            onBlur={() => setTouched((p) => ({ ...p, name: true }))}
+            onFocus={() => setIsFocused(true)}
+            onBlurCapture={() => setIsFocused(false)}
+            placeholder="Skriv fullständigt namn..."
+          />
+        </div>
+        <span className={styles.errorText}>
+          {showNameError ? "Namn krävs" : ""}
+        </span>
+      </div>
+
+      {/* Group Select */}
+      <div className={styles.formGroup}>
+        <label className={styles.label}>Grupp</label>
+        <div className={styles.inputWrapper}>
+          <div
+            className={`${styles.inputIcon} ${groupId ? styles.iconActive : ""}`}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <select
+            className={`${styles.select} ${showGroupError ? styles.inputError : ""}`}
             value={groupId}
-            label="Grupp"
-            displayEmpty // Tillåter visning av placeholder när värdet är ""
-            onChange={handleGroupChange}
-            onBlur={handleGroupBlur}
-            notched // Ser till att ramen lämnar plats för labeln eftersom vi kör shrink={true}
-            renderValue={(selected) => {
-              if (!selected || selected.length === 0) {
-                return (
-                  <Typography
-                    sx={{ color: theme.palette.text.secondary, opacity: 0.7 }}
-                  >
-                    Välj grupp...
-                  </Typography>
-                );
-              }
-              // Hitta namnet på vald grupp för att visa det i rutan
-              const selectedGroup = groups.find((g) => g.id === selected);
-              return selectedGroup ? selectedGroup.name : selected;
+            onChange={(e) => {
+              setGroupId(e.target.value);
+              if (touched.group) setTouched((p) => ({ ...p, group: false }));
             }}
-            startAdornment={
-              <InputAdornment position="start" sx={{ ml: 1 }}>
-                <GroupsIcon
-                  sx={{
-                    color: groupId ? "primary.main" : "action.active",
-                    fontSize: "1.25rem",
-                    mr: 1,
-                  }}
-                />
-              </InputAdornment>
-            }
-            MenuProps={{
-              sx: { zIndex: 3000 },
-              PaperProps: {
-                sx: { borderRadius: 1, mt: 0.5, maxHeight: 300 },
-              },
-            }}
+            onBlur={() => setTouched((p) => ({ ...p, group: true }))}
           >
-            {/* Detta alternativet finns i listan men är dolt, så användaren måste välja en riktig grupp */}
-            <MenuItem value="" disabled sx={{ display: "none" }}>
+            <option value="" disabled>
               Välj grupp...
-            </MenuItem>
-
+            </option>
             {groups.map((g) => (
-              <MenuItem key={g.id} value={g.id}>
+              <option key={g.id} value={g.id}>
                 {g.name}
-              </MenuItem>
+              </option>
             ))}
-          </Select>
-        </FormControl>
+          </select>
+        </div>
+        <span className={styles.errorText}>
+          {showGroupError ? "Du måste välja en grupp" : ""}
+        </span>
+      </div>
 
-        <DialogActions sx={{ px: 0, pb: 0, pt: 3, gap: 1 }}>
-          <Button onClick={onClose} variant="outlined">
-            Avbryt
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            // HÄR INAKTIVERAS KNAPPEN OM FORMULÄRET INTE ÄR GILTIGT
-            disabled={!isFormValid}
-            startIcon={<PersonAddIcon />}
-            sx={{
-              fontWeight: 600,
-              "&.Mui-disabled": {
-                backgroundColor: "action.disabledBackground",
-                color: "action.disabled",
-              },
-            }}
+      <footer className={styles.footer}>
+        <button
+          className={`${styles.btn} ${styles.btnSecondary}`}
+          onClick={onClose}
+        >
+          Avbryt
+        </button>
+        <button
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={handleSave}
+          disabled={!isFormValid}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
           >
-            Spara
-          </Button>
-        </DialogActions>
-      </Box>
-    </Box>
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="16" y1="11" x2="22" y2="11" />
+          </svg>
+          Spara
+        </button>
+      </footer>
+    </div>
   );
 };
 

@@ -1,0 +1,130 @@
+.container {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: inherit;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.selectGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  background-color: white;
+  min-width: 250px;
+  outline: none;
+}
+
+.checkboxGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.infoIcon {
+  color: #9ca3af;
+  cursor: help;
+  display: flex;
+}
+
+.card {
+  background: white;
+  padding: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+/* Tooltip Styles */
+.tooltip {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  min-width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tooltipTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 8px;
+}
+
+.statsGrid {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.statItem {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.employeeList {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.listWorking { background-color: #f0fdf4; color: #166534; }
+.listAbsent { background-color: #fef2f2; color: #991b1b; }
+
+.listTitle {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.employeeName {
+  font-size: 0.8rem;
+  padding: 2px 0;
+}
+
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background-color: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #ffedd5;
+  margin-left: 8px;
+}

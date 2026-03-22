@@ -1,21 +1,5 @@
-// components/Analytics/AbsenceTrendsChart.tsx
 import React, { useMemo, useState } from "react";
 import {
-  Box,
-  Typography,
-  Paper,
-  ToggleButton,
-  ToggleButtonGroup,
-  useTheme,
-  alpha,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-} from "@mui/material";
-import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,11 +15,12 @@ import {
 import { absence } from "../../services/stores/absenceDataStore";
 import useFilterStore from "../../services/stores/analyticsStore";
 import dayjs from "dayjs";
+import styles from "./AbsenceTrendsChart.module.css";
 
 type ViewMode = "daily" | "weekly" | "monthly";
+const PRIMARY_COLOR = "#2563eb";
 
 export function AbsenceTrendsChart() {
-  const theme = useTheme();
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useAbsenceCategories();
   const absences = absence.useItems();
@@ -43,8 +28,8 @@ export function AbsenceTrendsChart() {
   const {
     teamSelections,
     getSelectedEmployeeIds,
-    selectedCategoryIds,
     selectedStatuses,
+    selectedCategoryIds,
   } = useFilterStore();
 
   const [viewMode, setViewMode] = useState<ViewMode>("monthly");
@@ -54,7 +39,6 @@ export function AbsenceTrendsChart() {
     return getSelectedEmployeeIds(employees);
   }, [teamSelections, employees, getSelectedEmployeeIds]);
 
-  // Filter absences
   const filteredAbsences = useMemo(() => {
     let filtered = absences.filter(
       (abs) =>
@@ -83,109 +67,76 @@ export function AbsenceTrendsChart() {
     selectedCategory,
   ]);
 
-  // Generate trend data
   const trendData = useMemo(() => {
     if (filteredAbsences.length === 0) return [];
-
     const data: Record<string, { date: string; count: number; days: number }> =
       {};
 
     filteredAbsences.forEach((abs) => {
       const start = dayjs(abs.startDate);
       const end = dayjs(abs.endDate);
-
-      // Generate data points for each day in the absence
       let current = start;
       while (current.isBefore(end) || current.isSame(end, "day")) {
-        let key: string;
+        let key =
+          viewMode === "daily"
+            ? current.format("YYYY-MM-DD")
+            : viewMode === "weekly"
+              ? current.startOf("week").format("YYYY-MM-DD")
+              : current.format("YYYY-MM");
 
-        if (viewMode === "daily") {
-          key = current.format("YYYY-MM-DD");
-        } else if (viewMode === "weekly") {
-          key = current.startOf("week").format("YYYY-MM-DD");
-        } else {
-          key = current.format("YYYY-MM");
-        }
-
-        if (!data[key]) {
-          data[key] = { date: key, count: 0, days: 0 };
-        }
-
-        data[key].count += 1; // Number of absence instances
-        data[key].days += 1; // Total absence days
-
+        if (!data[key]) data[key] = { date: key, count: 0, days: 0 };
+        data[key].count += 1;
+        data[key].days += 1;
         current = current.add(1, "day");
       }
     });
-
-    // Convert to array and sort
     return Object.values(data).sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredAbsences, viewMode]);
 
-  const handleViewModeChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newMode: ViewMode,
-  ) => {
-    if (newMode !== null) {
-      setViewMode(newMode);
-    }
-  };
-
   return (
-    <Box sx={{ mt: 4 }}>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          mb: 2,
-          flexWrap: "wrap",
-        }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Frånvarotrender över tid
-        </Typography>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Frånvarotrender över tid</h3>
 
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={handleViewModeChange}
-          size="small"
-          sx={{ ml: "auto" }}
+        {/* CUSTOM TOGGLE BUTTONS */}
+        <div className={styles.toggleGroup}>
+          {(["daily", "weekly", "monthly"] as ViewMode[]).map((mode) => (
+            <button
+              key={mode}
+              className={`${styles.toggleBtn} ${viewMode === mode ? styles.activeToggle : ""}`}
+              onClick={() => setViewMode(mode)}
+            >
+              {mode === "daily"
+                ? "Dagligen"
+                : mode === "weekly"
+                  ? "Veckovis"
+                  : "Månadsvis"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.selectWrapper}>
+        <label className={styles.selectLabel}>Filtrera på kategori</label>
+        <select
+          className={styles.nativeSelect}
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
         >
-          <ToggleButton value="daily">Dagligen</ToggleButton>
-          <ToggleButton value="weekly">Veckovis</ToggleButton>
-          <ToggleButton value="monthly">Månadsvis</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
+          <option value="ALL">Alla kategorier</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-        <FormControl sx={{ minWidth: 200 }} size="small">
-          <InputLabel>Filtrera på kategori</InputLabel>
-          <Select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            label="Filtrera på kategori"
-          >
-            <MenuItem value="ALL">Alla kategorier</MenuItem>
-            {categories.map((cat) => (
-              <MenuItem key={cat.id} value={cat.id}>
-                {cat.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
-      <Paper
-        elevation={0}
-        sx={{
-          p: 2,
-          border: `1px solid ${theme.palette.divider}`,
-          borderRadius: 2,
-        }}
-      >
-        <Box sx={{ width: "100%", height: 350 }}>
+      <div className={styles.chartCard}>
+        <div
+          style={{ width: "100%", height: 350 }}
+          key={`${viewMode}-${selectedCategory}`}
+        >
           {trendData.length > 0 ? (
             <ResponsiveContainer>
               <AreaChart data={trendData}>
@@ -193,19 +144,26 @@ export function AbsenceTrendsChart() {
                   <linearGradient id="colorDays" x1="0" y1="0" x2="0" y2="1">
                     <stop
                       offset="5%"
-                      stopColor={theme.palette.primary.main}
+                      stopColor={PRIMARY_COLOR}
                       stopOpacity={0.3}
                     />
                     <stop
                       offset="95%"
-                      stopColor={theme.palette.primary.main}
+                      stopColor={PRIMARY_COLOR}
                       stopOpacity={0}
                     />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f3f4f6"
+                />
                 <XAxis
                   dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6b7280" }}
                   tickFormatter={(value) => {
                     if (viewMode === "monthly")
                       return dayjs(value).format("MMM YYYY");
@@ -214,18 +172,22 @@ export function AbsenceTrendsChart() {
                     return dayjs(value).format("DD MMM");
                   }}
                 />
-                <YAxis />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#6b7280" }}
+                />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: theme.palette.background.paper,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: theme.shape.borderRadius,
+                    backgroundColor: "#fff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                   }}
-                  formatter={(value: number, name: string) => {
-                    if (name === "days")
-                      return [`${value} dagar`, "Totala frånvarodagar"];
-                    return [value, name];
-                  }}
+                  formatter={(value: number) => [
+                    `${value} dagar`,
+                    "Frånvarodagar",
+                  ]}
                   labelFormatter={(label) => {
                     if (viewMode === "monthly")
                       return dayjs(label).format("MMMM YYYY");
@@ -237,29 +199,19 @@ export function AbsenceTrendsChart() {
                 <Area
                   type="monotone"
                   dataKey="days"
-                  stroke={theme.palette.primary.main}
+                  stroke={PRIMARY_COLOR}
                   fillOpacity={1}
                   fill="url(#colorDays)"
-                  strokeWidth={2}
+                  strokeWidth={3}
+                  animationDuration={1000}
                 />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <Box
-              sx={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography color="text.secondary">
-                Ingen data för valt intervall
-              </Typography>
-            </Box>
+            <div className={styles.noData}>Ingen data för valt intervall</div>
           )}
-        </Box>
-      </Paper>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 }

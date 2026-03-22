@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -7,21 +8,8 @@ import {
   MRT_ToggleFiltersButton,
   type MRT_ColumnDef,
   type MRT_TableOptions,
+  type MRT_RowData,
 } from "material-react-table";
-import {
-  Box,
-  Tabs,
-  Tab,
-  Tooltip,
-  Typography,
-  Paper,
-  MenuItem,
-  Select,
-  IconButton,
-  Chip,
-  Button,
-} from "@mui/material";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import {
   type Team,
   type Employee,
@@ -38,12 +26,355 @@ import {
 import { dialog } from "../dialogStore";
 import { absence } from "../../stores/absenceDataStore";
 
+const styles: Record<string, CSSProperties> = {
+  root: {
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    background:
+      "linear-gradient(180deg, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 100%)",
+  },
+
+  shell: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    overflow: "hidden",
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: "#fff",
+    boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
+  },
+
+  headerBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "12px 14px",
+    borderBottom: "1px solid #e2e8f0",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+    flexShrink: 0,
+  },
+
+  headerTitle: {
+    fontSize: "1rem",
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+
+  closeBtn: {
+    height: 34,
+    padding: "0 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.08)",
+    background: "#fff",
+    color: "#475569",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  tabsBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "10px 12px",
+    borderBottom: "1px solid #e2e8f0",
+    background:
+      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+    flexShrink: 0,
+    flexWrap: "wrap",
+  },
+
+  tabBtn: {
+    padding: "10px 14px",
+    border: "1px solid transparent",
+    outline: "none",
+    background: "transparent",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: "0.9rem",
+    color: "#475569",
+    transition: "all 0.2s ease",
+  },
+
+  tabBtnActive: {
+    background: "rgba(25,118,210,0.08)",
+    border: "1px solid rgba(25,118,210,0.16)",
+    color: "#1976d2",
+    boxShadow: "inset 0 0 0 1px rgba(25,118,210,0.06)",
+  },
+
+  content: {
+    flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+    background: "#fff",
+  },
+
+  tabPane: {
+    height: "100%",
+    animation: "fadeSlideIn 0.2s ease-out",
+  },
+
+  rowActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "nowrap",
+    whiteSpace: "nowrap",
+  },
+
+  toolbarActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "nowrap",
+    whiteSpace: "nowrap",
+  },
+
+  iconSquareBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: "1px solid rgba(25,118,210,0.16)",
+    background: "rgba(25,118,210,0.08)",
+    color: "#1976d2",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.18s ease",
+    flexShrink: 0,
+  },
+
+  actionBtnBase: {
+    height: 30,
+    minWidth: 0,
+    padding: "0 10px",
+    borderRadius: 8,
+    border: "1px solid #d0d7de",
+    background: "#fff",
+    color: "#334155",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: "pointer",
+    transition: "all 0.18s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+    whiteSpace: "nowrap",
+  },
+
+  actionBtnPrimary: {
+    border: "1px solid rgba(25,118,210,0.22)",
+    background: "rgba(25,118,210,0.05)",
+    color: "#1976d2",
+  },
+
+  actionBtnDanger: {
+    border: "1px solid rgba(211,47,47,0.22)",
+    background: "#fff",
+    color: "#d32f2f",
+  },
+
+  actionBtnSuccessContained: {
+    border: "none",
+    background: "#2A780E",
+    color: "#fff",
+  },
+
+  actionBtnDangerContained: {
+    border: "none",
+    background: "#d32f2f",
+    color: "#fff",
+  },
+
+  actionBtnMuted: {
+    opacity: 0.7,
+  },
+
+  chip: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "5px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#fff",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    whiteSpace: "nowrap",
+  },
+
+  statusChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 8px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#fff",
+    whiteSpace: "nowrap",
+  },
+
+  pickerButton: {
+    width: "100%",
+    padding: "8px 10px",
+    border: "1px solid #cbd5e1",
+    borderRadius: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    background: "#fff",
+    cursor: "pointer",
+    fontSize: 12,
+  },
+
+  portalOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 99998,
+  },
+
+  portalDropdown: {
+    position: "absolute",
+    background: "#fff",
+    border: "1px solid #cbd5e1",
+    borderRadius: 10,
+    boxShadow: "0 12px 30px rgba(0,0,0,0.14)",
+    zIndex: 99999,
+    maxHeight: 220,
+    overflowY: "auto",
+  },
+
+  portalOption: {
+    padding: "8px 10px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+    borderBottom: "1px solid #f1f5f9",
+    transition: "background 0.18s ease",
+  },
+};
+const globalContainsFilter = (
+  row: any,
+  _columnId: string,
+  filterValue: string,
+) => {
+  const search = String(filterValue ?? "")
+    .toLowerCase()
+    .trim();
+  if (!search) return true;
+
+  const original = row.original ?? {};
+
+  const text = Object.values(original)
+    .map((v) => String(v ?? "").toLowerCase())
+    .join(" ");
+
+  return text.includes(search);
+};
+const AddIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <span style={{ display: "flex", alignItems: "center", fontSize: 14 }}>
+    🔎
+  </span>
+);
+
+const ActionButton = ({
+  children,
+  onClick,
+  variant = "default",
+  style,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?:
+    | "default"
+    | "primary"
+    | "danger"
+    | "successContained"
+    | "dangerContained"
+    | "muted";
+  style?: CSSProperties;
+}) => {
+  const variantStyle =
+    variant === "primary"
+      ? styles.actionBtnPrimary
+      : variant === "danger"
+        ? styles.actionBtnDanger
+        : variant === "successContained"
+          ? styles.actionBtnSuccessContained
+          : variant === "dangerContained"
+            ? styles.actionBtnDangerContained
+            : variant === "muted"
+              ? styles.actionBtnMuted
+              : {};
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        ...styles.actionBtnBase,
+        ...variantStyle,
+        ...style,
+      }}
+    >
+      {children}
+    </button>
+  );
+};
+
+const TabButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    style={{
+      ...styles.tabBtn,
+      ...(active ? styles.tabBtnActive : {}),
+    }}
+  >
+    {label}
+  </button>
+);
+
+const CategoryChip = ({
+  label,
+  bgColor,
+}: {
+  label: string;
+  bgColor: string;
+}) => <span style={{ ...styles.chip, backgroundColor: bgColor }}>{label}</span>;
+
+const StatusChip = ({ label, color }: { label: string; color: string }) => (
+  <span style={{ ...styles.statusChip, backgroundColor: color }}>{label}</span>
+);
+
 interface AbsenceView extends Absence {
   employeeName: string;
   teamName: string;
   categoryLabel: string;
   color: string;
-  statusText: string; // for searching
+  statusText: string;
 }
 
 interface DataManagementDashboardProps {
@@ -75,6 +406,142 @@ const PREDEFINED_COLORS: string[] = [
   "#e64a19",
   "#303f9f",
 ];
+
+const getLeftAlignedColumn = <T extends MRT_RowData>(
+  col: MRT_ColumnDef<T>,
+): MRT_ColumnDef<T> => ({
+  ...col,
+  muiTableHeadCellProps: {
+    sx: {
+      textAlign: "left",
+      "& .Mui-TableHeadCell-Content": {
+        justifyContent: "flex-start",
+      },
+    },
+  },
+  muiTableBodyCellProps: {
+    sx: {
+      textAlign: "left",
+    },
+  },
+});
+
+const getCenterAlignedColumn = <T extends MRT_RowData>(
+  col: MRT_ColumnDef<T>,
+): MRT_ColumnDef<T> => ({
+  ...col,
+  muiTableHeadCellProps: {
+    sx: {
+      textAlign: "center",
+      "& .Mui-TableHeadCell-Content": {
+        justifyContent: "center",
+      },
+    },
+  },
+  muiTableBodyCellProps: {
+    sx: {
+      textAlign: "center",
+    },
+  },
+});
+
+const PureColorPicker = ({
+  value,
+  onChange,
+  colors,
+}: {
+  value: string;
+  onChange: (c: string) => void;
+  colors: string[];
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+    setIsOpen((prev) => !prev);
+  };
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        style={styles.pickerButton}
+      >
+        <span
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            background: value,
+            border: "1px solid #eee",
+          }}
+        />
+        <span style={{ fontSize: 12, fontFamily: "monospace" }}>{value}</span>
+        <span style={{ marginLeft: "auto", fontSize: 10 }}>▼</span>
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <>
+            <div
+              style={styles.portalOverlay}
+              onClick={() => setIsOpen(false)}
+            />
+            <div
+              style={{
+                ...styles.portalDropdown,
+                top: pos.top,
+                left: pos.left,
+                minWidth: pos.width,
+              }}
+            >
+              {colors.map((c) => (
+                <div
+                  key={c}
+                  onClick={() => {
+                    onChange(c);
+                    setIsOpen(false);
+                  }}
+                  style={styles.portalOption}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "#f8fafc")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                >
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: "50%",
+                      background: c,
+                      border: "1px solid #ddd",
+                    }}
+                  />
+                  <span style={{ fontSize: 13, fontFamily: "monospace" }}>
+                    {c}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>,
+          document.body,
+        )}
+    </div>
+  );
+};
 
 const DataManagementDashboard = ({
   absences,
@@ -136,7 +603,6 @@ const DataManagementDashboard = ({
       const end = new Date(abs.startDate);
       end.setDate(end.getDate() + abs.durationDays);
 
-      // Status text for searching
       const statusText =
         abs.status === AbsenceStatus.Pending
           ? "Väntande"
@@ -159,7 +625,6 @@ const DataManagementDashboard = ({
     });
   }, [absences, employees, teams, categories]);
 
-  // Base table configuration with sticky header and full height
   const whiteTableConfig = {
     mrtTheme: { baseBackgroundColor: "#ffffff" },
     muiTablePaperProps: {
@@ -176,6 +641,9 @@ const DataManagementDashboard = ({
         backgroundColor: "#ffffff",
         boxShadow: "none",
         flexShrink: 0,
+        borderBottom: "1px solid #eef2f7",
+        minHeight: "56px",
+        overflowX: "hidden",
       },
     },
     muiBottomToolbarProps: {
@@ -186,13 +654,35 @@ const DataManagementDashboard = ({
       },
     },
     muiTableHeadCellProps: {
-      sx: { backgroundColor: "#ffffff", fontWeight: "bold" },
+      sx: {
+        backgroundColor: "#ffffff",
+        fontWeight: "bold",
+      },
     },
     muiSearchTextFieldProps: {
       size: "small" as const,
       variant: "outlined" as const,
-      sx: { m: "8px" },
-      placeholder: "Sök...",
+      placeholder: "Sök namn, team, kategori, status, datum...",
+      sx: {
+        m: "8px",
+        minWidth: 0,
+        width: { xs: "100%", sm: "360px" },
+        "& .MuiOutlinedInput-root": {
+          borderRadius: "14px",
+          background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+          boxShadow: "0 2px 10px rgba(15,23,42,0.04)",
+          transition: "all 0.2s ease",
+        },
+        "& .MuiOutlinedInput-root:hover": {
+          boxShadow: "0 4px 14px rgba(15,23,42,0.08)",
+        },
+        "& .MuiOutlinedInput-root.Mui-focused": {
+          boxShadow: "0 0 0 4px rgba(25,118,210,0.08)",
+        },
+      },
+      InputProps: {
+        startAdornment: <SearchIcon />,
+      },
     },
     enableStickyHeader: true,
     muiTableContainerProps: {
@@ -203,57 +693,57 @@ const DataManagementDashboard = ({
       },
     },
     muiTableBodyProps: {
-      sx: {
-        overflow: "auto",
-      },
+      sx: { overflow: "auto" },
     },
-    // Powerful search & filter enhancements
-    globalFilterFn: "fuzzy",
-    enableGlobalFilterModes: true,
+    filterFns: {
+      globalContains: globalContainsFilter,
+    },
+    globalFilterFn: "globalContains" as const,
+    enableGlobalFilterModes: false,
     enableFilterMatchHighlighting: true,
     enableColumnFilters: true,
     enableFilters: true,
+    displayColumnDefOptions: {
+      "mrt-row-actions": {
+        muiTableHeadCellProps: {
+          sx: {
+            textAlign: "right",
+            "& .Mui-TableHeadCell-Content": {
+              justifyContent: "flex-end",
+            },
+          },
+        },
+        muiTableBodyCellProps: {
+          sx: {
+            textAlign: "right",
+          },
+        },
+      },
+    },
   };
 
-  const renderActions = (table: any, addFn: () => void, tooltip: string) => (
-    <Box sx={{ display: "flex", alignItems: "center", gap: "0.2rem" }}>
-      <Tooltip title={tooltip} arrow>
-        <IconButton onClick={addFn} color="primary" size="small">
-          <AddCircleOutlineIcon />
-        </IconButton>
-      </Tooltip>
+  const renderToolbarInternalActions = (
+    table: any,
+    addFn: () => void,
+    tooltip: string,
+  ) => (
+    <div style={styles.toolbarActions}>
+      <button title={tooltip} onClick={addFn} style={styles.iconSquareBtn}>
+        <AddIcon />
+      </button>
       <MRT_ToggleFiltersButton table={table} />
       <MRT_ShowHideColumnsButton table={table} />
       <MRT_ToggleDensePaddingButton table={table} />
-    </Box>
+    </div>
   );
 
   const sharedIcons = {
     SaveIcon: () => (
-      <Button
-        variant="contained"
-        sx={{
-          fontSize: "10px",
-          height: 24,
-          backgroundColor: "#2A780E",
-          color: "white",
-        }}
-      >
-        Spara
-      </Button>
+      <ActionButton variant="successContained">Spara</ActionButton>
     ),
-    CancelIcon: () => (
-      <Button
-        variant="contained"
-        color="error"
-        sx={{ fontSize: "10px", height: 24, color: "white" }}
-      >
-        Avbryt
-      </Button>
-    ),
+    CancelIcon: () => <ActionButton variant="danger">Avbryt</ActionButton>,
   };
 
-  // --- EMPLOYEES TABLE ---
   const handleSaveEmployee: MRT_TableOptions<Employee>["onEditingRowSave"] =
     async ({ values, table, row }) => {
       await updateEmployee(row.original.id, values.name, values.teamId);
@@ -263,9 +753,16 @@ const DataManagementDashboard = ({
   const employeeTable = useMaterialReactTable<Employee>({
     columns: useMemo<MRT_ColumnDef<Employee>[]>(
       () => [
-        { accessorKey: "id", header: "ID", enableEditing: false },
-        { accessorKey: "name", header: "Namn" },
-        {
+        getLeftAlignedColumn({
+          accessorKey: "id",
+          header: "ID",
+          enableEditing: false,
+        }),
+        getLeftAlignedColumn({
+          accessorKey: "name",
+          header: "Namn",
+        }),
+        getCenterAlignedColumn({
           accessorKey: "teamId",
           header: "Team",
           enableGrouping: true,
@@ -280,9 +777,8 @@ const DataManagementDashboard = ({
             value: t.id,
             label: t.name,
           })),
-        },
-        // Hidden column for team name to enable global search
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "teamName",
           header: "Team (sök)",
           enableEditing: false,
@@ -292,7 +788,7 @@ const DataManagementDashboard = ({
             const team = teams.find((t) => t.id === row.original.teamId);
             return team?.name ?? "Inget team";
           },
-        },
+        }),
       ],
       [teams],
     ),
@@ -307,39 +803,38 @@ const DataManagementDashboard = ({
     enableRowActions: true,
     positionActionsColumn: "last",
     renderRowActions: ({ row, table }) => (
-      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-        <Button
-          variant="outlined"
-          sx={{ fontSize: "10px", height: 24 }}
+      <div style={styles.rowActions}>
+        <ActionButton
           onClick={() => {
             table.setEditingRow(null);
             setTimeout(() => table.setEditingRow(row), 0);
           }}
         >
           Redigera
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          sx={{ fontSize: "10px", height: 24 }}
+        </ActionButton>
+        <ActionButton
+          variant="danger"
           onClick={() => deleteEmployee(row.original.id)}
         >
           Ta bort
-        </Button>
-      </Box>
+        </ActionButton>
+      </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
-      renderActions(table, handleAddEmployee, "Lägg till anställd"),
+      renderToolbarInternalActions(
+        table,
+        handleAddEmployee,
+        "Lägg till anställd",
+      ),
     ...whiteTableConfig,
     initialState: {
       showGlobalFilter: true,
       density: "compact",
-      columnVisibility: { id: false, teamName: false }, // hide the search column
+      columnVisibility: { id: false, teamName: false },
       grouping: [],
     },
   });
 
-  // --- TEAMS TABLE ---
   const handleSaveTeam: MRT_TableOptions<Team>["onEditingRowSave"] = async ({
     values,
     table,
@@ -352,8 +847,15 @@ const DataManagementDashboard = ({
   const teamTable = useMaterialReactTable<Team>({
     columns: useMemo<MRT_ColumnDef<Team>[]>(
       () => [
-        { accessorKey: "id", header: "ID", enableEditing: false },
-        { accessorKey: "name", header: "Gruppnamn" },
+        getLeftAlignedColumn({
+          accessorKey: "id",
+          header: "ID",
+          enableEditing: false,
+        }),
+        getLeftAlignedColumn({
+          accessorKey: "name",
+          header: "Gruppnamn",
+        }),
       ],
       [],
     ),
@@ -366,29 +868,25 @@ const DataManagementDashboard = ({
     enableRowActions: true,
     positionActionsColumn: "last",
     renderRowActions: ({ row, table }) => (
-      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-        <Button
-          variant="outlined"
-          sx={{ fontSize: "10px", height: 24 }}
+      <div style={styles.rowActions}>
+        <ActionButton
           onClick={() => {
             table.setEditingRow(null);
             setTimeout(() => table.setEditingRow(row), 0);
           }}
         >
           Redigera
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          sx={{ fontSize: "10px", height: 24 }}
+        </ActionButton>
+        <ActionButton
+          variant="danger"
           onClick={() => deleteTeam(row.original.id)}
         >
           Ta bort
-        </Button>
-      </Box>
+        </ActionButton>
+      </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
-      renderActions(table, handleAddTeam, "Lägg till grupp"),
+      renderToolbarInternalActions(table, handleAddTeam, "Lägg till grupp"),
     ...whiteTableConfig,
     initialState: {
       columnVisibility: { id: false },
@@ -397,7 +895,6 @@ const DataManagementDashboard = ({
     },
   });
 
-  // --- CATEGORIES TABLE ---
   const handleSaveCategory: MRT_TableOptions<AbsenceCategory>["onEditingRowSave"] =
     async ({ values, table, row }) => {
       await updateAbsenceCategory(row.original.id, values.label, values.color);
@@ -407,55 +904,66 @@ const DataManagementDashboard = ({
   const categoryTable = useMaterialReactTable<AbsenceCategory>({
     columns: useMemo<MRT_ColumnDef<AbsenceCategory>[]>(
       () => [
-        { accessorKey: "id", header: "ID", enableEditing: false },
-        { accessorKey: "label", header: "Benämning" },
-        {
+        getLeftAlignedColumn({
+          accessorKey: "id",
+          header: "ID",
+          enableEditing: false,
+        }),
+        getLeftAlignedColumn({
+          accessorKey: "label",
+          header: "Benämning",
+        }),
+        getCenterAlignedColumn({
           accessorKey: "color",
           header: "Färg",
-          Edit: ({ cell, row, table }) => (
-            <Select
-              value={cell.getValue<string>()}
-              onChange={(e) => {
-                row._valuesCache.color = e.target.value;
-                table.setEditingRow({ ...row });
-              }}
-              fullWidth
-              size="small"
-            >
-              {PREDEFINED_COLORS.map((c) => (
-                <MenuItem key={c} value={c}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Box
-                      sx={{
-                        width: 14,
-                        height: 14,
-                        bgcolor: c,
-                        borderRadius: "50%",
-                      }}
-                    />
-                    {c}
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          ),
+          Edit: ({ cell, row, table }) => {
+            const currentColor = cell.getValue<string>();
+
+            const takenColors = categories
+              .filter((c) => c.id !== row.original.id)
+              .map((c) => c.color);
+
+            const availableColors = PREDEFINED_COLORS.filter(
+              (color) => color === currentColor || !takenColors.includes(color),
+            );
+
+            return (
+              <PureColorPicker
+                value={currentColor}
+                colors={availableColors}
+                onChange={(newColor) => {
+                  row._valuesCache.color = newColor;
+                  table.setEditingRow({ ...row });
+                }}
+              />
+            );
+          },
           Cell: ({ cell }) => (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box
-                sx={{
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
                   width: 18,
                   height: 18,
-                  bgcolor: cell.getValue<string>(),
                   borderRadius: "50%",
+                  backgroundColor: cell.getValue<string>(),
                   border: "1px solid #ddd",
                 }}
               />
-              {cell.getValue<string>()}
-            </Box>
+              <span style={{ fontSize: "0.9rem" }}>
+                {cell.getValue<string>()}
+              </span>
+            </div>
           ),
-        },
+        }),
       ],
-      [categories],
+      [],
     ),
     data: categories,
     icons: sharedIcons,
@@ -466,29 +974,32 @@ const DataManagementDashboard = ({
     enableRowActions: true,
     positionActionsColumn: "last",
     renderRowActions: ({ row, table }) => (
-      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-        <Button
-          variant="outlined"
-          sx={{ fontSize: "10px", height: 24 }}
+      <div style={styles.rowActions}>
+        <ActionButton
           onClick={() => {
             table.setEditingRow(null);
             setTimeout(() => table.setEditingRow(row), 0);
           }}
         >
           Redigera
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          sx={{ fontSize: "10px", height: 24 }}
-          onClick={() => deleteAbsenceCategory(row.original.id)}
+        </ActionButton>
+        <ActionButton
+          variant="danger"
+          onClick={() => {
+            if (window.confirm("Ta bort?"))
+              deleteAbsenceCategory(row.original.id);
+          }}
         >
           Ta bort
-        </Button>
-      </Box>
+        </ActionButton>
+      </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
-      renderActions(table, handleAddCategory, "Skapa frånvarotyp"),
+      renderToolbarInternalActions(
+        table,
+        handleAddCategory,
+        "Skapa frånvarotyp",
+      ),
     ...whiteTableConfig,
     initialState: {
       columnVisibility: { id: false },
@@ -497,7 +1008,6 @@ const DataManagementDashboard = ({
     },
   });
 
-  // --- ABSENCES TABLE ---
   const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
     async ({ values, table, row }) => {
       const start = new Date(values.startDate);
@@ -507,6 +1017,7 @@ const DataManagementDashboard = ({
         1,
         Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
       );
+
       const updatePayload = {
         id: row.original.id,
         employeeId: row.original.employeeId,
@@ -515,6 +1026,7 @@ const DataManagementDashboard = ({
         absenceCategoryId: values.absenceCategoryId,
         status: Number(values.status) as AbsenceStatus,
       };
+
       try {
         await absence.updateOne(row.original.id, updatePayload);
         table.setEditingRow(null);
@@ -526,8 +1038,12 @@ const DataManagementDashboard = ({
   const absenceTable = useMaterialReactTable<AbsenceView>({
     columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
       () => [
-        { accessorKey: "id", header: "ID", enableEditing: false },
-        {
+        getLeftAlignedColumn({
+          accessorKey: "id",
+          header: "ID",
+          enableEditing: false,
+        }),
+        getLeftAlignedColumn({
           accessorKey: "teamId",
           header: "Team",
           enableGrouping: true,
@@ -539,23 +1055,22 @@ const DataManagementDashboard = ({
             value: t.id,
             label: t.name,
           })),
-        },
-        {
+        }),
+        getLeftAlignedColumn({
           accessorKey: "employeeId",
           header: "Anställd",
           enableGrouping: true,
           enableEditing: false,
           Cell: ({ row }) => row.original.employeeName,
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "absenceCategoryId",
           header: "Kategori",
           enableGrouping: true,
           Cell: ({ row }) => (
-            <Chip
+            <CategoryChip
               label={row.original.categoryLabel}
-              sx={{ bgcolor: row.original.color, color: "#fff" }}
-              size="small"
+              bgColor={row.original.color}
             />
           ),
           editVariant: "select",
@@ -568,25 +1083,221 @@ const DataManagementDashboard = ({
             value: c.id,
             label: c.label,
           })),
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "startDate",
           header: "Start",
-          muiEditTextFieldProps: { type: "date" },
+          Edit: ({ cell, row }) => {
+            const value = cell.getValue<string>();
+            const [dateValue, setDateValue] = useState(() =>
+              value ? new Date(value).toISOString().split("T")[0] : "",
+            );
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split("T")[0];
+
+            const startDate = new Date(value);
+            startDate.setHours(0, 0, 0, 0);
+            const hasPassed = startDate < today;
+
+            if (hasPassed) {
+              return (
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
+                  <span
+                    style={{
+                      padding: "8px 12px",
+                      backgroundColor: "#f8fafc",
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                      color: "#666",
+                      fontSize: 14,
+                    }}
+                  >
+                    {new Date(value).toLocaleDateString()}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#d32f2f" }}>
+                    Kan inte ändra passerat datum
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <input
+                type="date"
+                value={dateValue}
+                min={todayStr}
+                onChange={(e) => {
+                  setDateValue(e.target.value);
+                  row._valuesCache.startDate = e.target.value;
+                  const currentEndDate =
+                    row._valuesCache.endDate || row.original.endDate;
+                  if (
+                    currentEndDate &&
+                    new Date(currentEndDate) < new Date(e.target.value)
+                  ) {
+                    row._valuesCache.endDate = e.target.value;
+                  }
+                }}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #ccc",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  width: "100%",
+                }}
+              />
+            );
+          },
           Cell: ({ cell }) =>
             new Date(cell.getValue<string>()).toLocaleDateString(),
           filterVariant: "date-range",
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "endDate",
           header: "Slut",
-          muiEditTextFieldProps: { type: "date" },
+          Edit: ({ cell, row }) => {
+            const value = cell.getValue<string>();
+            const [dateValue, setDateValue] = useState(() =>
+              value ? new Date(value).toISOString().split("T")[0] : "",
+            );
+
+            const startDateValue =
+              row._valuesCache?.startDate || row.original.startDate;
+            const startDateStr = startDateValue
+              ? new Date(startDateValue).toISOString().split("T")[0]
+              : new Date().toISOString().split("T")[0];
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const originalStartDate = new Date(row.original.startDate);
+            originalStartDate.setHours(0, 0, 0, 0);
+
+            const minDate =
+              originalStartDate < today
+                ? today.toISOString().split("T")[0]
+                : startDateStr;
+
+            return (
+              <input
+                type="date"
+                value={dateValue}
+                min={minDate}
+                onChange={(e) => {
+                  const newEndDate = new Date(e.target.value);
+                  const startDate = new Date(startDateValue);
+                  if (newEndDate < startDate) {
+                    alert("Slutdatum kan inte vara före startdatum");
+                    return;
+                  }
+                  setDateValue(e.target.value);
+                  row._valuesCache.endDate = e.target.value;
+                }}
+                style={{
+                  padding: "8px 12px",
+                  border: "1px solid #ccc",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  width: "100%",
+                }}
+              />
+            );
+          },
           Cell: ({ cell }) =>
             new Date(cell.getValue<string>()).toLocaleDateString(),
           filterVariant: "date-range",
-        },
-        { accessorKey: "durationDays", header: "Dagar", enableEditing: false },
-        {
+        }),
+        getCenterAlignedColumn({
+          accessorKey: "durationDays",
+          header: "Dagar",
+          enableEditing: false,
+        }),
+        getCenterAlignedColumn({
+          id: "daysRemaining",
+          header: "Tid kvar",
+          enableEditing: false,
+          enableSorting: true,
+          enableColumnFilter: false,
+          Cell: ({ row }) => {
+            const startDate = new Date(row.original.startDate);
+            const endDate = new Date(row.original.endDate);
+            const today = new Date();
+
+            startDate.setHours(0, 0, 0, 0);
+            endDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+
+            const msPerDay = 1000 * 60 * 60 * 24;
+
+            if (today > endDate) {
+              return <StatusChip label="Avslutad" color="#94a3b8" />;
+            } else if (today >= startDate && today <= endDate) {
+              const daysLeft = Math.ceil(
+                (endDate.getTime() - today.getTime()) / msPerDay,
+              );
+              return (
+                <StatusChip
+                  label={
+                    daysLeft === 0
+                      ? "Sista dagen"
+                      : daysLeft === 1
+                        ? "1 dag kvar"
+                        : `${daysLeft} dagar kvar`
+                  }
+                  color="#ed6c02"
+                />
+              );
+            } else {
+              const daysUntilStart = Math.ceil(
+                (startDate.getTime() - today.getTime()) / msPerDay,
+              );
+              return (
+                <StatusChip
+                  label={
+                    daysUntilStart === 1
+                      ? "Startar imorgon"
+                      : `Startar om ${daysUntilStart} dagar`
+                  }
+                  color="#1976d2"
+                />
+              );
+            }
+          },
+          sortingFn: (rowA, rowB) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const msPerDay = 1000 * 60 * 60 * 24;
+
+            const getScore = (row: any) => {
+              const startDate = new Date(row.original.startDate);
+              const endDate = new Date(row.original.endDate);
+              startDate.setHours(0, 0, 0, 0);
+              endDate.setHours(0, 0, 0, 0);
+
+              if (today > endDate) {
+                return (
+                  10000 +
+                  Math.ceil((today.getTime() - endDate.getTime()) / msPerDay)
+                );
+              } else if (today >= startDate && today <= endDate) {
+                return Math.ceil(
+                  (endDate.getTime() - today.getTime()) / msPerDay,
+                );
+              } else {
+                return (
+                  5000 +
+                  Math.ceil((startDate.getTime() - today.getTime()) / msPerDay)
+                );
+              }
+            };
+
+            return getScore(rowA) - getScore(rowB);
+          },
+        }),
+        getCenterAlignedColumn({
           accessorKey: "status",
           header: "Status",
           enableGrouping: true,
@@ -596,45 +1307,57 @@ const DataManagementDashboard = ({
             { value: AbsenceStatus.Approved, label: "Godkänd" },
             { value: AbsenceStatus.Rejected, label: "Avvisad" },
           ],
-          Cell: ({ cell }) =>
-            ["Väntande", "Godkänd", "Avvisad"][cell.getValue<number>()] ??
-            "Okänd",
+          Cell: ({ cell }) => {
+            const status = cell.getValue<number>();
+            const statusConfig: Record<
+              number,
+              { label: string; color: string }
+            > = {
+              [AbsenceStatus.Pending]: { label: "Väntande", color: "#ed6c02" },
+              [AbsenceStatus.Approved]: { label: "Godkänd", color: "#2e7d32" },
+              [AbsenceStatus.Rejected]: { label: "Avvisad", color: "#d32f2f" },
+            };
+            const config = statusConfig[status] ?? {
+              label: "Okänd",
+              color: "#666",
+            };
+            return <StatusChip label={config.label} color={config.color} />;
+          },
           filterVariant: "select",
           filterSelectOptions: [
             { value: AbsenceStatus.Pending, label: "Väntande" },
             { value: AbsenceStatus.Approved, label: "Godkänd" },
             { value: AbsenceStatus.Rejected, label: "Avvisad" },
           ],
-        },
-        // Hidden columns for global search on displayed text
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "teamName",
           header: "Team (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "employeeName",
           header: "Anställd (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "categoryLabel",
           header: "Kategori (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
-        },
-        {
+        }),
+        getCenterAlignedColumn({
           accessorKey: "statusText",
           header: "Status (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
-        },
+        }),
       ],
       [teams, categories],
     ),
@@ -648,31 +1371,37 @@ const DataManagementDashboard = ({
     onEditingRowSave: handleSaveAbsence,
     enableRowActions: true,
     positionActionsColumn: "last",
-    renderRowActions: ({ row, table }) => (
-      <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-        <Button
-          variant="outlined"
-          sx={{ fontSize: "10px", height: 24 }}
-          onClick={() => {
-            table.setEditingRow(null);
-            setTimeout(() => table.setEditingRow(row), 0);
-          }}
-        >
-          Redigera
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          sx={{ fontSize: "10px", height: 24 }}
-          onClick={() => {
-            if (window.confirm("Ta bort frånvaro?"))
-              absence.removeOne(row.original.id);
-          }}
-        >
-          Ta bort
-        </Button>
-      </Box>
-    ),
+    renderRowActions: ({ row, table }) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDate = new Date(row.original.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const canEdit = startDate >= today;
+
+      return (
+        <div style={styles.rowActions}>
+          <ActionButton
+            variant={!canEdit ? "muted" : "default"}
+            onClick={() => {
+              table.setEditingRow(null);
+              setTimeout(() => table.setEditingRow(row), 0);
+            }}
+          >
+            {canEdit ? "Redigera" : "Visa/Ändra"}
+          </ActionButton>
+          <ActionButton
+            variant="danger"
+            onClick={() => {
+              if (window.confirm("Ta bort frånvaro?")) {
+                absence.removeOne(row.original.id);
+              }
+            }}
+          >
+            Ta bort
+          </ActionButton>
+        </div>
+      );
+    },
     icons: sharedIcons,
     ...whiteTableConfig,
     initialState: {
@@ -690,62 +1419,77 @@ const DataManagementDashboard = ({
   });
 
   return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
-      <Paper
-        elevation={0}
-        sx={{
-          border: "1px solid #e2e8f0",
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <Tabs
-          value={activeTab}
-          onChange={(_, v) => setActiveTab(v)}
-          sx={{
-            borderBottom: 1,
-            borderColor: "divider",
-            flexShrink: 0,
-            bgcolor: "background.paper",
-          }}
-        >
-          <Tab label="Frånvaro" value="absences" />
-          <Tab label="Anställda" value="employees" />
-          <Tab label="Grupper" value="teams" />
-          <Tab label="Kategorier" value="categories" />
-        </Tabs>
+    <>
+      <style>{`
+        @keyframes fadeSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
 
-        <Box
-          sx={{
-            flex: 1,
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {activeTab === "absences" && (
-            <MaterialReactTable table={absenceTable} />
-          )}
-          {activeTab === "employees" && (
-            <MaterialReactTable table={employeeTable} />
-          )}
-          {activeTab === "teams" && <MaterialReactTable table={teamTable} />}
-          {activeTab === "categories" && (
-            <MaterialReactTable table={categoryTable} />
-          )}
-        </Box>
-      </Paper>
-    </Box>
+      <div style={styles.root}>
+        <div style={styles.shell}>
+          <div style={styles.headerBar}>
+            <div style={styles.headerTitle}>Data Management</div>
+            <button style={styles.closeBtn} onClick={() => dialog.close()}>
+              Stäng
+            </button>
+          </div>
+
+          <div style={styles.tabsBar}>
+            <TabButton
+              active={activeTab === "absences"}
+              label="Frånvaro"
+              onClick={() => setActiveTab("absences")}
+            />
+            <TabButton
+              active={activeTab === "employees"}
+              label="Anställda"
+              onClick={() => setActiveTab("employees")}
+            />
+            <TabButton
+              active={activeTab === "teams"}
+              label="Grupper"
+              onClick={() => setActiveTab("teams")}
+            />
+            <TabButton
+              active={activeTab === "categories"}
+              label="Kategorier"
+              onClick={() => setActiveTab("categories")}
+            />
+          </div>
+
+          <div style={styles.content}>
+            {activeTab === "absences" && (
+              <div style={styles.tabPane}>
+                <MaterialReactTable table={absenceTable} />
+              </div>
+            )}
+            {activeTab === "employees" && (
+              <div style={styles.tabPane}>
+                <MaterialReactTable table={employeeTable} />
+              </div>
+            )}
+            {activeTab === "teams" && (
+              <div style={styles.tabPane}>
+                <MaterialReactTable table={teamTable} />
+              </div>
+            )}
+            {activeTab === "categories" && (
+              <div style={styles.tabPane}>
+                <MaterialReactTable table={categoryTable} />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 
