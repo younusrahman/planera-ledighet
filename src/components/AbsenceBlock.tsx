@@ -408,9 +408,7 @@ const AbsenceBlock = ({
           color: "white",
           zIndex: isResizing || isOverlay ? 1000 : 1,
           cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
-          boxShadow: isOverlay
-            ? `0 8px 20px rgba(0,0,0,0.3)`
-            : `0 3px 6px ${alpha(absenceColor, 0.4)}`,
+          boxShadow: `0 3px 6px ${alpha(absenceColor, 0.4)}`,
           touchAction: "none",
           userSelect: "none",
           opacity: isOverlay ? 0.9 : 1,
