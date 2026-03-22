@@ -130,15 +130,11 @@ export const TimelineDndContext = forwardRef<
     const dateStr = day.format("YYYY-MM-DD");
     return day.day() === 0 || day.day() === 6 || holidays[dateStr]?.isRedDay;
   };
-
-  const [isDragging, setIsDragging] = useState(false);
-  const scrollIntervalRef = useRef<number | null>(null);
-  const mousePosRef = useRef({ x: 0, y: 0 });
   const CELL_WIDTH = useCellWidth();
   const ROW_HEIGHT = useRowHeight();
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      setIsDragging(true);
+      // Vi behöver inte sätta lokal isDragging här längre
       onDragStart?.(event);
     },
     [onDragStart],
@@ -146,43 +142,11 @@ export const TimelineDndContext = forwardRef<
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
-      setIsDragging(false);
-      if (scrollIntervalRef.current) {
-        clearInterval(scrollIntervalRef.current);
-        scrollIntervalRef.current = null;
-      }
+      // Rensa inte längre några intervaller här
       onDragEnd?.(event);
     },
     [onDragEnd],
   );
-
-  useEffect(() => {
-    if (!isDragging || !ref) return;
-    const container = (ref as React.RefObject<HTMLDivElement>).current;
-    if (!container) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      mousePosRef.current = { x: e.clientX, y: e.clientY };
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-
-    scrollIntervalRef.current = window.setInterval(() => {
-      const rect = container.getBoundingClientRect();
-      const mouseX = mousePosRef.current.x;
-      const edgeThreshold = 80;
-      const scrollSpeed = 15;
-
-      if (mouseX < rect.left + edgeThreshold)
-        container.scrollLeft -= scrollSpeed;
-      else if (mouseX > rect.right - edgeThreshold)
-        container.scrollLeft += scrollSpeed;
-    }, 16);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current);
-    };
-  }, [isDragging, ref]);
 
   const visibleAbsences = useMemo(() => {
     const timelineEndDate = startDate.add(daysCount, "day");
@@ -305,6 +269,10 @@ export const TimelineDndContext = forwardRef<
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToHorizontalAxis]}
+                autoScroll={{
+                  threshold: { x: 0.1, y: 0.1 }, // 10% från kanterna
+                  acceleration: 10,
+                }}
               >
                 <div style={{ position: "relative", width: "100%", flex: 1 }}>
                   {teams.map((team) => {

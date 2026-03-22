@@ -548,23 +548,34 @@ export const Timeline = () => {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, delta } = event;
+    const blockId = String(active.id);
+
+    // 1. Återställ alla UI-states (lokalt + Zustand för sidofältet)
     setIsDragging(false);
     setActiveLeave(null);
-    const { active, delta } = event;
-
+    // 2. Beräkna hur mycket rutnätet har flyttats (viktigt för infinite scroll)
+    // Om startDate ändrades under draget (t.ex. vid scroll åt vänster),
+    // måste vi kompensera för det hoppet i koordinatsystemet.
     const daysGridMoved = startDate.diff(dragStartTimeRef.current, "day");
+
+    // 3. Beräkna hur många celler användaren har flyttat blocket visuellt
     const visualMovedDays = Math.round(delta.x / CELL_WIDTH);
+
+    // 4. Den totala förflyttningen i dagar
     const finalDaysDiff = visualMovedDays + daysGridMoved;
 
+    // Gå vidare endast om blocket faktiskt har flyttats till en ny cell
     if (finalDaysDiff !== 0) {
       const item = absenceDetails.find((l) => l.id === active.id);
-      if (item) {
-        const newStartDate = dayjs(item.startDate)
-          .add(finalDaysDiff, "day")
-          .format("YYYY-MM-DD");
 
-        // --- VALIDATION ---
-        if (blockPastDays && dayjs(newStartDate).isBefore(today)) {
+      if (item) {
+        // Räkna ut det nya startdatumet
+        const newStartDayjs = dayjs(item.startDate).add(finalDaysDiff, "day");
+        const newStartDateStr = newStartDayjs.format("YYYY-MM-DD");
+
+        // --- VALIDERING: Spärr för gångna dagar ---
+        if (blockPastDays && newStartDayjs.isBefore(today)) {
           toast(
             "Du kan inte flytta en ledighet till ett datum som redan har passerat.",
             "error",
@@ -572,10 +583,14 @@ export const Timeline = () => {
           return;
         }
 
-        const updatedItem = {
+        // --- SKAPA UPPDATERAT OBJEKT ---
+        const updatedItem: Absence = {
           ...item,
-          startDate: newStartDate,
-          // AUTOMATIC RESET LOGIC:
+          startDate: newStartDateStr,
+          endDate: newStartDayjs
+            .add(item.durationDays - 1, "day")
+            .format("YYYY-MM-DD"),
+          // Återställ status om den tidigare var nekad (eftersom den nu är ändrad)
           status:
             item.status === AbsenceStatus.Rejected
               ? AbsenceStatus.Pending
@@ -585,10 +600,25 @@ export const Timeline = () => {
               ? undefined
               : item.rejectionReason,
         };
-        // --- COLLISION CHECK & API CALL ---
-        if (!checkCollision(absenceDetails, updatedItem)) {
-          // REPLACE setLeaves with API Call
+
+        // --- VALIDERING: Krock-kontroll ---
+        // Vi filtrerar bort det nuvarande blocket från listan vi kollar krockar mot
+        const otherAbsences = absenceDetails.filter(
+          (abs) => abs.id !== item.id,
+        );
+
+        if (checkCollision(otherAbsences, updatedItem)) {
+          toast("Krockar med annan frånvaro på denna rad!", "error");
+          return;
+        }
+
+        // --- API-ANROP / STORE-UPPDATERING ---
+        try {
           await absence.updateOne(item.id, updatedItem);
+          // Toast visas oftast automatiskt av din store eller mutation hook
+        } catch (error) {
+          console.error("Misslyckades att uppdatera frånvaro:", error);
+          toast("Kunde inte spara ändringen. Försök igen.", "error");
         }
       }
     }
@@ -1085,7 +1115,7 @@ export const Timeline = () => {
           flex: 1,
           position: "relative",
           backgroundColor: "white",
-          overflow: isDragging ? "hidden" : "auto",
+          overflow:  "auto",
         }}
       >
         <div
