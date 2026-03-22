@@ -1083,9 +1083,9 @@ export const Timeline = () => {
         onScroll={handleScroll}
         style={{
           flex: 1,
-          overflow: "auto",
           position: "relative",
           backgroundColor: "white",
+          overflow: isDragging ? "hidden" : "auto",
         }}
       >
         <div
