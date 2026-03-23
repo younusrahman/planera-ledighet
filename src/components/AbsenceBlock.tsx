@@ -409,7 +409,8 @@ const AbsenceBlock = ({
           color: "white",
           zIndex: isResizing || isOverlay ? 1000 : 1,
           cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
-          boxShadow: `0 3px 6px ${alpha(absenceColor, 0.4)}`,
+          boxShadow:
+            "0 5px 5px -3px rgb(0 0 0 / 16%), 0 8px 10px 1px rgb(0 0 0 / 11%), 0 3px 14px 2px rgb(0 0 0 / 10%)",
           touchAction: "none",
           userSelect: "none",
           overscrollBehavior: "none",
@@ -466,18 +467,6 @@ const AbsenceBlock = ({
             </div>
           </>
         )}
-
-        <span
-          style={{
-            pointerEvents: "none",
-            padding: "0 10px",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {employeeName}
-        </span>
       </div>
 
       {hintVisible &&
