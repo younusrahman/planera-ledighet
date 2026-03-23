@@ -170,8 +170,7 @@ const AbsenceBlock = ({
   const isLocked = absenceDetails.status === AbsenceStatus.Approved;
   const CELL_WIDTH = useCellWidth();
   const ROW_HEIGHT = useRowHeight();
-  const TOOLTIP_DELAY_MS = 3000;
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [hintVisible, setHintVisible] = useState(false);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: absenceDetails.id,
@@ -188,8 +187,6 @@ const AbsenceBlock = ({
   // REFS
   const positionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const badgeRef = useRef<HTMLDivElement | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const countdownIntervalRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
 
   // RESIZE REFS
@@ -201,14 +198,9 @@ const AbsenceBlock = ({
   const requestRef = useRef<number>(0);
 
   const killAllTimers = () => {
-    if (timerRef.current) window.clearTimeout(timerRef.current);
-    if (countdownIntervalRef.current)
-      window.clearInterval(countdownIntervalRef.current);
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
-    timerRef.current = null;
-    countdownIntervalRef.current = null;
     closeTimerRef.current = null;
-    setCountdown(null);
+    setHintVisible(false);
   };
 
   const handleMouseEnter = () => {
@@ -216,6 +208,7 @@ const AbsenceBlock = ({
   };
 
   const handleMouseLeave = () => {
+    setHintVisible(false);
     killAllTimers();
     closeTimerRef.current = window.setTimeout(() => {
       setBlock(absenceDetails.id, { isTooltipOpen: false });
@@ -237,6 +230,7 @@ const AbsenceBlock = ({
       isResizing: false,
       isTooltipOpen: false,
     });
+
     return () => {
       killAllTimers();
       removeBlock(absenceDetails.id);
@@ -246,9 +240,11 @@ const AbsenceBlock = ({
   // --- RESIZE LOGIC ---
   const animateResize = () => {
     if (!isResizingRef.current || !scrollContainerRef?.current) return;
+
     const container = scrollContainerRef.current;
     const { left: cL, width: cW } = container.getBoundingClientRect();
     const pX = mouseXRef.current;
+
     if (pX < cL + 50) container.scrollLeft -= 15;
     else if (pX > cL + cW - 50) container.scrollLeft += 15;
 
@@ -267,11 +263,13 @@ const AbsenceBlock = ({
         visualDuration: Math.max(1, startDuration - shiftDays),
       });
     }
+
     requestRef.current = requestAnimationFrame(animateResize);
   };
 
   const initResize = (e: React.PointerEvent, direction: "left" | "right") => {
     if (isLocked) return;
+
     e.preventDefault();
     e.stopPropagation();
     killAllTimers();
@@ -279,20 +277,25 @@ const AbsenceBlock = ({
 
     const handle = e.currentTarget as HTMLElement;
     handle.setPointerCapture(e.pointerId);
+
     isResizingRef.current = true;
     directionRef.current = direction;
     startXRef.current = e.clientX;
     mouseXRef.current = e.clientX;
-    if (scrollContainerRef?.current)
+
+    if (scrollContainerRef?.current) {
       startScrollLeftRef.current = scrollContainerRef.current.scrollLeft;
+    }
 
     const onPointerMove = (me: PointerEvent) => {
       mouseXRef.current = me.clientX;
     };
+
     const onPointerUp = (ue: PointerEvent) => {
       handle.releasePointerCapture(ue.pointerId);
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
+
       isResizingRef.current = false;
       cancelAnimationFrame(requestRef.current);
       setBlock(absenceDetails.id, { isResizing: false });
@@ -305,17 +308,23 @@ const AbsenceBlock = ({
               startScrollLeftRef.current)) /
             CELL_WIDTH,
         );
+
         let fDur = absenceDetails.durationDays;
         let fS = 0;
-        if (direction === "right") fDur = Math.max(1, fDur + deltaDays);
-        else {
+
+        if (direction === "right") {
+          fDur = Math.max(1, fDur + deltaDays);
+        } else {
           fS = Math.min(deltaDays, fDur - 1);
           fDur -= fS;
         }
-        if (onResizeEnd && (fDur !== absenceDetails.durationDays || fS !== 0))
+
+        if (onResizeEnd && (fDur !== absenceDetails.durationDays || fS !== 0)) {
           onResizeEnd(absenceDetails.id, fDur, fS);
+        }
       }
     };
+
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
     requestRef.current = requestAnimationFrame(animateResize);
@@ -323,31 +332,14 @@ const AbsenceBlock = ({
 
   const handleMouseMove = (event: React.MouseEvent) => {
     positionRef.current = { x: event.clientX, y: event.clientY };
+
     if (badgeRef.current) {
       badgeRef.current.style.transform = `translate3d(${event.clientX + 15}px, ${event.clientY - 15}px, 0)`;
     }
 
     if (isDragging || isResizing || isTooltipOpen || isOverlay) return;
 
-    if (!timerRef.current) {
-      timerRef.current = window.setTimeout(() => {
-        setBlock(absenceDetails.id, { isTooltipOpen: true });
-        setCountdown(null);
-        onTooltipOpen?.();
-      }, TOOLTIP_DELAY_MS);
-
-      let secondsLeft = 3;
-      setCountdown(secondsLeft);
-      countdownIntervalRef.current = window.setInterval(() => {
-        secondsLeft -= 1;
-        if (secondsLeft > 0) setCountdown(secondsLeft);
-        else {
-          if (countdownIntervalRef.current)
-            window.clearInterval(countdownIntervalRef.current);
-          setCountdown(null);
-        }
-      }, 1000);
-    }
+    setHintVisible(true);
   };
 
   const displayDuration = isResizing
@@ -376,15 +368,10 @@ const AbsenceBlock = ({
         ref={setNodeRef}
         style={{
           ...commonStyles,
-          backgroundColor: absenceColor,
-          color: "white",
-          zIndex: isResizing || isOverlay ? 1000 : 1,
-          cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
-          boxShadow: `0 3px 6px ${alpha(absenceColor, 0.4)}`,
-          touchAction: "none",
-          userSelect: "none",
-          overscrollBehavior: "none",
-          opacity: isOverlay ? 0.9 : 1,
+          border: `2px dashed ${alpha(absenceColor, 0.5)}`,
+          backgroundColor: alpha(absenceColor, 0.05),
+          color: alpha(absenceColor, 0.4),
+          pointerEvents: "none",
         }}
       >
         {employeeName}
@@ -404,6 +391,15 @@ const AbsenceBlock = ({
           e.stopPropagation();
           listeners?.onPointerDown?.(e);
         }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          positionRef.current = { x: e.clientX, y: e.clientY };
+          setHintVisible(false);
+          killAllTimers();
+          setBlock(absenceDetails.id, { isTooltipOpen: true });
+          onTooltipOpen?.();
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onMouseMove={handleMouseMove}
@@ -416,11 +412,11 @@ const AbsenceBlock = ({
           boxShadow: `0 3px 6px ${alpha(absenceColor, 0.4)}`,
           touchAction: "none",
           userSelect: "none",
+          overscrollBehavior: "none",
           opacity: isOverlay ? 0.9 : 1,
         }}
         className="absence-block-shiny"
       >
-        {/* RESIZE HANDLES */}
         {!isPast && !isLocked && !isOverlay && (
           <>
             <div
@@ -445,6 +441,7 @@ const AbsenceBlock = ({
                 }}
               />
             </div>
+
             <div
               onPointerDown={(e) => initResize(e, "right")}
               style={{
@@ -483,33 +480,37 @@ const AbsenceBlock = ({
         </span>
       </div>
 
-      {countdown !== null && !isOverlay && (
-        <div
-          ref={badgeRef}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: 22,
-            height: 22,
-            backgroundColor: "#222",
-            color: "white",
-            borderRadius: "50%",
-            fontSize: "11px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "2px solid white",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-            zIndex: 10001,
-            pointerEvents: "none",
-            willChange: "transform",
-            transform: `translate3d(${positionRef.current.x + 15}px, ${positionRef.current.y - 15}px, 0)`,
-          }}
-        >
-          {countdown}
-        </div>
-      )}
+      {hintVisible &&
+        !isOverlay &&
+        !isTooltipOpen &&
+        !isDragging &&
+        !isResizing && (
+          <div
+            ref={badgeRef}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              backgroundColor: "#222",
+              color: "white",
+              borderRadius: "999px",
+              fontSize: "11px",
+              padding: "6px 10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid rgba(255,255,255,0.2)",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+              zIndex: 10001,
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              willChange: "transform",
+              transform: `translate3d(${positionRef.current.x + 15}px, ${positionRef.current.y - 15}px, 0)`,
+            }}
+          >
+            Right click for menu
+          </div>
+        )}
 
       {isTooltipOpen && !isDragging && !isResizing && (
         <div
@@ -537,6 +538,7 @@ const AbsenceBlock = ({
               borderRadius: "10px 10px 0 0",
             }}
           />
+
           <div style={{ padding: "12px" }}>
             <div
               style={{
@@ -548,9 +550,11 @@ const AbsenceBlock = ({
             >
               {employeeName}
             </div>
+
             <div
               style={{ height: "1px", background: "#eee", margin: "8px 0" }}
             />
+
             <div
               style={{
                 display: "flex",
@@ -563,6 +567,7 @@ const AbsenceBlock = ({
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.User /> {employeeId}
               </div>
+
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Calendar />{" "}
                 {dayjs(absenceDetails.startDate).format("D MMM")} -{" "}
@@ -570,10 +575,12 @@ const AbsenceBlock = ({
                   .add(absenceDetails.durationDays - 1, "day")
                   .format("D MMM")}
               </div>
+
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Clock /> {absenceDetails.durationDays} dagar
               </div>
             </div>
+
             <div
               style={{
                 marginTop: "12px",
@@ -599,6 +606,7 @@ const AbsenceBlock = ({
                   >
                     <Icon.ThumbUp />
                   </button>
+
                   <button
                     style={{
                       padding: "6px",
@@ -619,6 +627,7 @@ const AbsenceBlock = ({
               ) : (
                 <Icon.Lock />
               )}
+
               {!isLocked && !isPast && (
                 <>
                   <button
@@ -634,6 +643,7 @@ const AbsenceBlock = ({
                   >
                     <Icon.Edit />
                   </button>
+
                   {!isDeletionDisabled && (
                     <button
                       style={{
@@ -657,10 +667,17 @@ const AbsenceBlock = ({
       )}
 
       <style>{`
-        @keyframes tooltipIn { from { opacity: 0; transform: translate(-50%, -95%); } to { opacity: 1; transform: translate(-50%, -100%); } }
+        @keyframes tooltipIn {
+          from { opacity: 0; transform: translate(-50%, -95%); }
+          to { opacity: 1; transform: translate(-50%, -100%); }
+        }
         .absence-block-shiny::before {
-            content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-            background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(0,0,0,0.05) 100%);
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          border-radius: inherit;
+          background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(0,0,0,0.05) 100%);
         }
       `}</style>
     </>
