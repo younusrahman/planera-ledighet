@@ -270,7 +270,10 @@ export const TimelineDndContext = forwardRef<
                 onDragEnd={handleDragEnd}
                 modifiers={[restrictToHorizontalAxis]}
                 autoScroll={{
-                  threshold: { x: 0.1, y: 0.1 }, // 10% från kanterna
+                  threshold: {
+                    x: 0.1,
+                    y: 0,
+                  },
                   acceleration: 10,
                 }}
               >

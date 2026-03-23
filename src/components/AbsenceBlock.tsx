@@ -376,10 +376,15 @@ const AbsenceBlock = ({
         ref={setNodeRef}
         style={{
           ...commonStyles,
-          border: `2px dashed ${alpha(absenceColor, 0.5)}`,
-          backgroundColor: alpha(absenceColor, 0.05),
-          color: alpha(absenceColor, 0.4),
-          pointerEvents: "none",
+          backgroundColor: absenceColor,
+          color: "white",
+          zIndex: isResizing || isOverlay ? 1000 : 1,
+          cursor: isLocked ? "default" : isPast ? "not-allowed" : "grab",
+          boxShadow: `0 3px 6px ${alpha(absenceColor, 0.4)}`,
+          touchAction: "none",
+          userSelect: "none",
+          overscrollBehavior: "none",
+          opacity: isOverlay ? 0.9 : 1,
         }}
       >
         {employeeName}

@@ -176,6 +176,13 @@ export const Timeline = () => {
     }
   }, [absenceTypes]);
 
+  // Cleanup on unmount: Reset any global styles we changed (like cursor)
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.touchAction = "";
+    };
+  }, []);
   // 3. The Filter Logic
   const visibleAbsences = useMemo(() => {
     return absenceDetails.filter((abs) =>
@@ -542,18 +549,27 @@ export const Timeline = () => {
   };
   const handleDragStart = (event: DragStartEvent) => {
     setIsDragging(true);
+
+    // Lock page scrolling while dragging
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+
     dragStartTimeRef.current = startDate;
     const item = absenceDetails.find((l) => l.id === event.active.id);
     if (item) setActiveLeave(item);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    // Restore page scrolling
+    document.body.style.overflow = "";
+    document.body.style.touchAction = "";
+
     const { active, delta } = event;
-    const blockId = String(active.id);
 
     // 1. Återställ alla UI-states (lokalt + Zustand för sidofältet)
     setIsDragging(false);
     setActiveLeave(null);
+
     // 2. Beräkna hur mycket rutnätet har flyttats (viktigt för infinite scroll)
     // Om startDate ändrades under draget (t.ex. vid scroll åt vänster),
     // måste vi kompensera för det hoppet i koordinatsystemet.
@@ -568,7 +584,6 @@ export const Timeline = () => {
     // Gå vidare endast om blocket faktiskt har flyttats till en ny cell
     if (finalDaysDiff !== 0) {
       const item = absenceDetails.find((l) => l.id === active.id);
-
       if (item) {
         // Räkna ut det nya startdatumet
         const newStartDayjs = dayjs(item.startDate).add(finalDaysDiff, "day");
@@ -590,7 +605,7 @@ export const Timeline = () => {
           endDate: newStartDayjs
             .add(item.durationDays - 1, "day")
             .format("YYYY-MM-DD"),
-          // Återställ status om den tidigare var nekad (eftersom den nu är ändrad)
+
           status:
             item.status === AbsenceStatus.Rejected
               ? AbsenceStatus.Pending
@@ -601,8 +616,6 @@ export const Timeline = () => {
               : item.rejectionReason,
         };
 
-        // --- VALIDERING: Krock-kontroll ---
-        // Vi filtrerar bort det nuvarande blocket från listan vi kollar krockar mot
         const otherAbsences = absenceDetails.filter(
           (abs) => abs.id !== item.id,
         );
@@ -612,10 +625,8 @@ export const Timeline = () => {
           return;
         }
 
-        // --- API-ANROP / STORE-UPPDATERING ---
         try {
           await absence.updateOne(item.id, updatedItem);
-          // Toast visas oftast automatiskt av din store eller mutation hook
         } catch (error) {
           console.error("Misslyckades att uppdatera frånvaro:", error);
           toast("Kunde inte spara ändringen. Försök igen.", "error");
@@ -1115,7 +1126,7 @@ export const Timeline = () => {
           flex: 1,
           position: "relative",
           backgroundColor: "white",
-          overflow:  "auto",
+          overflow: "auto",
         }}
       >
         <div

@@ -1,7 +1,10 @@
 import React, { memo, useState, useEffect } from "react";
 import type { SidebarMode, Team, TeamWithEmployees } from "../types";
 import { ProTooltip } from "./ProTooltip";
-import { useCurrentSidebarWidth, useRowHeight } from "../services/stores/uiStore";
+import {
+  useCurrentSidebarWidth,
+  useRowHeight,
+} from "../services/stores/uiStore";
 
 // --- HELPERS ---
 const rgba = (hex: string, opacity: number) => {
@@ -123,8 +126,10 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     return name.substring(0, 2).toUpperCase();
   };
+
   const ROW_HEIGHT = useRowHeight();
   const sidebarWidth = useCurrentSidebarWidth();
+
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
@@ -135,7 +140,6 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
     null,
   );
-
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
   const [hoveredMenuItem, setHoveredMenuItem] = useState<string | null>(null);
 
@@ -171,27 +175,32 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       position: "sticky",
       left: 0,
       zIndex: 1150,
-      height: "fit-content",
       display: "flex",
       flexDirection: "column",
       transition: "width 0.3s ease",
       backgroundColor: "white",
       borderRight: "1px solid rgba(0,0,0,0.1)",
       flexShrink: 0,
-      overflow: "hidden",
+      alignSelf: "flex-start",
     },
 
     header: {
       height: 112,
+      minHeight: 112,
       borderBottom: "1px solid rgba(0,0,0,0.1)",
       position: "sticky",
       top: 0,
-      left: 0,
       zIndex: 1200,
       backgroundColor: "white",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
+      flexShrink: 0,
+    },
+
+    listArea: {
+      display: "flex",
+      flexDirection: "column",
     },
 
     logoBox: {
@@ -231,6 +240,7 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       cursor: "pointer",
       transition: "background-color 0.18s ease",
       gap: 4,
+      boxSizing: "border-box",
     },
 
     groupRowHover: {
@@ -264,6 +274,7 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
       borderBottom: "1px solid rgba(0,0,0,0.03)",
       transition: "background-color 0.18s ease",
       gap: 4,
+      boxSizing: "border-box",
     },
 
     employeeRowHover: {
@@ -341,7 +352,7 @@ const TimelineSidebar: React.FC<TimelineSidebarProps> = ({
         {sidebarMode !== "hidden" && <div style={styles.logoBox}>YR</div>}
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div style={styles.listArea}>
         {groups.length === 0 ? (
           <div style={styles.emptyBox}>
             <span style={styles.emptyText}>Grupp lista är tom</span>
