@@ -1070,7 +1070,6 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({
                   onClick={() => {
                     setViewDate(realToday);
                     onDateChange(realToday);
-                    onCloseDatePicker();
                   }}
                   style={stylesObj.btnToday}
                 >

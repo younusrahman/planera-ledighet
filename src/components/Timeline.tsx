@@ -6,13 +6,12 @@ import React, {
   useEffect,
   useLayoutEffect,
 } from "react";
-import { Box, Typography } from "@mui/material";
+
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import {
   useCellWidth,
   useCurrentSidebarWidth,
-  useRowHeight,
   useSidebarMode,
 } from "../services/stores/uiStore";
 import {
@@ -46,7 +45,6 @@ const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 export const Timeline = () => {
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const CELL_WIDTH = useCellWidth();
-  const ROW_HEIGHT = useRowHeight();
   const changeAbsenceStatus = useAbsenceStatusMutation();
   const {
     createEmployee: createEmployee,
@@ -939,141 +937,93 @@ export const Timeline = () => {
   };
   const SIDEBAR_WIDTH = useCurrentSidebarWidth();
   const MemoizedHeader = useMemo(() => {
-    const stickyLeftOffset =
-      sidebarMode === "full" ? 200 : sidebarMode === "compact" ? 70 : 0;
+    const stickyX = SIDEBAR_WIDTH + 8;
     const todayStr = dayjs().format("YYYY-MM-DD");
 
     return (
-      <Box
-        sx={{
-          position: "sticky",
-          top: 0,
-          zIndex: 1100,
-          bgcolor: "white",
-          width: daysCount * CELL_WIDTH,
-          borderBottom: "1px solid #ddd",
-        }}
+      <div
+        className="sticky top-0 z-[1100] border-b border-gray-300 bg-white"
+        style={{ width: daysCount * CELL_WIDTH }}
       >
-        {/* --- 1. Months Row --- */}
-        <Box
-          sx={{ display: "flex", height: 40, borderBottom: "1px solid #eee" }}
-        >
-          {monthBlocks.map((m, index) => (
-            <Box
+        {/* Months Row */}
+        <div className="flex h-10 border-b border-gray-200">
+          {monthBlocks.map((m) => (
+            <div
               key={m.key}
-              sx={{
-                position: "relative",
-                width: m.days.length * CELL_WIDTH,
-                height: "100%",
-                flexShrink: 0,
-                borderRight: "1px solid rgba(0,0,0,0.1)",
-                ml: index === 0 ? "2px" : 0,
-              }}
+              className="relative h-full shrink-0 border-r border-black/10"
+              style={{ width: m.days.length * CELL_WIDTH }}
             >
-              <Typography
-                variant="subtitle2"
-                sx={{
+              <div
+                className="inline-block w-fit whitespace-nowrap pl-2 text-sm font-bold leading-10 text-blue-600"
+                style={{
                   position: "sticky",
-                  left: stickyLeftOffset + 8,
-                  fontWeight: 700,
-                  color: "primary.main",
-                  whiteSpace: "nowrap",
-                  lineHeight: "40px",
+                  left: stickyX,
+                  zIndex: 10,
                 }}
               >
                 {m.label}
-              </Typography>
-            </Box>
+              </div>
+            </div>
           ))}
-        </Box>
+        </div>
 
-        {/* --- 2. Weeks Row --- */}
-        <Box
-          sx={{
-            display: "flex",
-            height: 25,
-            bgcolor: "#fafafa",
-            borderBottom: "1px solid #eee",
-          }}
-        >
-          {weekBlocks.map((w, index) => (
-            <Box
+        {/* Weeks Row */}
+        <div className="flex h-[25px] border-b border-gray-200 bg-gray-50">
+          {weekBlocks.map((w) => (
+            <div
               key={w.key}
-              sx={{
-                position: "relative",
-                width: w.days.length * CELL_WIDTH,
-                height: "100%",
-                flexShrink: 0,
-                borderRight: "1px solid rgba(0,0,0,0.05)",
-                ml: index === 0 ? "2px" : 0,
-              }}
+              className="relative h-full shrink-0 border-r border-black/5"
+              style={{ width: w.days.length * CELL_WIDTH }}
             >
-              <Typography
-                variant="caption"
-                sx={{
+              <div
+                className="inline-block w-fit whitespace-nowrap pl-2 text-xs font-extrabold leading-[25px] text-gray-500"
+                style={{
                   position: "sticky",
-                  left: stickyLeftOffset + 8,
-                  fontWeight: 800,
-                  color: "text.secondary",
-                  whiteSpace: "nowrap",
-                  lineHeight: "25px",
+                  left: stickyX,
+                  zIndex: 10,
                 }}
               >
                 {w.label}{" "}
                 {w.days[0].format("YYYY") !== dayjs().format("YYYY")
                   ? w.days[0].format("YYYY")
                   : ""}
-              </Typography>
-            </Box>
+              </div>
+            </div>
           ))}
-        </Box>
+        </div>
 
-        {/* --- 3. Individual Days Row --- */}
-        <Box sx={{ display: "flex", height: 46 }}>
+        {/* Individual Days Row */}
+        <div className="flex h-[46px]">
           {days.map((day) => {
             const dateStr = day.format("YYYY-MM-DD");
             const holidayName = holidays[dateStr]?.name || "";
             const isRed = isRedDay(day);
 
             const DayContent = (
-              <Box
-                sx={{
+              <div
+                className={`box-border flex h-[46px] flex-col items-center justify-center gap-[2px] border-b border-r border-gray-200 py-0.5 text-center ${
+                  dateStr === todayStr
+                    ? "bg-yellow-100"
+                    : isRed
+                      ? "bg-red-500/15 text-red-600"
+                      : "bg-white text-gray-900"
+                }`}
+                style={{
                   width: CELL_WIDTH,
                   minWidth: CELL_WIDTH,
-                  height: 46,
-                  textAlign: "center",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  borderRight: "1px solid #eee",
-                  borderBottom: "1px solid #ddd",
-                  bgcolor:
-                    dateStr === todayStr
-                      ? "#fff9c4"
-                      : isRed
-                        ? "rgba(244, 67, 54, 0.15)"
-                        : "white",
-                  color: isRed ? "error.main" : "text.primary",
-                  boxSizing: "border-box",
-                  // --- ADDED SPACE HERE ---
-                  py: 0.5, // Padding top and bottom
-                  gap: "2px", // Space between the Day Name and the Number
                 }}
               >
-                <Typography
-                  sx={{
-                    fontSize: "0.6rem",
-                    fontWeight: isRed ? 700 : 500,
-                    lineHeight: 1,
-                  }}
+                <div
+                  className={`text-[0.6rem] leading-none ${
+                    isRed ? "font-bold" : "font-medium"
+                  }`}
                 >
                   {day.format("ddd").toUpperCase()}
-                </Typography>
-                <Typography sx={{ fontWeight: 800, lineHeight: 1 }}>
+                </div>
+                <div className="font-extrabold leading-none">
                   {day.format("D")}
-                </Typography>
-              </Box>
+                </div>
+              </div>
             );
 
             return holidayName ? (
@@ -1081,13 +1031,22 @@ export const Timeline = () => {
                 {DayContent}
               </ProTooltip>
             ) : (
-              <Box key={dateStr}>{DayContent}</Box>
+              <div key={dateStr}>{DayContent}</div>
             );
           })}
-        </Box>
-      </Box>
+        </div>
+      </div>
     );
-  }, [days, monthBlocks, weekBlocks, holidays, sidebarMode, CELL_WIDTH]);
+  }, [
+    days,
+    monthBlocks,
+    weekBlocks,
+    holidays,
+    sidebarMode,
+    CELL_WIDTH,
+    SIDEBAR_WIDTH,
+    daysCount,
+  ]);
   return (
     <div
       style={{

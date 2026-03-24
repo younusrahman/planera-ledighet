@@ -1,3 +1,4 @@
+@import "tailwindcss";
 #root {
   width: 100%;
   height: 100%;
@@ -21,7 +22,6 @@
   font-style: italic;
 }
 
-/* MUI often uses weight 500 for buttons/labels */
 @font-face {
   font-family: "Playfair Display";
   src: url("./assets/fonts/PlayfairDisplay/static/PlayfairDisplay-Medium.ttf")
