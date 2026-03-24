@@ -1,28 +1,9 @@
 import { useRef, useState, useLayoutEffect, useMemo, useEffect } from "react";
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  ListItemText,
-  OutlinedInput,
-  Chip,
-  useTheme,
-  alpha,
-  TextField,
-  Grid,
-  Collapse,
-  Typography,
-  List,
-  ListItem,
-  ListItemButton,
-  IconButton,
-} from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
-import useFilterStore, { type TeamSelection } from "../../services/stores/analyticsStore";
+import useFilterStore, {
+  type TeamSelection,
+} from "../../services/stores/analyticsStore";
 import { useTeams, useEmployees } from "../../services/hooks/useData";
 import { AbsenceStatus } from "../../types";
 
@@ -40,11 +21,32 @@ const statusOptions = [
   { value: AbsenceStatus.Rejected, label: "Avvisad" },
 ];
 
-// Helper to fill empty space with as many chips as possible
+const colorToBg = (color: string) => {
+  if (color.includes("blue")) return "bg-blue-100 text-blue-700";
+  if (color.includes("green")) return "bg-green-100 text-green-700";
+  if (color.includes("orange") || color.includes("amber"))
+    return "bg-amber-100 text-amber-700";
+  return "bg-gray-100 text-gray-700";
+};
+
+const ChipItem = ({
+  label,
+  colorClass = "bg-gray-100 text-gray-700",
+}: {
+  label: string;
+  colorClass?: string;
+}) => (
+  <span
+    className={`inline-flex h-5 items-center rounded-full px-2 text-[0.65rem] font-semibold ${colorClass}`}
+  >
+    {label}
+  </span>
+);
+
 const DynamicChips = ({
   selected,
   getLabel,
-  color,
+  colorClass,
   containerRef,
   allSelectedLabel,
 }: any) => {
@@ -67,65 +69,64 @@ const DynamicChips = ({
   }, [containerRef, selected]);
 
   if (allSelectedLabel) {
-    return (
-      <Chip
-        size="small"
-        label={allSelectedLabel}
-        sx={{
-          height: 20,
-          fontSize: "0.65rem",
-          backgroundColor: alpha(color, 0.1),
-          color: color,
-          fontWeight: 600,
-        }}
-      />
-    );
+    return <ChipItem label={allSelectedLabel} colorClass={colorClass} />;
   }
 
   const display = (selected || []).slice(0, limit);
   const extra = (selected || []).length - limit;
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        gap: 0.5,
-        alignItems: "center",
-        width: "100%",
-        overflow: "hidden",
-      }}
-    >
+    <div className="flex w-full items-center gap-1 overflow-hidden">
       {display.map((id: any) => (
-        <Chip
-          key={id}
-          size="small"
-          label={getLabel(id)}
-          sx={{
-            height: 20,
-            fontSize: "0.65rem",
-            backgroundColor: alpha(color, 0.1),
-            color: color,
-            fontWeight: 600,
-            flexShrink: 0,
-          }}
-        />
+        <ChipItem key={id} label={getLabel(id)} colorClass={colorClass} />
       ))}
-      {extra > 0 && (
-        <Chip
-          size="small"
-          label={`+${extra}`}
-          sx={{
-            height: 20,
-            fontSize: "0.65rem",
-            backgroundColor: alpha(color, 0.1),
-            color: color,
-            fontWeight: 600,
-          }}
-        />
-      )}
-    </Box>
+      {extra > 0 && <ChipItem label={`+${extra}`} colorClass={colorClass} />}
+    </div>
   );
 };
+
+function DropdownContainer({
+  label,
+  open,
+  setOpen,
+  trigger,
+  children,
+}: {
+  label: string;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative w-full">
+      <label className="mb-1 block text-sm font-medium text-gray-700">
+        {label}
+      </label>
+
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex min-h-[40px] w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm shadow-sm transition hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+      >
+        <div className="min-w-0 flex-1 overflow-hidden">{trigger}</div>
+        <span className="ml-2 text-gray-500">
+          {open ? (
+            <ExpandLessIcon fontSize="small" />
+          ) : (
+            <ExpandMoreIcon fontSize="small" />
+          )}
+        </span>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-[400px] w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function FilterBar({
   startDate,
@@ -134,9 +135,12 @@ export function FilterBar({
   onEndDateChange,
   availableCategories,
 }: FilterBarProps) {
-  const theme = useTheme();
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const f1 = useRef<HTMLDivElement>(null);
   const f2 = useRef<HTMLDivElement>(null);
@@ -144,6 +148,7 @@ export function FilterBar({
 
   const { data: teams = [] } = useTeams();
   const { data: employees = [] } = useEmployees();
+
   const {
     selectedCategoryIds,
     selectedStatuses,
@@ -155,7 +160,6 @@ export function FilterBar({
     setIsAllSelected,
   } = useFilterStore();
 
-  // Initialize default state - all teams selected
   useEffect(() => {
     if (!isInitialized && teams.length > 0 && teamSelections.length === 0) {
       const allTeamsSelected: TeamSelection[] = teams.map((team) => ({
@@ -220,31 +224,23 @@ export function FilterBar({
     return selection.employeeIds.includes(empId);
   };
 
-  // Toggle expand/collapse - clicking the expand icon or row background
   const toggleTeamExpand = (teamId: string, event?: React.MouseEvent) => {
     event?.stopPropagation();
     const newExpanded = new Set(expandedTeams);
-    if (newExpanded.has(teamId)) {
-      newExpanded.delete(teamId);
-    } else {
-      newExpanded.add(teamId);
-    }
+    if (newExpanded.has(teamId)) newExpanded.delete(teamId);
+    else newExpanded.add(teamId);
     setExpandedTeams(newExpanded);
   };
 
-  // Handle team selection toggle - clicking team name/text or checkbox
   const handleTeamToggle = (teamId: string) => {
-    const teamEmployees = employees.filter((e) => e.teamId === teamId);
     const existingIndex = teamSelections.findIndex((s) => s.teamId === teamId);
 
     if (existingIndex >= 0) {
-      // Remove team from selection
       const newSelections = [...teamSelections];
       newSelections.splice(existingIndex, 1);
       setTeamSelections(newSelections);
       setIsAllSelected(false);
     } else {
-      // Add team with all employees selected
       setTeamSelections([
         ...teamSelections,
         { teamId, employeeIds: [], isIndeterminate: false },
@@ -252,13 +248,11 @@ export function FilterBar({
     }
   };
 
-  // Handle individual employee toggle
   const handleEmployeeToggle = (teamId: string, empId: string) => {
     const teamEmployees = employees.filter((e) => e.teamId === teamId);
     const existingIndex = teamSelections.findIndex((s) => s.teamId === teamId);
 
     if (existingIndex === -1) {
-      // Team not selected yet, add with this specific employee
       setTeamSelections([
         ...teamSelections,
         { teamId, employeeIds: [empId], isIndeterminate: true },
@@ -271,10 +265,10 @@ export function FilterBar({
     const newSelections = [...teamSelections];
 
     if (selection.employeeIds.length === 0) {
-      // Was "all selected", switch to specific selection excluding this one
       const allOtherEmps = teamEmployees
         .filter((e) => e.id !== empId)
         .map((e) => e.id);
+
       newSelections[existingIndex] = {
         teamId,
         employeeIds: allOtherEmps,
@@ -283,8 +277,8 @@ export function FilterBar({
       setIsAllSelected(false);
     } else {
       const currentEmps = selection.employeeIds;
+
       if (currentEmps.includes(empId)) {
-        // Remove employee
         const newEmps = currentEmps.filter((id) => id !== empId);
         if (newEmps.length === 0) {
           newSelections.splice(existingIndex, 1);
@@ -297,7 +291,6 @@ export function FilterBar({
         }
         setIsAllSelected(false);
       } else {
-        // Add employee
         const newEmps = [...currentEmps, empId];
         if (newEmps.length === teamEmployees.length) {
           newSelections[existingIndex] = {
@@ -308,9 +301,7 @@ export function FilterBar({
           const allTeamsNowSelected =
             newSelections.length === teams.length &&
             newSelections.every((s) => s.employeeIds.length === 0);
-          if (allTeamsNowSelected) {
-            setIsAllSelected(true);
-          }
+          if (allTeamsNowSelected) setIsAllSelected(true);
         } else {
           newSelections[existingIndex] = {
             teamId,
@@ -325,25 +316,32 @@ export function FilterBar({
     setTeamSelections(newSelections);
   };
 
-  const handleCategoryChange = (event: any) => {
-    const value = event.target.value as string[];
-    if (value.includes("ALL") && !selectedCategoryIds.includes("ALL")) {
+  const handleCategoryToggle = (id: string) => {
+    if (id === "ALL") {
       setSelectedCategoryIds(["ALL"]);
-    } else if (value.length === 0) {
-      setSelectedCategoryIds(["ALL"]);
-    } else if (value.includes("ALL") && value.length > 1) {
-      setSelectedCategoryIds(value.filter((v) => v !== "ALL"));
-    } else {
-      setSelectedCategoryIds(value);
+      return;
     }
+
+    let next = selectedCategoryIds.includes("ALL")
+      ? [id]
+      : selectedCategoryIds.includes(id)
+        ? selectedCategoryIds.filter((v) => v !== id)
+        : [...selectedCategoryIds, id];
+
+    if (next.length === 0) next = ["ALL"];
+    setSelectedCategoryIds(next);
   };
 
-  const handleStatusChange = (event: any) => {
-    const value = event.target.value as number[];
-    if (value.length === 0) {
+  const handleStatusToggle = (value: number) => {
+    const exists = selectedStatuses.includes(value);
+    const next = exists
+      ? selectedStatuses.filter((s) => s !== value)
+      : [...selectedStatuses, value];
+
+    if (next.length === 0) {
       setSelectedStatuses(statusOptions.map((s) => s.value));
     } else {
-      setSelectedStatuses(value);
+      setSelectedStatuses(next);
     }
   };
 
@@ -357,257 +355,219 @@ export function FilterBar({
   };
 
   return (
-    <Box sx={{ width: "100%", mb: 2 }}>
-      <Grid container spacing={2}>
-        {/* ROW 1 - Hierarchical Team/Employee Select */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormControl fullWidth size="small" ref={f1}>
-            <InputLabel>Team & Anställda</InputLabel>
-            <Select
-              multiple
-              value={selectedEmployeeIds}
-              input={<OutlinedInput label="Team & Anställda" />}
-              renderValue={(sel) => (
-                <DynamicChips
-                  selected={sel}
-                  getLabel={getEmployeeLabel}
-                  color={theme.palette.primary.main}
-                  containerRef={f1}
-                  allSelectedLabel={allTeamsSelected ? "Alla" : undefined}
-                />
-              )}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    maxHeight: 400,
-                    width: 320,
-                    p: 0,
-                  },
-                },
-              }}
-            >
-              <List dense disablePadding sx={{ width: "100%" }}>
-                {teams.map((team) => {
-                  const teamEmps = employees.filter(
-                    (e) => e.teamId === team.id,
-                  );
-                  const isExpanded = expandedTeams.has(team.id);
-                  const isFullySelected = isTeamFullySelected(team.id);
-                  const isPartial = isTeamPartiallySelected(team.id);
+    <div className="mb-2 w-full">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+        {/* Team & Employees */}
+        <div ref={f1}>
+          <DropdownContainer
+            label="Team & Anställda"
+            open={teamOpen}
+            setOpen={setTeamOpen}
+            trigger={
+              <DynamicChips
+                selected={selectedEmployeeIds}
+                getLabel={getEmployeeLabel}
+                colorClass={colorToBg("blue")}
+                containerRef={f1}
+                allSelectedLabel={allTeamsSelected ? "Alla" : undefined}
+              />
+            }
+          >
+            <div className="w-full">
+              {teams.map((team) => {
+                const teamEmps = employees.filter((e) => e.teamId === team.id);
+                const isExpanded = expandedTeams.has(team.id);
+                const isFullySelected = isTeamFullySelected(team.id);
+                const isPartial = isTeamPartiallySelected(team.id);
 
-                  return (
-                    <Box key={team.id}>
-                      {/* Team Header Row */}
-                      <ListItem
-                        disablePadding
-                        sx={{
-                          bgcolor:
-                            isFullySelected || isPartial
-                              ? alpha(theme.palette.primary.main, 0.08)
-                              : "transparent",
-                          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
-                          display: "flex",
-                          alignItems: "center",
-                        }}
+                return (
+                  <div key={team.id} className="border-b border-gray-200">
+                    <div
+                      className={`flex items-center ${
+                        isFullySelected || isPartial ? "bg-blue-50" : "bg-white"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => toggleTeamExpand(team.id, e)}
+                        className="p-2 text-gray-500"
                       >
-                        {/* Expand/Collapse Icon Button */}
-                        <IconButton
-                          size="small"
-                          onClick={(e) => toggleTeamExpand(team.id, e)}
-                          sx={{
-                            p: 0.5,
-                            color: "text.secondary",
-                          }}
-                        >
-                          {isExpanded ? (
-                            <ExpandLessIcon fontSize="small" />
-                          ) : (
-                            <ExpandMoreIcon fontSize="small" />
-                          )}
-                        </IconButton>
+                        {isExpanded ? (
+                          <ExpandLessIcon fontSize="small" />
+                        ) : (
+                          <ExpandMoreIcon fontSize="small" />
+                        )}
+                      </button>
 
-                        {/* Checkbox for selection */}
-                        <Checkbox
-                          checked={isFullySelected}
-                          indeterminate={isPartial}
-                          onChange={() => handleTeamToggle(team.id)}
-                          size="small"
-                          sx={{ mr: 1 }}
-                        />
+                      <input
+                        type="checkbox"
+                        checked={isFullySelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = isPartial;
+                        }}
+                        onChange={() => handleTeamToggle(team.id)}
+                        className="mr-2 h-4 w-4"
+                      />
 
-                        {/* Team Name - Click to toggle selection */}
-                        <ListItemButton
-                          onClick={() => handleTeamToggle(team.id)}
-                          dense
-                          sx={{
-                            flex: 1,
-                            pl: 0,
-                            "&:hover": {
-                              bgcolor: "transparent",
-                            },
-                          }}
-                          disableRipple
-                        >
-                          <ListItemText
-                            primary={
-                              <Typography variant="body2" fontWeight={600}>
-                                {team.name}
-                              </Typography>
+                      <button
+                        type="button"
+                        onClick={() => handleTeamToggle(team.id)}
+                        className="flex-1 px-2 py-2 text-left text-sm font-semibold text-gray-800"
+                      >
+                        {team.name}
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="bg-gray-50">
+                        {teamEmps.map((emp) => (
+                          <button
+                            key={emp.id}
+                            type="button"
+                            onClick={() =>
+                              handleEmployeeToggle(team.id, emp.id)
                             }
-                          />
-                        </ListItemButton>
-                      </ListItem>
-
-                      {/* Nested Employees */}
-                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <List dense disablePadding>
-                          {teamEmps.map((emp) => (
-                            <ListItem
-                              key={emp.id}
-                              disablePadding
-                              sx={{
-                                pl: 4,
-                                bgcolor: alpha(
-                                  theme.palette.background.default,
-                                  0.5,
-                                ),
-                              }}
-                            >
-                              <ListItemButton
-                                onClick={() =>
-                                  handleEmployeeToggle(team.id, emp.id)
-                                }
-                                dense
-                              >
-                                <Checkbox
-                                  checked={isEmployeeSelected(team.id, emp.id)}
-                                  size="small"
-                                  sx={{ mr: 1 }}
-                                  tabIndex={-1}
-                                  disableRipple
-                                />
-                                <ListItemText
-                                  primary={
-                                    <Typography
-                                      variant="body2"
-                                      color="text.secondary"
-                                    >
-                                      {emp.name}
-                                    </Typography>
-                                  }
-                                />
-                              </ListItemButton>
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Collapse>
-                    </Box>
-                  );
-                })}
-              </List>
-            </Select>
-          </FormControl>
-        </Grid>
+                            className="flex w-full items-center pl-10 pr-3 py-2 text-left hover:bg-gray-100"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isEmployeeSelected(team.id, emp.id)}
+                              readOnly
+                              className="mr-2 h-4 w-4"
+                            />
+                            <span className="text-sm text-gray-600">
+                              {emp.name}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </DropdownContainer>
+        </div>
 
         {/* Categories */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormControl fullWidth size="small" ref={f2}>
-            <InputLabel>Frånvarotyp</InputLabel>
-            <Select
-              multiple
-              value={selectedCategoryIds}
-              onChange={handleCategoryChange}
-              input={<OutlinedInput label="Frånvarotyp" />}
-              renderValue={(sel) => (
-                <DynamicChips
-                  selected={sel}
-                  getLabel={getCategoryLabel}
-                  color={theme.palette.success.main}
-                  containerRef={f2}
+        <div ref={f2}>
+          <DropdownContainer
+            label="Frånvarotyp"
+            open={categoryOpen}
+            setOpen={setCategoryOpen}
+            trigger={
+              <DynamicChips
+                selected={selectedCategoryIds}
+                getLabel={getCategoryLabel}
+                colorClass={colorToBg("green")}
+                containerRef={f2}
+              />
+            }
+          >
+            <div>
+              <button
+                type="button"
+                onClick={() => handleCategoryToggle("ALL")}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCategoryIds.includes("ALL")}
+                  readOnly
+                  className="h-4 w-4"
                 />
-              )}
-            >
-              <MenuItem value="ALL">
-                <Checkbox checked={selectedCategoryIds.includes("ALL")} />
-                <ListItemText primary="Alla" />
-              </MenuItem>
+                <span className="text-sm">Alla</span>
+              </button>
+
               {availableCategories.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  <Checkbox checked={selectedCategoryIds.includes(c.id)} />
-                  <ListItemText primary={c.label} />
-                </MenuItem>
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleCategoryToggle(c.id)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(c.id)}
+                    readOnly
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm">{c.label}</span>
+                </button>
               ))}
-            </Select>
-          </FormControl>
-        </Grid>
+            </div>
+          </DropdownContainer>
+        </div>
 
         {/* Status */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <FormControl fullWidth size="small" ref={f3}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              multiple
-              value={selectedStatuses}
-              onChange={handleStatusChange}
-              input={<OutlinedInput label="Status" />}
-              renderValue={(sel) => {
-                const values = sel as number[];
-                return values.length === statusOptions.length ? (
-                  <Chip
-                    size="small"
-                    label="Alla statusar"
-                    sx={{
-                      height: 20,
-                      fontSize: "0.65rem",
-                      color: theme.palette.warning.main,
-                      fontWeight: 600,
-                    }}
-                  />
-                ) : (
-                  <DynamicChips
-                    selected={values}
-                    getLabel={getStatusLabel}
-                    color={theme.palette.warning.main}
-                    containerRef={f3}
-                  />
-                );
-              }}
-            >
+        <div ref={f3}>
+          <DropdownContainer
+            label="Status"
+            open={statusOpen}
+            setOpen={setStatusOpen}
+            trigger={
+              selectedStatuses.length === statusOptions.length ? (
+                <ChipItem
+                  label="Alla statusar"
+                  colorClass={colorToBg("amber")}
+                />
+              ) : (
+                <DynamicChips
+                  selected={selectedStatuses}
+                  getLabel={getStatusLabel}
+                  colorClass={colorToBg("amber")}
+                  containerRef={f3}
+                />
+              )
+            }
+          >
+            <div>
               {statusOptions.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  <Checkbox checked={selectedStatuses.includes(o.value)} />
-                  <ListItemText primary={o.label} />
-                </MenuItem>
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => handleStatusToggle(o.value)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes(o.value)}
+                    readOnly
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm">{o.label}</span>
+                </button>
               ))}
-            </Select>
-          </FormControl>
-        </Grid>
+            </div>
+          </DropdownContainer>
+        </div>
 
-        {/* ROW 2 - Dates */}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <TextField
-            fullWidth
-            label="Från"
+        {/* Start date */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Från
+          </label>
+          <input
             type="date"
-            size="small"
             value={startDate}
             onChange={(e) => onStartDateChange(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
-        </Grid>
+        </div>
 
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <TextField
-            fullWidth
-            label="Till"
+        {/* End date */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-gray-700">
+            Till
+          </label>
+          <input
             type="date"
-            size="small"
             value={endDate}
             onChange={(e) => onEndDateChange(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
-        </Grid>
-      </Grid>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 }
