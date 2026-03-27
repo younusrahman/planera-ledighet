@@ -10,7 +10,7 @@ namespace planera_ledighet.api
         public DbSet<Team> Teams { get; set; }
         public DbSet<Employee> Employees { get; set; }
         public DbSet<Absence> Absences { get; set; }
-
+        public DbSet<UiConfig> UiConfigs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Absence>()

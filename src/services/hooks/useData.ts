@@ -6,10 +6,14 @@ import {
   type ChangeAbsenceStatusPayload,
   AbsenceStatus,
   type Absence,
+  type UiConfig,
 } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { absence } from "../stores/absenceDataStore";
 import { useAbsenceBlockStore } from "../stores/absenceUIStore";
+import { useConfigStore } from "../stores/uiStore";
+import { toast } from "../stores/globalSnackbar";
+import { useEffect } from "react";
 
 // --------------------------------------------------
 // QUERIES
@@ -319,6 +323,60 @@ export const useAbsenceStatusMutation = () => {
 
       resetBlock(updatedAbsence.id, updatedAbsence.durationDays || 0);
       queryClient.invalidateQueries({ queryKey: ["absenceStatus"] });
+    },
+  });
+};
+let hasShownUiConfigLoadError = false;
+
+export const useUiConfig = () => {
+  const query = useQuery<UiConfig, Error>({
+    queryKey: ["uiConfig"],
+    queryFn: () => apiRequest<UiConfig>("/UiConfigs"),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (query.isSuccess) {
+      hasShownUiConfigLoadError = false;
+    }
+  }, [query.isSuccess]);
+
+  useEffect(() => {
+    if (query.isError) {
+      console.error("Failed to load ui config", query.error);
+
+      if (!hasShownUiConfigLoadError) {
+        hasShownUiConfigLoadError = true;
+        toast(
+          "Kunde inte ladda inställningarna. Standardvärden används.",
+          "error",
+        );
+      }
+    }
+  }, [query.isError, query.error]);
+
+  return query;
+};
+
+export const useUiConfigMutation = () => {
+  const queryClient = useQueryClient();
+  const { hydrateFromBackend } = useConfigStore.getState().actions;
+
+  return useMutation({
+    mutationFn: (data: UiConfig) =>
+      apiRequest<UiConfig>("/UiConfigs", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (saved) => {
+      hasShownUiConfigLoadError = false;
+      queryClient.setQueryData(["uiConfig"], saved);
+      hydrateFromBackend(saved);
+      toast("Inställningarna sparades", "success");
+    },
+    onError: (error) => {
+      console.error("Failed to save config", error);
+      toast("Kunde inte spara inställningarna", "error");
     },
   });
 };

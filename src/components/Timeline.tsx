@@ -10,8 +10,10 @@ import React, {
 import dayjs, { Dayjs } from "dayjs";
 import { type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import {
+  useBlockPastDays,
   useCellWidth,
   useCurrentSidebarWidth,
+  useDisableDeletion,
   useSidebarMode,
 } from "../services/stores/uiStore";
 import {
@@ -108,10 +110,8 @@ export const Timeline = () => {
     startIndex: 0,
   });
 
-  // State for the checkbox "Spärr för gångna dagar"
-  const [blockPastDays, setBlockPastDays] = useState(true); // Default to ON
-  // State for the checkbox "Ta bort möjligheten att radera"
-  const [disableDeletion, setDisableDeletion] = useState(false); // Default to OFF
+  const blockPastDays = useBlockPastDays();
+  const disableDeletion = useDisableDeletion();
   const hasInitialScrolled = useRef(false);
   // Inside your Timeline component
   const isDown = useRef(false);
@@ -147,13 +147,7 @@ export const Timeline = () => {
     scrollContainerRef.current.scrollLeft = scrollLeft.current - walk;
   };
   // --- END OF NEW CODE ---
-  useEffect(() => {
-    // If the parent "block past days" is unchecked,
-    // the child "disable deletion" must also be unchecked.
-    if (!blockPastDays) {
-      setDisableDeletion(false);
-    }
-  }, [blockPastDays]); // Re-run this effect only when blockPastDays changes
+
   // --- HELPERS ---
   const days = useMemo(
     () => getDaysArray(startDate, daysCount),
@@ -704,12 +698,6 @@ export const Timeline = () => {
   const openConfig = () => {
     dialog.open("config", {
       title: "Konfiguration",
-      blockPastDays,
-      disableDeletion,
-      onUpdate: (key: string, value: boolean) => {
-        if (key === "blockPastDays") setBlockPastDays(value);
-        if (key === "disableDeletion") setDisableDeletion(value);
-      },
     });
   };
   const openAnalyticsDashboard = () => {

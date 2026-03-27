@@ -92,3 +92,12 @@ export type ChangeAbsenceStatusPayload = {
   rejectionReason?: string | null;
 };
 export type SidebarMode = "full" | "compact" | "hidden";
+export type UiConfig = {
+  blockPastDays: boolean;
+  disableDeletion: boolean;
+  cellWidth: number;
+  rowHeight: number;
+  sidebarWidthFull: number;
+  sidebarWidthCompact: number;
+  sidebarWidthHidden: number;
+};

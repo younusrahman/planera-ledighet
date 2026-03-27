@@ -13,6 +13,7 @@ import {
   useSidebarWidthCompact,
   useSidebarWidthFull,
 } from "../../stores/uiStore";
+import { useUiConfigMutation } from "../../hooks/useData";
 
 interface ConfigFormProps {
   title?: string;
@@ -420,7 +421,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
     setSidebarWidthFull,
     setSidebarWidthCompact,
   } = useConfigActions();
-
+  const saveUiConfig = useUiConfigMutation();
   const [screenWidth, setScreenWidth] = useState<number>(() =>
     typeof window !== "undefined" ? window.innerWidth : 1200,
   );
@@ -475,6 +476,45 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
     }
 
     setter(parsed);
+  };
+
+  const handleSave = async () => {
+    const nextValues = {
+      blockPastDays,
+      disableDeletion,
+      cellWidth:
+        cellWidthInput.trim() === "" || Number.isNaN(Number(cellWidthInput))
+          ? DEFAULT_CELL_WIDTH
+          : Number(cellWidthInput),
+      rowHeight:
+        rowHeightInput.trim() === "" || Number.isNaN(Number(rowHeightInput))
+          ? DEFAULT_ROW_HEIGHT
+          : Number(rowHeightInput),
+      sidebarWidthFull:
+        sidebarWidthFullInput.trim() === "" ||
+        Number.isNaN(Number(sidebarWidthFullInput))
+          ? DEFAULT_SIDEBAR_WIDTH_FULL
+          : Number(sidebarWidthFullInput),
+      sidebarWidthCompact:
+        sidebarWidthCompactInput.trim() === "" ||
+        Number.isNaN(Number(sidebarWidthCompactInput))
+          ? DEFAULT_SIDEBAR_WIDTH_COMPACT
+          : Number(sidebarWidthCompactInput),
+      sidebarWidthHidden: 0,
+    };
+
+    setCellWidth(nextValues.cellWidth);
+    setRowHeight(nextValues.rowHeight);
+    setSidebarWidthFull(nextValues.sidebarWidthFull);
+    setSidebarWidthCompact(nextValues.sidebarWidthCompact);
+
+    try {
+      setIsSaving(true);
+      await saveUiConfig.mutateAsync(nextValues);
+      await onSave?.(nextValues);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const summaryBadges = useMemo(() => {
@@ -560,51 +600,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
     setRowHeightInput(String(DEFAULT_ROW_HEIGHT));
     setSidebarWidthFullInput(String(DEFAULT_SIDEBAR_WIDTH_FULL));
     setSidebarWidthCompactInput(String(DEFAULT_SIDEBAR_WIDTH_COMPACT));
-  };
-
-  const handleSave = async () => {
-    commitNumber(cellWidthInput, setCellWidth, DEFAULT_CELL_WIDTH);
-    commitNumber(rowHeightInput, setRowHeight, DEFAULT_ROW_HEIGHT);
-    commitNumber(
-      sidebarWidthFullInput,
-      setSidebarWidthFull,
-      DEFAULT_SIDEBAR_WIDTH_FULL,
-    );
-    commitNumber(
-      sidebarWidthCompactInput,
-      setSidebarWidthCompact,
-      DEFAULT_SIDEBAR_WIDTH_COMPACT,
-    );
-
-    if (!onSave) return;
-
-    try {
-      setIsSaving(true);
-      await onSave({
-        blockPastDays,
-        disableDeletion,
-        cellWidth:
-          cellWidthInput.trim() === "" || Number.isNaN(Number(cellWidthInput))
-            ? DEFAULT_CELL_WIDTH
-            : Number(cellWidthInput),
-        rowHeight:
-          rowHeightInput.trim() === "" || Number.isNaN(Number(rowHeightInput))
-            ? DEFAULT_ROW_HEIGHT
-            : Number(rowHeightInput),
-        sidebarWidthFull:
-          sidebarWidthFullInput.trim() === "" ||
-          Number.isNaN(Number(sidebarWidthFullInput))
-            ? DEFAULT_SIDEBAR_WIDTH_FULL
-            : Number(sidebarWidthFullInput),
-        sidebarWidthCompact:
-          sidebarWidthCompactInput.trim() === "" ||
-          Number.isNaN(Number(sidebarWidthCompactInput))
-            ? DEFAULT_SIDEBAR_WIDTH_COMPACT
-            : Number(sidebarWidthCompactInput),
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   return (
@@ -867,21 +862,19 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
               </button>
             )}
 
-            {onSave && (
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                style={{
-                  ...styles.btn,
-                  ...styles.btnPrimary,
-                  opacity: isSaving ? 0.7 : 1,
-                  cursor: isSaving ? "wait" : "pointer",
-                }}
-              >
-                {isSaving ? "Sparar..." : "Spara"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                ...styles.btn,
+                ...styles.btnPrimary,
+                opacity: isSaving ? 0.7 : 1,
+                cursor: isSaving ? "wait" : "pointer",
+              }}
+            >
+              {isSaving ? "Sparar..." : "Spara"}
+            </button>
           </div>
         </div>
       </div>

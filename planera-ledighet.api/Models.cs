@@ -56,4 +56,15 @@ namespace planera_ledighet.api
         Approved = 1,
         Rejected = 2
     }
+    public class UiConfig
+    {
+        public int Id { get; set; }
+        public bool BlockPastDays { get; set; }
+        public bool DisableDeletion { get; set; }
+        public int CellWidth { get; set; }
+        public int RowHeight { get; set; }
+        public int SidebarWidthFull { get; set; }
+        public int SidebarWidthCompact { get; set; }
+        public int SidebarWidthHidden { get; set; }
+    }
 }
