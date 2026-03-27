@@ -99,16 +99,20 @@ namespace planera_ledighet.api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateAbsence(string id, DtoAbsence dto)
         {
-            if (id != dto.Id) return BadRequest();
+            if (id != dto.Id)
+                return BadRequest();
 
-            // Perform the single check
-            var (target, overlap) = await Helper.GetAbsenceState(_context.Absences, id, dto.EmployeeId, dto.StartDate, dto.DurationDays);
+            var (target, overlap) = await Helper.GetAbsenceState(
+                _context.Absences,
+                id,
+                dto.EmployeeId,
+                dto.StartDate,
+                dto.DurationDays
+            );
 
-            // 1. Check if the source record even exists (404)
             if (target == null)
                 return NotFound(new { message = "Frånvaron hittades inte." });
 
-            // 2. Check if the new move/resize krockar with another block (409)
             if (overlap != null)
                 return Conflict(new
                 {
@@ -116,8 +120,11 @@ namespace planera_ledighet.api.Controllers
                     overlapId = overlap.Id
                 });
 
-            // 3. Update the found target
-            if (target.Status == AbsenceStatus.Rejected)
+            var startDateChanged = target.StartDate.Date != dto.StartDate.Date;
+            var durationChanged = target.DurationDays != dto.DurationDays;
+            var datesChanged = startDateChanged || durationChanged;
+
+            if (target.Status == AbsenceStatus.Rejected && datesChanged)
             {
                 target.Status = AbsenceStatus.Pending;
                 target.RejectionReason = null;
@@ -125,12 +132,23 @@ namespace planera_ledighet.api.Controllers
 
             target.StartDate = dto.StartDate;
             target.DurationDays = dto.DurationDays;
-            target.EndDate = dto.EndDate;
+            target.EndDate = dto.StartDate.AddDays(dto.DurationDays - 1);
             target.EmployeeId = dto.EmployeeId;
             target.AbsenceCategoryId = dto.AbsenceCategoryId;
 
             await _context.SaveChangesAsync();
-            return NoContent();
+
+            return Ok(new
+            {
+                target.Id,
+                target.EmployeeId,
+                target.StartDate,
+                target.EndDate,
+                target.DurationDays,
+                target.AbsenceCategoryId,
+                target.Status,
+                target.RejectionReason
+            });
         }
 
         // DELETE: api/Absence/{id}
@@ -173,7 +191,7 @@ namespace planera_ledighet.api.Controllers
 
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            return Ok(entity);
         }
     }
 }

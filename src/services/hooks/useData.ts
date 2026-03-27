@@ -5,6 +5,7 @@ import {
   type AbsenceCategory,
   type ChangeAbsenceStatusPayload,
   AbsenceStatus,
+  type Absence,
 } from "../../types";
 import { apiRequest } from "../apiInstance";
 import { absence } from "../stores/absenceDataStore";
@@ -305,30 +306,18 @@ export const useAbsenceStatusMutation = () => {
 
   return useMutation({
     mutationFn: (data: ChangeAbsenceStatusPayload) =>
-      apiRequest<void>("/Absence/change-absence-status", {
+      apiRequest<Absence>("/Absence/change-absence-status", {
         method: "POST",
         body: JSON.stringify(data),
       }),
 
-    onSuccess: (_, variables) => {
-      const existingItem = absence.useStore.getState().byId[variables.id];
+    onSuccess: (updatedAbsence) => {
+      update({
+        ...updatedAbsence,
+        rejectionReason: updatedAbsence.rejectionReason ?? undefined,
+      });
 
-      if (existingItem) {
-        // Logic to fix the "Type null is not assignable" error:
-        update({
-          ...existingItem,
-          status: variables.status,
-
-          // Use the Nullish Coalescing operator (??) to convert null to undefined
-          rejectionReason:
-            variables.status === AbsenceStatus.Rejected
-              ? (variables.rejectionReason ?? undefined)
-              : undefined, // Clear the reason if the status is no longer 'Rejected'
-        });
-
-        resetBlock(variables.id, existingItem.durationDays || 0);
-      }
-
+      resetBlock(updatedAbsence.id, updatedAbsence.durationDays || 0);
       queryClient.invalidateQueries({ queryKey: ["absenceStatus"] });
     },
   });

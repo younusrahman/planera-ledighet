@@ -66,10 +66,5 @@ export interface DialogPropsMap {
   absence: AbsenceFormProps;
   databaseSystem: DatabaseMaintenanceProps;
   analytics: {};
-  dataManagementDashboard: {
-    absences: Absence[];
-    employees: Employee[];
-    categories: AbsenceCategory[];
-    teams: Team[];
-  };
+  dataManagementDashboard: {};
 }

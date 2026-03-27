@@ -59,18 +59,27 @@ const Icon = {
       <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
     </svg>
   ),
-  ThumbDown: () => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-    </svg>
-  ),
+  ThumbDown: ({ filled = false }: { filled?: boolean }) =>
+    filled ? (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 2h-3v11h3a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z" />
+        <path d="M17 2H5.72a2 2 0 0 0-2 1.7l-1.38 9A2 2 0 0 0 4.34 15H10v4a3 3 0 0 0 3 3l4-9V2z" />
+      </svg>
+    ) : (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z" />
+        <path d="M17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+      </svg>
+    ),
   Lock: () => (
     <svg
       width="16"
@@ -177,7 +186,8 @@ const AbsenceBlock = ({
     data: absenceDetails,
     disabled: isOverlay || isPast || isLocked,
   });
-
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const isResizing = useAbsenceBlockIsResizing(absenceDetails.id);
   const visualDuration = useAbsenceBlockVisualDuration(absenceDetails.id);
   const visualStartShift = useAbsenceBlockVisualStartShift(absenceDetails.id);
@@ -378,6 +388,7 @@ const AbsenceBlock = ({
       </div>
     );
   }
+  const isRejected = absenceDetails.status === AbsenceStatus.Rejected;
 
   return (
     <>
@@ -568,6 +579,24 @@ const AbsenceBlock = ({
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Clock /> {absenceDetails.durationDays} dagar
               </div>
+              {absenceDetails.status === AbsenceStatus.Rejected &&
+                absenceDetails.rejectionReason && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "10px 12px",
+                      borderRadius: "8px",
+                      backgroundColor: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      color: "#b91c1c",
+                      fontSize: "12px",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <strong>Avslagsorsak:</strong>{" "}
+                    {absenceDetails.rejectionReason}
+                  </div>
+                )}
             </div>
 
             <div
@@ -583,20 +612,35 @@ const AbsenceBlock = ({
               {absenceDetails.status !== AbsenceStatus.Approved ? (
                 <>
                   <button
+                    type="button"
+                    disabled={isRejected}
                     style={{
                       padding: "6px",
                       border: "1px solid #ddd",
-                      background: "white",
+                      background: isRejected ? "#f8fafc" : "white",
                       borderRadius: "6px",
-                      color: "#10b981",
-                      cursor: "pointer",
+                      color: isRejected ? "#94a3b8" : "#10b981",
+                      cursor: isRejected ? "not-allowed" : "pointer",
+                      opacity: isRejected ? 0.6 : 1,
                     }}
-                    onClick={() => onApprove?.(absenceDetails.id)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (isRejected) return;
+                      onApprove?.(absenceDetails.id);
+                      setBlock(absenceDetails.id, { isTooltipOpen: false });
+                      onTooltipClose?.();
+                    }}
                   >
                     <Icon.ThumbUp />
                   </button>
 
                   <button
+                    type="button"
                     style={{
                       padding: "6px",
                       border: "1px solid #ddd",
@@ -605,12 +649,18 @@ const AbsenceBlock = ({
                       color: "#ef4444",
                       cursor: "pointer",
                     }}
-                    onClick={() => {
-                      const r = window.prompt("Orsak till avslag:");
-                      if (r) onReject?.(absenceDetails.id, r);
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRejectReason(absenceDetails.rejectionReason ?? "");
+                      setIsRejectModalOpen(true);
                     }}
                   >
-                    <Icon.ThumbDown />
+                    <Icon.ThumbDown filled={isRejected} />
                   </button>
                 </>
               ) : (
@@ -654,7 +704,132 @@ const AbsenceBlock = ({
           </div>
         </div>
       )}
+      {isRejectModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10050,
+          }}
+          onClick={() => setIsRejectModalOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "420px",
+              background: "#fff",
+              borderRadius: "16px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+              overflow: "hidden",
+              border: "1px solid #e2e8f0",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid #e2e8f0",
+                background: "linear-gradient(180deg, #fff 0%, #f8fafc 100%)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "15px",
+                  fontWeight: 700,
+                  color: "#0f172a",
+                }}
+              >
+                Avslå frånvaro
+              </div>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: "12px",
+                  color: "#64748b",
+                }}
+              >
+                Ange orsak till avslag för {employeeName}
+              </div>
+            </div>
 
+            <div style={{ padding: "16px" }}>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Skriv avslagsorsak..."
+                rows={4}
+                autoFocus
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  padding: "12px",
+                  fontSize: "14px",
+                  borderRadius: "12px",
+                  border: "1px solid #cbd5e1",
+                  outline: "none",
+                  boxSizing: "border-box",
+                  fontFamily: "inherit",
+                }}
+              />
+
+              <div
+                style={{
+                  marginTop: "14px",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsRejectModalOpen(false)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#334155",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Avbryt
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!rejectReason.trim()}
+                  onClick={async () => {
+                    const reason = rejectReason.trim();
+                    if (!reason) return;
+
+                    await onReject?.(absenceDetails.id, reason);
+                    setIsRejectModalOpen(false);
+                    setRejectReason("");
+                    setBlock(absenceDetails.id, { isTooltipOpen: false });
+                    onTooltipClose?.();
+                  }}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "none",
+                    background: !rejectReason.trim() ? "#fca5a5" : "#dc2626",
+                    color: "#fff",
+                    fontWeight: 700,
+                    cursor: !rejectReason.trim() ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Bekräfta avslag
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes tooltipIn {
           from { opacity: 0; transform: translate(-50%, -95%); }

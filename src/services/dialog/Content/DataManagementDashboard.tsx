@@ -22,6 +22,9 @@ import {
   useEmployeeMutation,
   useAbsenceCategoryMutation,
   useAbsenceStatusMutation,
+  useAbsenceCategories,
+  useEmployees,
+  useTeams,
 } from "../../hooks/useData";
 import { dialog } from "../dialogStore";
 import { absence } from "../../stores/absenceDataStore";
@@ -377,13 +380,6 @@ interface AbsenceView extends Absence {
   statusText: string;
 }
 
-interface DataManagementDashboardProps {
-  absences: Absence[];
-  employees: Employee[];
-  categories: AbsenceCategory[];
-  teams: Team[];
-}
-
 const PREDEFINED_COLORS: string[] = [
   "#1976d2",
   "#0288d1",
@@ -543,15 +539,15 @@ const PureColorPicker = ({
   );
 };
 
-const DataManagementDashboard = ({
-  absences,
-  employees,
-  categories,
-  teams,
-}: DataManagementDashboardProps) => {
+const DataManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState<
     "absences" | "employees" | "teams" | "categories"
   >("absences");
+  const byId = absence.useStore((state) => state.byId);
+  const absences = useMemo(() => Object.values(byId), [byId]);
+  const { data: teams = [] } = useTeams();
+  const { data: employees = [] } = useEmployees();
+  const { data: categories = [] } = useAbsenceCategories();
 
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const { createEmployee, updateEmployee, deleteEmployee } =
@@ -1018,13 +1014,33 @@ const DataManagementDashboard = ({
         Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
       );
 
+      const originalEnd = new Date(row.original.endDate)
+        .toISOString()
+        .split("T")[0];
+      const newEnd = new Date(values.endDate).toISOString().split("T")[0];
+      const originalStart = new Date(row.original.startDate)
+        .toISOString()
+        .split("T")[0];
+      const newStart = new Date(values.startDate).toISOString().split("T")[0];
+
+      const datesChanged = originalStart !== newStart || originalEnd !== newEnd;
+
+      const nextStatus =
+        row.original.status === AbsenceStatus.Rejected && datesChanged
+          ? AbsenceStatus.Pending
+          : (Number(values.status) as AbsenceStatus);
+
       const updatePayload = {
         id: row.original.id,
         employeeId: row.original.employeeId,
         startDate: values.startDate,
         durationDays: Number(calculatedDuration),
         absenceCategoryId: values.absenceCategoryId,
-        status: Number(values.status) as AbsenceStatus,
+        status: nextStatus,
+        rejectionReason:
+          nextStatus === AbsenceStatus.Rejected
+            ? row.original.rejectionReason
+            : undefined,
       };
 
       try {
@@ -1034,7 +1050,6 @@ const DataManagementDashboard = ({
         console.error("Save failed:", error);
       }
     };
-
   const absenceTable = useMaterialReactTable<AbsenceView>({
     columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
       () => [

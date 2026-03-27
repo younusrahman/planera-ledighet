@@ -881,7 +881,7 @@ export const Timeline = () => {
   };
 
   const handleReject = async (id: string, reason: string) => {
-    await changeAbsenceStatus.mutate({
+    await changeAbsenceStatus.mutateAsync({
       id,
       status: AbsenceStatus.Rejected,
       rejectionReason: reason,
