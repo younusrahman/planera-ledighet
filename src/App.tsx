@@ -15,7 +15,6 @@ function App() {
   useResponsiveSidebarMode();
   return (
     <>
-      {" "}
       <GlobalDialogProvider />
       <GlobalSnackbar />
       <Timeline />

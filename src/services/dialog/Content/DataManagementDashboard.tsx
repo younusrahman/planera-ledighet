@@ -548,7 +548,7 @@ const DataManagementDashboard = () => {
   const { data: teams = [] } = useTeams();
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useAbsenceCategories();
-
+const absen = loadall()
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const { createEmployee, updateEmployee, deleteEmployee } =
     useEmployeeMutation();
@@ -1004,52 +1004,53 @@ const DataManagementDashboard = () => {
     },
   });
 
-  const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
-    async ({ values, table, row }) => {
-      const start = new Date(values.startDate);
-      const end = new Date(values.endDate);
-      const diffTime = end.getTime() - start.getTime();
-      const calculatedDuration = Math.max(
-        1,
-        Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
-      );
+const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
+  async ({ values, table, row }) => {
+    const start = new Date(values.startDate);
+    const end = new Date(values.endDate);
+    const diffTime = end.getTime() - start.getTime();
+    const calculatedDuration = Math.max(
+      1,
+      Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
+    );
 
-      const originalEnd = new Date(row.original.endDate)
-        .toISOString()
-        .split("T")[0];
-      const newEnd = new Date(values.endDate).toISOString().split("T")[0];
-      const originalStart = new Date(row.original.startDate)
-        .toISOString()
-        .split("T")[0];
-      const newStart = new Date(values.startDate).toISOString().split("T")[0];
+    const originalEnd = new Date(row.original.endDate)
+      .toISOString()
+      .split("T")[0];
+    const newEnd = new Date(values.endDate).toISOString().split("T")[0];
+    const originalStart = new Date(row.original.startDate)
+      .toISOString()
+      .split("T")[0];
+    const newStart = new Date(values.startDate).toISOString().split("T")[0];
 
-      const datesChanged = originalStart !== newStart || originalEnd !== newEnd;
+    const datesChanged =
+      originalStart !== newStart || originalEnd !== newEnd;
 
-      const nextStatus =
-        row.original.status === AbsenceStatus.Rejected && datesChanged
-          ? AbsenceStatus.Pending
-          : (Number(values.status) as AbsenceStatus);
+    const nextStatus =
+      row.original.status === AbsenceStatus.Rejected && datesChanged
+        ? AbsenceStatus.Pending
+        : (Number(values.status) as AbsenceStatus);
 
-      const updatePayload = {
-        id: row.original.id,
-        employeeId: row.original.employeeId,
-        startDate: values.startDate,
-        durationDays: Number(calculatedDuration),
-        absenceCategoryId: values.absenceCategoryId,
-        status: nextStatus,
-        rejectionReason:
-          nextStatus === AbsenceStatus.Rejected
-            ? row.original.rejectionReason
-            : undefined,
-      };
-
-      try {
-        await absence.updateOne(row.original.id, updatePayload);
-        table.setEditingRow(null);
-      } catch (error) {
-        console.error("Save failed:", error);
-      }
+    const updatePayload = {
+      id: row.original.id,
+      employeeId: row.original.employeeId,
+      startDate: values.startDate,
+      durationDays: Number(calculatedDuration),
+      absenceCategoryId: values.absenceCategoryId,
+      status: nextStatus,
+      rejectionReason:
+        nextStatus === AbsenceStatus.Rejected
+          ? row.original.rejectionReason
+          : undefined,
     };
+
+    try {
+      await absence.updateOne(row.original.id, updatePayload);
+      table.setEditingRow(null);
+    } catch (error) {
+      console.error("Save failed:", error);
+    }
+  };
   const absenceTable = useMaterialReactTable<AbsenceView>({
     columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
       () => [

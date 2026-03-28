@@ -3,7 +3,6 @@ import AbsenceForm, { type AbsenceFormProps } from "./Content/AbsenceForm";
 import type { AbsenceTypeFormProps } from "./Content/AbsenceTypeForm";
 import AbsenceTypeForm from "./Content/AbsenceTypeForm";
 import { AnalyticsForm } from "./Content/AnalyticsForm";
-import type { ConfigFormProps } from "./Content/ConfigForm";
 import ConfigForm from "./Content/ConfigForm";
 import {
   DatabaseMaintenanceForm,
