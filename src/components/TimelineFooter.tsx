@@ -284,6 +284,8 @@ function TimelineFooter({
       boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
       flexShrink: 0,
       minWidth: isMobile ? "100%" : undefined,
+      justifySelf: isMobile ? "center" : "start", // <-- center on mobile, left on desktop
+      width: isMobile ? "min(92vw, 360px)" : undefined,
     },
 
     overlayRoot: {
