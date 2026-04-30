@@ -38,10 +38,10 @@ export interface AbsencePerTeam {
 }
 
 export interface AbsencePerCategory {
-  label: string; // kategori
+  label: string;
   color: string;
   count: number;
-  team: string; // lägg till detta
+  team: string;
 }
 
 export interface AbsencePerTeamCategory {

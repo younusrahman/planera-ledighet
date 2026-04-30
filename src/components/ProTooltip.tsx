@@ -1,4 +1,3 @@
-import React from "react";
 import Tooltip, { type TooltipProps } from "@mui/material/Tooltip";
 import { styled } from "@mui/material/styles";
 

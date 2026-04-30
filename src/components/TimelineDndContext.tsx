@@ -1,8 +1,4 @@
-import React, {
-  forwardRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { forwardRef, useCallback, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -158,7 +154,7 @@ export const TimelineDndContext = forwardRef<
 
   const showWatermark =
     !teams || teams.length === 0 || !absenceTypes || absenceTypes.length === 0;
-
+  console.log({ visibleAbsences });
   return (
     <div
       ref={ref}

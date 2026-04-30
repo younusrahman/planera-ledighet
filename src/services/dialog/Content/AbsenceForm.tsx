@@ -1,21 +1,33 @@
-import React, { useState } from "react";
-import dayjs from "dayjs";
-import styles from "./AbsenceForm.module.css";
+import React, { useCallback, useMemo, useState } from "react";
+import dayjs, { Dayjs } from "dayjs";
+
+export type AbsenceType = { id: string; label: string; color: string };
+
+export type AbsenceFormData = {
+  typeId: string;
+  startDate: Dayjs;
+  duration: number;
+};
 
 export interface AbsenceFormProps {
   title: string;
   mode: "create" | "edit";
   data: {
     typeId: string;
-    startDate: any; // dayjs
+    startDate: string | Date | Dayjs;
     duration: number;
   };
-  absenceTypes: { id: string; label: string; color: string }[];
+  absenceTypes: AbsenceType[];
   blockPastDays: boolean;
-  today: any; // dayjs
-  onSave: (data: AbsenceFormProps["data"]) => void;
+  today: Dayjs;
+  onSave: (data: AbsenceFormData) => void;
   onClose?: () => void;
 }
+
+type Errors = Partial<Record<keyof AbsenceFormData, string>>;
+
+const cx = (...classes: Array<string | false | undefined | null>) =>
+  classes.filter(Boolean).join(" ");
 
 export default function AbsenceForm({
   title,
@@ -27,65 +39,111 @@ export default function AbsenceForm({
   onSave,
   onClose,
 }: AbsenceFormProps) {
-  const [errors, setErrors] = useState<Record<string, string>>({});
- const [state, setState] = useState({
-    ...data,
-    startDate: dayjs(data.startDate) 
-  });
+  const [state, setState] = useState<AbsenceFormData>(() => ({
+    typeId: data.typeId,
+    startDate: dayjs(data.startDate),
+    duration: data.duration,
+  }));
 
-  // Calculate endDate safely
-  const startDateObj = dayjs(state.startDate);
-  const endDate = startDateObj.add(state.duration - 1, "day");
-  const isPast = state.startDate.isBefore(today, "day");
+  const [errors, setErrors] = useState<Errors>({});
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!state.typeId) newErrors.typeId = "Välj en frånvarotyp";
-    if (blockPastDays && isPast)
-      newErrors.startDate = "Datum kan inte vara i dåtid";
-    if (state.duration < 1) newErrors.duration = "Minst 1 dag krävs";
+  const endDate = useMemo(
+    () => state.startDate.add(Math.max(1, state.duration) - 1, "day"),
+    [state.startDate, state.duration],
+  );
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const isPast = useMemo(
+    () => state.startDate.isBefore(today, "day"),
+    [state.startDate, today],
+  );
 
-  const handleSave = () => {
-    if (validate()) {
-      onSave(state);
-    }
-  };
+  const selectedType = useMemo(
+    () => absenceTypes.find((t) => t.id === state.typeId),
+    [absenceTypes, state.typeId],
+  );
 
-  // Logic: When start date changes, we keep the end date if possible, otherwise adjust duration
-  const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newStart = dayjs(e.target.value);
-    if (!newStart.isValid()) return;
+  const canSubmit = !(blockPastDays && isPast);
 
-    // Strict validation for past days
-    if (blockPastDays && newStart.isBefore(today, "day")) {
-      setErrors((p) => ({ ...p, startDate: "Datum kan inte vara i dåtid" }));
+  const validate = useCallback(() => {
+    const next: Errors = {};
+    if (!state.typeId) next.typeId = "Välj en frånvarotyp";
+    if (blockPastDays && isPast) next.startDate = "Datum kan inte vara i dåtid";
+    if (state.duration < 1) next.duration = "Minst 1 dag krävs";
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }, [blockPastDays, isPast, state.typeId, state.duration]);
+
+  const setFieldError = (key: keyof AbsenceFormData, msg?: string) =>
+    setErrors((p) => ({ ...p, [key]: msg }));
+
+  const onStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextStart = dayjs(e.target.value);
+    if (!nextStart.isValid()) return;
+
+    if (blockPastDays && nextStart.isBefore(today, "day")) {
+      setFieldError("startDate", "Datum kan inte vara i dåtid");
     } else {
-      setErrors((p) => ({ ...p, startDate: "" }));
+      setFieldError("startDate");
     }
 
-    const diff = endDate.diff(newStart, "day") + 1;
-    setState((prev) => ({
-      ...prev,
-      startDate: newStart,
-      duration: Math.max(1, diff),
-    }));
+    // keep current endDate by adjusting duration
+    const nextDuration = Math.max(1, endDate.diff(nextStart, "day") + 1);
+
+    setState((p) => ({ ...p, startDate: nextStart, duration: nextDuration }));
   };
+
+  const onEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextEnd = dayjs(e.target.value);
+    if (!nextEnd.isValid()) return;
+
+    const nextDuration = Math.max(1, nextEnd.diff(state.startDate, "day") + 1);
+    setState((p) => ({ ...p, duration: nextDuration }));
+    setFieldError("duration");
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    if (!validate()) return;
+    onSave(state);
+  };
+
+  const baseInput =
+    "mt-1 w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none transition focus:ring-2";
+  const okInput =
+    "border-slate-300 focus:border-slate-400 focus:ring-slate-200";
+  const errInput = "border-rose-500 focus:border-rose-500 focus:ring-rose-100";
 
   return (
-    <div className={styles.container}>
-      <h2 className={styles.title}>{title}</h2>
+    <form
+      onSubmit={onSubmit}
+      className="w-full max-w-xl rounded-2xl"
+    >
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <p className="text-sm text-slate-500">Fyll i typ och datumintervall.</p>
+      </div>
 
-      {/* Type Selector */}
-      <div className={styles.field}>
-        <label className={styles.label}>Frånvarotyp</label>
+      {/* Type */}
+      <div className="mb-4">
+        <label htmlFor="typeId" className="text-sm font-medium text-slate-700">
+          Frånvarotyp
+        </label>
+
         <select
-          className={`${styles.select} ${errors.typeId ? styles.inputError : ""}`}
+          id="typeId"
           value={state.typeId}
-          onChange={(e) => setState((p) => ({ ...p, typeId: e.target.value }))}
+          onChange={(e) => {
+            setState((p) => ({ ...p, typeId: e.target.value }));
+            setFieldError("typeId");
+          }}
+          className={cx(
+            baseInput,
+            errors.typeId ? errInput : okInput,
+            "appearance-none",
+          )}
+          aria-invalid={!!errors.typeId}
         >
           <option value="">Välj typ...</option>
           {absenceTypes.map((t) => (
@@ -94,85 +152,107 @@ export default function AbsenceForm({
             </option>
           ))}
         </select>
+
         {errors.typeId && (
-          <span className={styles.errorText}>{errors.typeId}</span>
+          <p className="mt-1 text-xs font-medium text-rose-600">
+            {errors.typeId}
+          </p>
         )}
       </div>
 
-      {/* Date Grid */}
-      <div className={styles.grid}>
-        <div className={styles.field}>
-          <label className={styles.label}>Startdatum</label>
+      {/* Dates */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="startDate"
+            className="text-sm font-medium text-slate-700"
+          >
+            Startdatum
+          </label>
+
           <input
+            id="startDate"
             type="date"
-            className={`${styles.input} ${errors.startDate ? styles.inputError : ""}`}
             min={blockPastDays ? today.format("YYYY-MM-DD") : undefined}
             value={state.startDate.format("YYYY-MM-DD")}
-            onChange={handleStartChange}
+            onChange={onStartDateChange}
+            className={cx(baseInput, errors.startDate ? errInput : okInput)}
+            aria-invalid={!!errors.startDate}
           />
+
           {errors.startDate && (
-            <span className={styles.errorText}>{errors.startDate}</span>
+            <p className="mt-1 text-xs font-medium text-rose-600">
+              {errors.startDate}
+            </p>
           )}
         </div>
 
-        <div className={styles.field}>
-          <label className={styles.label}>Slutdatum (beräknat)</label>
+        <div>
+          <label
+            htmlFor="endDate"
+            className="text-sm font-medium text-slate-700"
+          >
+            Slutdatum (beräknat)
+          </label>
+
           <input
+            id="endDate"
             type="date"
-            className={styles.input}
-            value={endDate.format("YYYY-MM-DD")}
             min={state.startDate.format("YYYY-MM-DD")}
-            onChange={(e) => {
-              const diff =
-                dayjs(e.target.value).diff(state.startDate, "day") + 1;
-              setState((p) => ({ ...p, duration: Math.max(1, diff) }));
-            }}
+            value={endDate.format("YYYY-MM-DD")}
+            onChange={onEndDateChange}
+            className={cx(baseInput, okInput)}
           />
         </div>
       </div>
 
-      {/* Summary Area */}
-      <div className={styles.summary}>
+      {/* Summary */}
+      <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
         <div>
-          <div style={{ fontWeight: 600 }}>
+          <div className="font-semibold text-slate-900">
             {state.duration} {state.duration === 1 ? "dag" : "dagar"}
           </div>
-          <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
-            {state.startDate.format("D MMM")} - {endDate.format("D MMM YYYY")}
+          <div className="text-xs text-slate-500">
+            {state.startDate.format("D MMM")} – {endDate.format("D MMM YYYY")}
           </div>
         </div>
-        {state.typeId && (
+
+        {selectedType && (
           <div
-            style={{
-              backgroundColor: absenceTypes.find((t) => t.id === state.typeId)
-                ?.color,
-              color: "white",
-              padding: "4px 10px",
-              borderRadius: "20px",
-              fontSize: "0.75rem",
-              fontWeight: 600,
-            }}
+            className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+            style={{ backgroundColor: selectedType.color }}
+            title={selectedType.label}
           >
-            {absenceTypes.find((t) => t.id === state.typeId)?.label}
+            {selectedType.label}
           </div>
         )}
       </div>
 
-      <div className={styles.footer}>
+      {/* Actions */}
+      <div className="mt-5 flex items-center justify-end gap-2">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Avbryt
+          </button>
+        )}
+
         <button
-          className={`${styles.btn} ${styles.btnSecondary}`}
-          onClick={onClose}
-        >
-          Avbryt
-        </button>
-        <button
-          className={`${styles.btn} ${styles.btnPrimary}`}
-          onClick={handleSave}
-          disabled={blockPastDays && isPast}
+          type="submit"
+          disabled={!canSubmit}
+          className={cx(
+            "rounded-lg px-4 py-2 text-sm font-semibold text-white transition",
+            canSubmit
+              ? "bg-slate-900 hover:bg-slate-800"
+              : "cursor-not-allowed bg-slate-300",
+          )}
         >
           {mode === "create" ? "Skapa" : "Spara"}
         </button>
       </div>
-    </div>
+    </form>
   );
 }

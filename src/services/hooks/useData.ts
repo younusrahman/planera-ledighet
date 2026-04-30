@@ -4,7 +4,6 @@ import {
   type Employee,
   type AbsenceCategory,
   type ChangeAbsenceStatusPayload,
-  AbsenceStatus,
   type Absence,
   type UiConfig,
 } from "../../types";

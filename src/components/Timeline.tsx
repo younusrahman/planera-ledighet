@@ -24,7 +24,6 @@ import {
 } from "../types";
 import { checkCollision, getDateOffset, getDaysArray } from "../utils/Helper";
 import { toast } from "../services/stores/globalSnackbar";
-import { dialog } from "../services/dialog/dialogStore";
 import { TimelineDndContext } from "./TimelineDndContext";
 import {
   useTeamMutation,
@@ -41,6 +40,7 @@ import { getSwedishHolidays } from "../utils/holidayHelper";
 import { ProTooltip } from "./ProTooltip";
 import TimelineHeader from "./TimelineHeader";
 import TimelineSidebar from "./TimelineSidebar";
+import { useDialogStore } from "../services/dialog/dialog";
 
 const today = dayjs().startOf("day"); // Normalize to the beginning of the day
 
@@ -63,6 +63,7 @@ export const Timeline = () => {
   const { data: employees } = useEmployees();
   const absenceDetails = absence.useItems();
   const sidebarMode = useSidebarMode();
+  const dialog = useDialogStore();
   const [filteredCategoryIds, setFilteredCategoryIds] = useState<string[]>([]);
   useEffect(() => {
     absence.loadAll();
@@ -163,9 +164,15 @@ export const Timeline = () => {
   };
   // 2. Initialize: Select all categories by default when they load
   useEffect(() => {
-    if (absenceTypes.length > 0 && filteredCategoryIds.length === 0) {
-      setFilteredCategoryIds(absenceTypes.map((t) => t.id));
-    }
+    if (absenceTypes.length === 0) return;
+
+    setFilteredCategoryIds((prev) => {
+      if (prev.length === 0) return absenceTypes.map((t) => t.id);
+
+      const ids = absenceTypes.map((t) => t.id);
+      const missing = ids.filter((id) => !prev.includes(id));
+      return missing.length ? [...prev, ...missing] : prev;
+    });
   }, [absenceTypes]);
 
   // Cleanup on unmount: Reset any global styles we changed (like cursor)
@@ -175,6 +182,7 @@ export const Timeline = () => {
       document.body.style.touchAction = "";
     };
   }, []);
+
   // 3. The Filter Logic
   const visibleAbsences = useMemo(() => {
     return absenceDetails.filter((abs) =>
@@ -626,7 +634,7 @@ export const Timeline = () => {
       }
     }
   };
-  console.log("Timeline rendered");
+
   const handleDeleteAbsenceType = async (idToDelete?: string | null) => {
     const id = idToDelete || selectedTypeId;
     if (!id) return;
@@ -720,29 +728,25 @@ export const Timeline = () => {
   const handleDialogGroupTrigger = (groupToEdit?: Team) => {
     const isEditing = !!groupToEdit;
 
-    dialog.open("group", {
+    dialog.open("team", {
       title: isEditing ? "Redigera grupp" : "Skapa ny grupp",
-      isEditMode: isEditing, // Nu klagar inte TS längre!
+      isEditMode: isEditing,
       initialName: isEditing ? groupToEdit.name : "",
       onSave: (name: string) => {
         handleSaveGroup(name, isEditing ? groupToEdit.id : null);
         dialog.close();
       },
-      // Skicka med onDelete funktionen
       onDelete: isEditing
         ? async () => {
             if (groupToEdit?.id) {
               await deleteTeam(groupToEdit.id);
-
               dialog.close();
             }
           }
         : undefined,
-      onClose: () => {
-        dialog.close();
-      },
     });
   };
+
   const handleDialogAbsenceTypeTrigger = (typeToEdit?: {
     id: string;
     label: string;
@@ -750,34 +754,28 @@ export const Timeline = () => {
   }) => {
     const isEditing = !!typeToEdit;
 
-    dialog.open("absenceType", {
+    dialog.open("absenceCategory", {
       title: isEditing ? "Redigera frånvarotyp" : "Skapa ny frånvarotyp",
       isEditMode: isEditing,
-      typeId: isEditing ? typeToEdit.id : undefined, // <--- DETTA ÄR NYCKELN!
+      typeId: isEditing ? typeToEdit.id : undefined,
       initialLabel: isEditing ? typeToEdit.label : "",
       initialColor: isEditing ? typeToEdit.color : undefined,
-      absenceTypes: absenceTypes, // Skicka med hela listan från API/Store
+      absenceTypes,
 
       onSave: (label: string, color: string) => {
-        // Pass the specific ID if editing, or null if creating
         handleSaveAbsenceType(label, color, isEditing ? typeToEdit.id : null);
         dialog.close();
       },
 
-      // If editing, provide the delete functionality
       onDelete: isEditing
         ? () => {
             handleDeleteAbsenceType(typeToEdit.id);
             dialog.close();
           }
         : undefined,
-
-      onClose: () => {
-        setSelectedTypeId(null);
-        dialog.close();
-      },
     });
   };
+
   const handleDialogAbsenceTrigger = (
     leaveToEdit?: Absence,
     rowId?: string,
@@ -785,16 +783,13 @@ export const Timeline = () => {
     duration?: number,
   ) => {
     const isEditing = !!leaveToEdit;
-
-    // If editing, we use the leave's rowId. If creating, we use the rowId passed from the grid.
     const targetRowId = isEditing ? leaveToEdit.employeeId : rowId;
 
-    dialog.open("absence", {
+    dialog.open("absenceForm", {
       title: isEditing ? "Redigera frånvaro" : "Registrera frånvaro",
       mode: isEditing ? "edit" : "create",
       data: isEditing
         ? {
-            // EDIT MODE INITIAL DATA
             startDate: dayjs(leaveToEdit.startDate),
             duration: leaveToEdit.durationDays,
             typeId:
@@ -802,7 +797,6 @@ export const Timeline = () => {
                 ?.id || "vac",
           }
         : {
-            // CREATE MODE INITIAL DATA (from grid selection)
             startDate: startDate || dayjs(),
             duration: duration || 1,
             typeId: absenceTypes[0]?.id || "vac",
@@ -816,7 +810,6 @@ export const Timeline = () => {
         startDate: Dayjs;
         duration: number;
       }) => {
-        // formData comes from the AbsenceForm (typeId, startDate, duration)
         handleSaveAbsence(
           formData,
           isEditing ? leaveToEdit.id : null,
@@ -824,23 +817,22 @@ export const Timeline = () => {
         );
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
   };
+
   const handleDialogEmployeeTrigger = (
     employeeToEdit?: { id: string; name: string },
     currentGroupId?: string,
   ) => {
     const isEditing = !!employeeToEdit;
 
-    dialog.open("resource", {
+    dialog.open("employee", {
       title: isEditing ? "Redigera anställd" : "Lägg till anställd",
       initialName: isEditing ? employeeToEdit.name : "",
-      initialGroupId: currentGroupId, // The group they currently belong to
+      initialGroupId: currentGroupId,
       groups: teams,
 
       onSave: (name: string, targetGroupId: string) => {
-        // Pass the specific employee ID if editing, or null if creating
         handleSaveEmployee(
           name,
           targetGroupId,
@@ -848,22 +840,14 @@ export const Timeline = () => {
         );
         dialog.close();
       },
-      onClose: () => {
-        dialog.close();
-      },
     });
   };
+
   const handleDialogDatabaseSystemTrigger = () => {
-    dialog.open("databaseSystem", {
+    dialog.open("databaseMaintenance", {
       title: "Databassystem",
-      onClose: () => {
-        // Cleanup: Clear any selected IDs just like in your resource example
-
-        dialog.close();
-      },
     });
   };
-
   const handleApprove = async (id: string) => {
     await changeAbsenceStatus.mutate({ id, status: AbsenceStatus.Approved });
   };
@@ -930,7 +914,7 @@ export const Timeline = () => {
 
     return (
       <div
-        className="sticky top-0 z-[1100] border-b border-gray-300 bg-white"
+        className="sticky top-0 z-1100 border-b border-gray-300 bg-white"
         style={{ width: daysCount * CELL_WIDTH }}
       >
         {/* Months Row */}
@@ -956,7 +940,7 @@ export const Timeline = () => {
         </div>
 
         {/* Weeks Row */}
-        <div className="flex h-[25px] border-b border-gray-200 bg-gray-50">
+        <div className="flex h-6.25 border-b border-gray-200 bg-gray-50">
           {weekBlocks.map((w) => (
             <div
               key={w.key}
@@ -964,7 +948,7 @@ export const Timeline = () => {
               style={{ width: w.days.length * CELL_WIDTH }}
             >
               <div
-                className="inline-block w-fit whitespace-nowrap pl-2 text-xs font-extrabold leading-[25px] text-gray-500"
+                className="inline-block w-fit whitespace-nowrap pl-2 text-xs font-extrabold leading-6.25 text-gray-500"
                 style={{
                   position: "sticky",
                   left: stickyX,
@@ -981,7 +965,7 @@ export const Timeline = () => {
         </div>
 
         {/* Individual Days Row */}
-        <div className="flex h-[46px]">
+        <div className="flex h-11.5">
           {days.map((day) => {
             const dateStr = day.format("YYYY-MM-DD");
             const holidayName = holidays[dateStr]?.name || "";
@@ -989,7 +973,7 @@ export const Timeline = () => {
 
             const DayContent = (
               <div
-                className={`box-border flex h-[46px] flex-col items-center justify-center gap-[2px] border-b border-r border-gray-200 py-0.5 text-center ${
+                className={`box-border flex h-11.5 flex-col items-center justify-center gap-0.5 border-b border-r border-gray-200 py-0.5 text-center ${
                   dateStr === todayStr
                     ? "bg-yellow-100"
                     : isRed

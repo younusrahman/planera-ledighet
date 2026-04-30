@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import styles from "./AbsenceTypeForm.module.css";
+import styles from "./AbsenceCategoryForm.module.css";
 
 export const PREDEFINED_COLORS = [
   "#1976d2",
@@ -24,18 +24,20 @@ export const PREDEFINED_COLORS = [
   "#303f9f",
 ];
 
-export interface AbsenceTypeFormProps {
+export interface AbsenceCategoryFormProps {
+  title: string;
   initialLabel?: string;
   initialColor?: string;
   typeId?: string;
   absenceTypes: { id: string; color: string; label: string }[];
   isEditMode?: boolean;
-  onSave: (label: string, color: string) => void;
+  onSave: (label: string, color: string) => Promise<void> | void;
   onDelete?: () => void;
   onClose?: () => void;
 }
 
-const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
+const AbsenceCategoryForm: React.FC<AbsenceCategoryFormProps> = ({
+  title,
   initialLabel = "",
   initialColor = "",
   typeId,
@@ -56,10 +58,10 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
     setTouched(false);
   }, [initialLabel, initialColor, typeId]);
 
-  // Validation Logic
   const isLabelTaken = useMemo(() => {
     const currentLabel = label.trim().toLowerCase();
     if (currentLabel.length === 0) return false;
+
     return absenceTypes.some(
       (t) => t.id !== typeId && t.label.toLowerCase().trim() === currentLabel,
     );
@@ -75,11 +77,12 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
   const hasChanges = useMemo(() => {
     return (
       label.trim() !== initialLabel.trim() ||
-      color.toLowerCase() !== initialColor.toLowerCase()
+      color.toLowerCase() !== (initialColor || "").toLowerCase()
     );
   }, [label, color, initialLabel, initialColor]);
 
   const isLabelValid = label.trim().length >= 3;
+
   const canSave =
     isLabelValid &&
     !isLabelTaken &&
@@ -89,9 +92,12 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
 
   const handleSave = async () => {
     if (!canSave) return;
+
     setIsSaving(true);
     try {
       await onSave(label.trim(), color);
+    } catch (error) {
+      console.error("Save failed:", error);
     } finally {
       setIsSaving(false);
     }
@@ -119,7 +125,7 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
           <circle cx="12" cy="12" r="10" />
           <path d="M12 8v8M8 12h8" />
         </svg>
-        {isEditMode ? "Redigera frånvarotyp" : "Ny frånvarotyp"}
+        {title || (isEditMode ? "Redigera frånvarotyp" : "Ny frånvarotyp")}
       </h2>
 
       <div className={styles.formGroup}>
@@ -127,7 +133,9 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
           Namn på frånvarotyp (minst 3 tecken)
         </label>
         <input
-          className={`${styles.input} ${touched && (!isLabelValid || isLabelTaken) ? styles.inputError : ""}`}
+          className={`${styles.input} ${
+            touched && (!isLabelValid || isLabelTaken) ? styles.inputError : ""
+          }`}
           value={label}
           disabled={isSaving}
           onChange={(e) => setLabel(e.target.value)}
@@ -145,11 +153,13 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
 
       <div className={styles.formGroup}>
         <label className={styles.label}>Välj färg</label>
+
         {isColorTakenByOther && (
           <div className={styles.alert}>
             Denna färg används redan. Välj en annan cirkel.
           </div>
         )}
+
         <div className={styles.colorGrid}>
           {PREDEFINED_COLORS.map((c) => {
             const isSelected = color.toLowerCase() === c.toLowerCase();
@@ -162,7 +172,9 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
               <div
                 key={c}
                 onClick={() => !isUsedByOther && setColor(c)}
-                className={`${styles.colorCircle} ${isSelected ? styles.selected : ""} ${isUsedByOther ? styles.disabled : ""}`}
+                className={`${styles.colorCircle} ${
+                  isSelected ? styles.selected : ""
+                } ${isUsedByOther ? styles.disabled : ""}`}
                 style={{ backgroundColor: c }}
               >
                 {isSelected && (
@@ -186,19 +198,24 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
       <div className={styles.actions}>
         {isEditMode && onDelete && (
           <button
-            className={`${styles.btn} styles.btnDelete`}
+            className={`${styles.btn} ${styles.btnDelete}`}
             onClick={onDelete}
+            disabled={isSaving}
           >
             Ta bort
           </button>
         )}
+
         <div className={styles.spacer} />
+
         <button
           className={`${styles.btn} ${styles.btnSecondary}`}
           onClick={onClose}
+          disabled={isSaving}
         >
           Avbryt
         </button>
+
         <button
           className={`${styles.btn} ${styles.btnPrimary}`}
           onClick={handleSave}
@@ -211,4 +228,4 @@ const AbsenceTypeForm: React.FC<AbsenceTypeFormProps> = ({
   );
 };
 
-export default AbsenceTypeForm;
+export default AbsenceCategoryForm;

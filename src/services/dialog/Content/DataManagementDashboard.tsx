@@ -26,8 +26,8 @@ import {
   useEmployees,
   useTeams,
 } from "../../hooks/useData";
-import { dialog } from "../dialogStore";
 import { absence } from "../../stores/absenceDataStore";
+import { useDialogStore } from "../dialog";
 
 const styles: Record<string, CSSProperties> = {
   root: {
@@ -548,7 +548,6 @@ const DataManagementDashboard = () => {
   const { data: teams = [] } = useTeams();
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useAbsenceCategories();
-const absen = loadall()
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const { createEmployee, updateEmployee, deleteEmployee } =
     useEmployeeMutation();
@@ -558,39 +557,35 @@ const absen = loadall()
     deleteAbsenceCategory,
   } = useAbsenceCategoryMutation();
   useAbsenceStatusMutation();
-
+  const dialog = useDialogStore();
   const handleAddTeam = () =>
-    dialog.open("group", {
+    dialog.open("team", {
       title: "Skapa ny grupp",
       onSave: (name: string) => {
         createTeam(name);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
 
   const handleAddEmployee = () =>
-    dialog.open("resource", {
+    dialog.open("employee", {
       title: "Lägg till anställd",
       groups: teams,
       onSave: (name: string, teamId: string) => {
         createEmployee(name, teamId);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
 
   const handleAddCategory = () =>
-    dialog.open("absenceType", {
-      title: "Skapa frånvarotyp",
+    dialog.open("absenceCategory", {
+      title: "Ny frånvarotyp", // Add this
       absenceTypes: categories,
       onSave: (label: string, color: string) => {
         createAbsenceCategory(label, color);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
-
   const enrichedAbsences = useMemo<AbsenceView[]>(() => {
     return (absences ?? []).map((abs) => {
       const emp = employees.find((e) => e.id === abs.employeeId);
@@ -1004,53 +999,52 @@ const absen = loadall()
     },
   });
 
-const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
-  async ({ values, table, row }) => {
-    const start = new Date(values.startDate);
-    const end = new Date(values.endDate);
-    const diffTime = end.getTime() - start.getTime();
-    const calculatedDuration = Math.max(
-      1,
-      Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
-    );
+  const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
+    async ({ values, table, row }) => {
+      const start = new Date(values.startDate);
+      const end = new Date(values.endDate);
+      const diffTime = end.getTime() - start.getTime();
+      const calculatedDuration = Math.max(
+        1,
+        Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
+      );
 
-    const originalEnd = new Date(row.original.endDate)
-      .toISOString()
-      .split("T")[0];
-    const newEnd = new Date(values.endDate).toISOString().split("T")[0];
-    const originalStart = new Date(row.original.startDate)
-      .toISOString()
-      .split("T")[0];
-    const newStart = new Date(values.startDate).toISOString().split("T")[0];
+      const originalEnd = new Date(row.original.endDate)
+        .toISOString()
+        .split("T")[0];
+      const newEnd = new Date(values.endDate).toISOString().split("T")[0];
+      const originalStart = new Date(row.original.startDate)
+        .toISOString()
+        .split("T")[0];
+      const newStart = new Date(values.startDate).toISOString().split("T")[0];
 
-    const datesChanged =
-      originalStart !== newStart || originalEnd !== newEnd;
+      const datesChanged = originalStart !== newStart || originalEnd !== newEnd;
 
-    const nextStatus =
-      row.original.status === AbsenceStatus.Rejected && datesChanged
-        ? AbsenceStatus.Pending
-        : (Number(values.status) as AbsenceStatus);
+      const nextStatus =
+        row.original.status === AbsenceStatus.Rejected && datesChanged
+          ? AbsenceStatus.Pending
+          : (Number(values.status) as AbsenceStatus);
 
-    const updatePayload = {
-      id: row.original.id,
-      employeeId: row.original.employeeId,
-      startDate: values.startDate,
-      durationDays: Number(calculatedDuration),
-      absenceCategoryId: values.absenceCategoryId,
-      status: nextStatus,
-      rejectionReason:
-        nextStatus === AbsenceStatus.Rejected
-          ? row.original.rejectionReason
-          : undefined,
+      const updatePayload = {
+        id: row.original.id,
+        employeeId: row.original.employeeId,
+        startDate: values.startDate,
+        durationDays: Number(calculatedDuration),
+        absenceCategoryId: values.absenceCategoryId,
+        status: nextStatus,
+        rejectionReason:
+          nextStatus === AbsenceStatus.Rejected
+            ? row.original.rejectionReason
+            : undefined,
+      };
+
+      try {
+        await absence.updateOne(row.original.id, updatePayload);
+        table.setEditingRow(null);
+      } catch (error) {
+        console.error("Save failed:", error);
+      }
     };
-
-    try {
-      await absence.updateOne(row.original.id, updatePayload);
-      table.setEditingRow(null);
-    } catch (error) {
-      console.error("Save failed:", error);
-    }
-  };
   const absenceTable = useMaterialReactTable<AbsenceView>({
     columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
       () => [
