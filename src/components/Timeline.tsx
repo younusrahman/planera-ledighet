@@ -888,7 +888,7 @@ export const Timeline = () => {
       weeks.push({
         key: weekKey,
         days: wDays,
-        label: `v.${wDays[0].isoWeek()}`,
+        label: `v. ${wDays[0].isoWeek()}`,
       });
     });
     return weeks;
@@ -955,10 +955,7 @@ export const Timeline = () => {
                   zIndex: 10,
                 }}
               >
-                {w.label}{" "}
-                {w.days[0].format("YYYY") !== dayjs().format("YYYY")
-                  ? w.days[0].format("YYYY")
-                  : ""}
+                {w.label}
               </div>
             </div>
           ))}
