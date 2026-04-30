@@ -180,7 +180,14 @@ function TimelineFooter({
       onAbsenceTypeClick(type);
     });
   };
+  const selectedCount = useMemo(() => {
+    const set = new Set(selectedIds);
+    return absenceTypes.filter((t) => set.has(t.id)).length;
+  }, [absenceTypes, selectedIds]);
 
+  const unselectedCount = useMemo(() => {
+    return Math.max(absenceTypes.length - selectedCount, 0);
+  }, [absenceTypes.length, selectedCount]);
   const styles: Record<string, React.CSSProperties> = {
     footer: {
       position: "sticky",
@@ -199,13 +206,13 @@ function TimelineFooter({
 
     footerInner: {
       width: "100%",
-      maxWidth: 1400,
+
       margin: "0 auto",
-      display: "flex",
+      display: "grid",
+      gridTemplateColumns: "auto 1fr auto", // Knapp | Center | Ghost
       alignItems: "center",
-      justifyContent: shouldCenterFilterButton ? "center" : "flex-start",
       gap: 10,
-      overflow: "hidden",
+      // padding: "0 16px", // valfritt för luft kanterna
     },
 
     chipsArea: {
@@ -215,7 +222,7 @@ function TimelineFooter({
       minWidth: 0,
       overflow: "hidden",
       flex: 1,
-      justifyContent: "flex-start",
+      justifyContent: "center",
     },
 
     chip: {
@@ -498,7 +505,7 @@ function TimelineFooter({
             ref={filterMeasureRef}
           >
             <FilterIcon />
-            {`Filter ${selectedIds.length}/${absenceTypes.length}`}
+            {`Filter ${unselectedCount}/${absenceTypes.length}`}
           </button>
 
           {!shouldCenterFilterButton && (
