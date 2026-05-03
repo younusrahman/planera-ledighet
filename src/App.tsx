@@ -1,6 +1,6 @@
 import "dayjs/locale/sv";
 import { GlobalSnackbar } from "./services/stores/globalSnackbar";
-import { Timeline } from "./components/Timeline";
+import { LeaveRequest } from "./components/Application";
 import "./App.css";
 import {
   useHydrateUiConfig,
@@ -15,7 +15,7 @@ function App() {
     <>
       <DialogWrapper />
       <GlobalSnackbar />
-      <Timeline />
+      <LeaveRequest />
     </>
   );
 }

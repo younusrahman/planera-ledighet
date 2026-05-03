@@ -11,6 +11,7 @@
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: fadeBackdrop 0.22s ease;
+
 }
 
 .paper {
@@ -19,7 +20,10 @@
   max-height: calc(100vh - 40px);
   overflow: hidden;
   transform-origin: center center;
+  background-color: white;
   width: 100%;
+  padding: 10px;
+  border-radius: 12px;
 }
 
 .fullscreen {
@@ -30,14 +34,12 @@
   transform: none;
 }
 
-.content {
+/* .content {
   overflow: auto;
   max-height: inherit;
   scrollbar-width: thin;
   background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-}
+} */
 
 /* Scrollbar styling for webkit */
 .content::-webkit-scrollbar {
