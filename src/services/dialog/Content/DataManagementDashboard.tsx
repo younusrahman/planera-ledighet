@@ -6,9 +6,11 @@ import {
   MRT_ShowHideColumnsButton,
   MRT_ToggleDensePaddingButton,
   MRT_ToggleFiltersButton,
+  MRT_ToggleGlobalFilterButton,
   type MRT_ColumnDef,
   type MRT_TableOptions,
   type MRT_RowData,
+  type MRT_TableInstance,
 } from "material-react-table";
 import {
   type Team,
@@ -26,9 +28,11 @@ import {
   useEmployees,
   useTeams,
 } from "../../hooks/useData";
-import { dialog } from "../dialogStore";
 import { absence } from "../../stores/absenceDataStore";
+import { useDialogStore } from "../dialog";
+import { ProTooltip } from "../../../components/ProTooltip";
 
+// ─── Styles ─────────────────────────────────────────────────────────
 const styles: Record<string, CSSProperties> = {
   root: {
     width: "100%",
@@ -39,45 +43,15 @@ const styles: Record<string, CSSProperties> = {
     background:
       "linear-gradient(180deg, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 100%)",
   },
-
   shell: {
     border: "1px solid #e2e8f0",
-    borderRadius: 14,
+
     overflow: "hidden",
     flex: 1,
     display: "flex",
     flexDirection: "column",
     backgroundColor: "#fff",
     boxShadow: "0 10px 30px rgba(15,23,42,0.06)",
-  },
-
-  headerBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "12px 14px",
-    borderBottom: "1px solid #e2e8f0",
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
-    flexShrink: 0,
-  },
-
-  headerTitle: {
-    fontSize: "1rem",
-    fontWeight: 800,
-    color: "#0f172a",
-  },
-
-  closeBtn: {
-    height: 34,
-    padding: "0 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.08)",
-    background: "#fff",
-    color: "#475569",
-    fontSize: "12px",
-    fontWeight: 700,
-    cursor: "pointer",
   },
 
   tabsBar: {
@@ -91,7 +65,6 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
     flexWrap: "wrap",
   },
-
   tabBtn: {
     padding: "10px 14px",
     border: "1px solid transparent",
@@ -104,14 +77,12 @@ const styles: Record<string, CSSProperties> = {
     color: "#475569",
     transition: "all 0.2s ease",
   },
-
   tabBtnActive: {
     background: "rgba(25,118,210,0.08)",
     border: "1px solid rgba(25,118,210,0.16)",
     color: "#1976d2",
     boxShadow: "inset 0 0 0 1px rgba(25,118,210,0.06)",
   },
-
   content: {
     flex: 1,
     overflow: "hidden",
@@ -119,34 +90,36 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     background: "#fff",
   },
-
   tabPane: {
     height: "100%",
     animation: "fadeSlideIn 0.2s ease-out",
+    display: "flex",
+    flexDirection: "column",
   },
-
+  // Right-aligned action container
   rowActions: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "flex-end",
     gap: 6,
     flexWrap: "nowrap",
     whiteSpace: "nowrap",
+    width: "100%",
   },
-
   toolbarActions: {
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 2,
     flexWrap: "nowrap",
     whiteSpace: "nowrap",
+    height: 40,
   },
-
   iconSquareBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    border: "1px solid rgba(25,118,210,0.16)",
-    background: "rgba(25,118,210,0.08)",
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    border: "1px solid rgba(25,118,210,0.18)",
+    background: "rgba(25,118,210,0.07)",
     color: "#1976d2",
     cursor: "pointer",
     display: "flex",
@@ -154,8 +127,24 @@ const styles: Record<string, CSSProperties> = {
     justifyContent: "center",
     transition: "all 0.18s ease",
     flexShrink: 0,
+    padding: 0,
   },
-
+  bulkBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 14px",
+    background: "rgba(211,47,47,0.06)",
+    borderBottom: "1px solid rgba(211,47,47,0.14)",
+    flexShrink: 0,
+    minHeight: 44,
+  },
+  bulkBarText: {
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#d32f2f",
+    flex: 1,
+  },
   actionBtnBase: {
     height: 30,
     minWidth: 0,
@@ -174,35 +163,32 @@ const styles: Record<string, CSSProperties> = {
     lineHeight: 1,
     whiteSpace: "nowrap",
   },
-
   actionBtnPrimary: {
     border: "1px solid rgba(25,118,210,0.22)",
     background: "rgba(25,118,210,0.05)",
     color: "#1976d2",
   },
-
   actionBtnDanger: {
     border: "1px solid rgba(211,47,47,0.22)",
     background: "#fff",
     color: "#d32f2f",
   },
-
   actionBtnSuccessContained: {
     border: "none",
     background: "#2A780E",
     color: "#fff",
   },
-
   actionBtnDangerContained: {
     border: "none",
     background: "#d32f2f",
     color: "#fff",
   },
-
-  actionBtnMuted: {
-    opacity: 0.7,
+  actionBtnMuted: { opacity: 0.7 },
+  actionBtnDisabled: {
+    opacity: 0.4,
+    cursor: "not-allowed",
+    pointerEvents: "none" as const,
   },
-
   chip: {
     display: "inline-flex",
     alignItems: "center",
@@ -214,7 +200,6 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     whiteSpace: "nowrap",
   },
-
   statusChip: {
     display: "inline-flex",
     alignItems: "center",
@@ -225,7 +210,6 @@ const styles: Record<string, CSSProperties> = {
     color: "#fff",
     whiteSpace: "nowrap",
   },
-
   pickerButton: {
     width: "100%",
     padding: "8px 10px",
@@ -238,13 +222,7 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     fontSize: 12,
   },
-
-  portalOverlay: {
-    position: "fixed",
-    inset: 0,
-    zIndex: 99998,
-  },
-
+  portalOverlay: { position: "fixed", inset: 0, zIndex: 99998 },
   portalDropdown: {
     position: "absolute",
     background: "#fff",
@@ -255,7 +233,6 @@ const styles: Record<string, CSSProperties> = {
     maxHeight: 220,
     overflowY: "auto",
   },
-
   portalOption: {
     padding: "8px 10px",
     display: "flex",
@@ -266,6 +243,8 @@ const styles: Record<string, CSSProperties> = {
     transition: "background 0.18s ease",
   },
 };
+
+// ─── Filter ─────────────────────────────────────────────────────────
 const globalContainsFilter = (
   row: any,
   _columnId: string,
@@ -275,31 +254,35 @@ const globalContainsFilter = (
     .toLowerCase()
     .trim();
   if (!search) return true;
-
-  const original = row.original ?? {};
-
-  const text = Object.values(original)
+  const text = Object.values(row.original ?? {})
     .map((v) => String(v ?? "").toLowerCase())
     .join(" ");
-
   return text.includes(search);
 };
+
+// ─── Icons ──────────────────────────────────────────────────────────
 const AddIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
     <path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
   </svg>
 );
-
+const TrashIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M9 3v1H4v2h1v13a2 2 0 002 2h10a2 2 0 002-2V6h1V4h-5V3H9zm0 5h2v9H9V8zm4 0h2v9h-2V8z" />
+  </svg>
+);
 const SearchIcon = () => (
   <span style={{ display: "flex", alignItems: "center", fontSize: 14 }}>
     🔎
   </span>
 );
 
+// ─── ActionButton ───────────────────────────────────────────────────
 const ActionButton = ({
   children,
   onClick,
   variant = "default",
+  disabled = false,
   style,
 }: {
   children: React.ReactNode;
@@ -311,9 +294,10 @@ const ActionButton = ({
     | "successContained"
     | "dangerContained"
     | "muted";
+  disabled?: boolean;
   style?: CSSProperties;
 }) => {
-  const variantStyle =
+  const v =
     variant === "primary"
       ? styles.actionBtnPrimary
       : variant === "danger"
@@ -325,13 +309,14 @@ const ActionButton = ({
             : variant === "muted"
               ? styles.actionBtnMuted
               : {};
-
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       style={{
         ...styles.actionBtnBase,
-        ...variantStyle,
+        ...v,
+        ...(disabled ? styles.actionBtnDisabled : {}),
         ...style,
       }}
     >
@@ -351,10 +336,7 @@ const TabButton = ({
 }) => (
   <button
     onClick={onClick}
-    style={{
-      ...styles.tabBtn,
-      ...(active ? styles.tabBtnActive : {}),
-    }}
+    style={{ ...styles.tabBtn, ...(active ? styles.tabBtnActive : {}) }}
   >
     {label}
   </button>
@@ -367,11 +349,67 @@ const CategoryChip = ({
   label: string;
   bgColor: string;
 }) => <span style={{ ...styles.chip, backgroundColor: bgColor }}>{label}</span>;
-
 const StatusChip = ({ label, color }: { label: string; color: string }) => (
   <span style={{ ...styles.statusChip, backgroundColor: color }}>{label}</span>
 );
 
+// ─── BulkDeleteBar ──────────────────────────────────────────────────
+const BulkDeleteBar = ({
+  count,
+  onDelete,
+  onClear,
+  entityLabel,
+}: {
+  count: number;
+  onDelete: () => void;
+  onClear: () => void;
+  entityLabel: string;
+}) => {
+  if (count === 0) return null;
+  return (
+    <div style={styles.bulkBar}>
+      <span style={styles.bulkBarText}>
+        {count} {entityLabel} vald{count !== 1 ? "a" : ""}
+      </span>
+      <ActionButton variant="default" onClick={onClear}>
+        Avmarkera alla
+      </ActionButton>
+      <ActionButton variant="dangerContained" onClick={onDelete}>
+        <TrashIcon />
+        &nbsp;Ta bort valda
+      </ActionButton>
+    </div>
+  );
+};
+
+// ─── RowDeleteButton ────────────────────────────────────────────────
+const RowDeleteButton = ({
+  disabled,
+  onClick,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+}) => {
+  const button = (
+    <ActionButton variant="danger" disabled={disabled} onClick={onClick}>
+      Ta bort
+    </ActionButton>
+  );
+  if (disabled) {
+    return (
+      <ProTooltip
+        title="Använd 'Ta bort valda' ovan för att radera markerade rader"
+        placement="left"
+        color="#d32f2f"
+      >
+        <span style={{ display: "inline-flex" }}>{button}</span>
+      </ProTooltip>
+    );
+  }
+  return button;
+};
+
+// ─── Types ──────────────────────────────────────────────────────────
 interface AbsenceView extends Absence {
   employeeName: string;
   teamName: string;
@@ -403,6 +441,7 @@ const PREDEFINED_COLORS: string[] = [
   "#303f9f",
 ];
 
+// ─── Column helpers ─────────────────────────────────────────────────
 const getLeftAlignedColumn = <T extends MRT_RowData>(
   col: MRT_ColumnDef<T>,
 ): MRT_ColumnDef<T> => ({
@@ -410,16 +449,10 @@ const getLeftAlignedColumn = <T extends MRT_RowData>(
   muiTableHeadCellProps: {
     sx: {
       textAlign: "left",
-      "& .Mui-TableHeadCell-Content": {
-        justifyContent: "flex-start",
-      },
+      "& .Mui-TableHeadCell-Content": { justifyContent: "flex-start" },
     },
   },
-  muiTableBodyCellProps: {
-    sx: {
-      textAlign: "left",
-    },
-  },
+  muiTableBodyCellProps: { sx: { textAlign: "left" } },
 });
 
 const getCenterAlignedColumn = <T extends MRT_RowData>(
@@ -428,19 +461,40 @@ const getCenterAlignedColumn = <T extends MRT_RowData>(
   ...col,
   muiTableHeadCellProps: {
     sx: {
-      textAlign: "center",
-      "& .Mui-TableHeadCell-Content": {
-        justifyContent: "center",
+      textAlign: "left",
+      "& .Mui-TableHeadCell-Content": { justifyContent: "left" },
+    },
+  },
+  muiTableBodyCellProps: { sx: { textAlign: "left" } },
+});
+
+// ─── Actions column config (Right Alignment) ────────────────────────
+const actionsColumnConfig = {
+  "mrt-row-actions": {
+    header: "Åtgärder",
+    size: 200,
+    minSize: 160,
+    muiTableHeadCellProps: {
+      sx: {
+        textAlign: "right",
+        paddingRight: "16px",
+        "& .Mui-TableHeadCell-Content": { justifyContent: "flex-end" },
+      },
+    },
+    muiTableBodyCellProps: {
+      sx: {
+        textAlign: "right",
+        paddingRight: "8px",
+        // Force internal MRT wrapper to align right
+        "& > div": {
+          justifyContent: "flex-end",
+        },
       },
     },
   },
-  muiTableBodyCellProps: {
-    sx: {
-      textAlign: "center",
-    },
-  },
-});
+};
 
+// ─── Color picker ───────────────────────────────────────────────────
 const PureColorPicker = ({
   value,
   onChange,
@@ -466,6 +520,7 @@ const PureColorPicker = ({
     }
     setIsOpen((prev) => !prev);
   };
+
   return (
     <div style={{ position: "relative", width: "100%" }}>
       <button
@@ -486,7 +541,6 @@ const PureColorPicker = ({
         <span style={{ fontSize: 12, fontFamily: "monospace" }}>{value}</span>
         <span style={{ marginLeft: "auto", fontSize: 10 }}>▼</span>
       </button>
-
       {isOpen &&
         createPortal(
           <>
@@ -539,16 +593,34 @@ const PureColorPicker = ({
   );
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════
 const DataManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState<
     "absences" | "employees" | "teams" | "categories"
   >("absences");
+
+  const [absenceSelection, setAbsenceSelection] = useState<
+    Record<string, boolean>
+  >({});
+  const [employeeSelection, setEmployeeSelection] = useState<
+    Record<string, boolean>
+  >({});
+  const [teamSelection, setTeamSelection] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [categorySelection, setCategorySelection] = useState<
+    Record<string, boolean>
+  >({});
+
   const byId = absence.useStore((state) => state.byId);
   const absences = useMemo(() => Object.values(byId), [byId]);
+
   const { data: teams = [] } = useTeams();
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useAbsenceCategories();
-const absen = loadall()
+
   const { createTeam, updateTeam, deleteTeam } = useTeamMutation();
   const { createEmployee, updateEmployee, deleteEmployee } =
     useEmployeeMutation();
@@ -558,39 +630,58 @@ const absen = loadall()
     deleteAbsenceCategory,
   } = useAbsenceCategoryMutation();
   useAbsenceStatusMutation();
+  const dialog = useDialogStore();
 
+  // ── Selected IDs ──
+  const selectedAbsenceIds = Object.keys(absenceSelection).filter(
+    (k) => absenceSelection[k],
+  );
+  const selectedEmployeeIds = Object.keys(employeeSelection).filter(
+    (k) => employeeSelection[k],
+  );
+  const selectedTeamIds = Object.keys(teamSelection).filter(
+    (k) => teamSelection[k],
+  );
+  const selectedCategoryIds = Object.keys(categorySelection).filter(
+    (k) => categorySelection[k],
+  );
+
+  const isAbsenceBulk = selectedAbsenceIds.length >= 2;
+  const isEmployeeBulk = selectedEmployeeIds.length >= 2;
+  const isTeamBulk = selectedTeamIds.length >= 2;
+  const isCategoryBulk = selectedCategoryIds.length >= 2;
+
+  // ── Dialog triggers ──
   const handleAddTeam = () =>
-    dialog.open("group", {
+    dialog.open("team", {
       title: "Skapa ny grupp",
       onSave: (name: string) => {
         createTeam(name);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
 
   const handleAddEmployee = () =>
-    dialog.open("resource", {
+    dialog.open("employee", {
       title: "Lägg till anställd",
       groups: teams,
       onSave: (name: string, teamId: string) => {
         createEmployee(name, teamId);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
 
   const handleAddCategory = () =>
-    dialog.open("absenceType", {
-      title: "Skapa frånvarotyp",
+    dialog.open("absenceCategory", {
+      title: "Ny frånvarotyp",
       absenceTypes: categories,
       onSave: (label: string, color: string) => {
         createAbsenceCategory(label, color);
         dialog.close();
       },
-      onClose: () => dialog.close(),
     });
 
+  // ── Enriched absences ──
   const enrichedAbsences = useMemo<AbsenceView[]>(() => {
     return (absences ?? []).map((abs) => {
       const emp = employees.find((e) => e.id === abs.employeeId);
@@ -598,7 +689,6 @@ const absen = loadall()
       const cat = categories.find((c) => c.id === abs.absenceCategoryId);
       const end = new Date(abs.startDate);
       end.setDate(end.getDate() + abs.durationDays);
-
       const statusText =
         abs.status === AbsenceStatus.Pending
           ? "Väntande"
@@ -607,7 +697,6 @@ const absen = loadall()
             : abs.status === AbsenceStatus.Rejected
               ? "Avvisad"
               : "Okänd";
-
       return {
         ...abs,
         employeeName: emp?.name ?? "Okänd",
@@ -621,6 +710,7 @@ const absen = loadall()
     });
   }, [absences, employees, teams, categories]);
 
+  // ── Shared MRT config ──
   const whiteTableConfig = {
     mrtTheme: { baseBackgroundColor: "#ffffff" },
     muiTablePaperProps: {
@@ -640,6 +730,7 @@ const absen = loadall()
         borderBottom: "1px solid #eef2f7",
         minHeight: "56px",
         overflowX: "hidden",
+        "& .MuiBox-root": { alignItems: "center" },
       },
     },
     muiBottomToolbarProps: {
@@ -650,10 +741,7 @@ const absen = loadall()
       },
     },
     muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: "#ffffff",
-        fontWeight: "bold",
-      },
+      sx: { backgroundColor: "#ffffff", fontWeight: "bold" },
     },
     muiSearchTextFieldProps: {
       size: "small" as const,
@@ -676,63 +764,23 @@ const absen = loadall()
           boxShadow: "0 0 0 4px rgba(25,118,210,0.08)",
         },
       },
-      InputProps: {
-        startAdornment: <SearchIcon />,
-      },
+      InputProps: { startAdornment: <SearchIcon /> },
     },
     enableStickyHeader: true,
     muiTableContainerProps: {
-      sx: {
-        flex: 1,
-        overflow: "auto",
-        maxHeight: "unset",
-      },
+      sx: { flex: 1, overflow: "auto", maxHeight: "unset" },
     },
-    muiTableBodyProps: {
-      sx: { overflow: "auto" },
-    },
-    filterFns: {
-      globalContains: globalContainsFilter,
-    },
+    muiTableBodyProps: { sx: { overflow: "auto" } },
+    filterFns: { globalContains: globalContainsFilter },
     globalFilterFn: "globalContains" as const,
     enableGlobalFilterModes: false,
     enableFilterMatchHighlighting: true,
     enableColumnFilters: true,
     enableFilters: true,
-    displayColumnDefOptions: {
-      "mrt-row-actions": {
-        muiTableHeadCellProps: {
-          sx: {
-            textAlign: "right",
-            "& .Mui-TableHeadCell-Content": {
-              justifyContent: "flex-end",
-            },
-          },
-        },
-        muiTableBodyCellProps: {
-          sx: {
-            textAlign: "right",
-          },
-        },
-      },
-    },
+    displayColumnDefOptions: actionsColumnConfig,
   };
 
-  const renderToolbarInternalActions = (
-    table: any,
-    addFn: () => void,
-    tooltip: string,
-  ) => (
-    <div style={styles.toolbarActions}>
-      <button title={tooltip} onClick={addFn} style={styles.iconSquareBtn}>
-        <AddIcon />
-      </button>
-      <MRT_ToggleFiltersButton table={table} />
-      <MRT_ShowHideColumnsButton table={table} />
-      <MRT_ToggleDensePaddingButton table={table} />
-    </div>
-  );
-
+  // ── Custom icons for Save/Cancel (Built-in customization) ──
   const sharedIcons = {
     SaveIcon: () => (
       <ActionButton variant="successContained">Spara</ActionButton>
@@ -740,6 +788,28 @@ const absen = loadall()
     CancelIcon: () => <ActionButton variant="danger">Avbryt</ActionButton>,
   };
 
+  // ── Toolbar ──
+  const renderToolbarInternalActions = (
+    table: MRT_TableInstance<any>,
+    addFn: () => void,
+    tooltip: string,
+  ) => (
+    <div style={styles.toolbarActions}>
+      <ProTooltip title={tooltip} placement="bottom">
+        <button onClick={addFn} style={styles.iconSquareBtn} type="button">
+          <AddIcon />
+        </button>
+      </ProTooltip>
+      <MRT_ToggleGlobalFilterButton table={table} />
+      <MRT_ToggleFiltersButton table={table} />
+      <MRT_ShowHideColumnsButton table={table} />
+      <MRT_ToggleDensePaddingButton table={table} />
+    </div>
+  );
+
+  // ═════════════════════════════════════════════════════════════════
+  // EMPLOYEE TABLE
+  // ═════════════════════════════════════════════════════════════════
   const handleSaveEmployee: MRT_TableOptions<Employee>["onEditingRowSave"] =
     async ({ values, table, row }) => {
       await updateEmployee(row.original.id, values.name, values.teamId);
@@ -747,6 +817,7 @@ const absen = loadall()
     };
 
   const employeeTable = useMaterialReactTable<Employee>({
+    positionToolbarAlertBanner: "none",
     columns: useMemo<MRT_ColumnDef<Employee>[]>(
       () => [
         getLeftAlignedColumn({
@@ -754,13 +825,10 @@ const absen = loadall()
           header: "ID",
           enableEditing: false,
         }),
-        getLeftAlignedColumn({
-          accessorKey: "name",
-          header: "Namn",
-        }),
+        getLeftAlignedColumn({ accessorKey: "name", header: "Namn" }),
         getCenterAlignedColumn({
           accessorKey: "teamId",
-          header: "Team",
+          header: "Grupp",
           enableGrouping: true,
           Cell: ({ cell }) =>
             teams.find((t) => t.id === cell.getValue<string>())?.name ??
@@ -776,14 +844,13 @@ const absen = loadall()
         }),
         getCenterAlignedColumn({
           accessorKey: "teamName",
-          header: "Team (sök)",
+          header: "Grupp (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
-          Cell: ({ row }) => {
-            const team = teams.find((t) => t.id === row.original.teamId);
-            return team?.name ?? "Inget team";
-          },
+          Cell: ({ row }) =>
+            teams.find((t) => t.id === row.original.teamId)?.name ??
+            "Inget team",
         }),
       ],
       [teams],
@@ -798,6 +865,10 @@ const absen = loadall()
     onEditingRowSave: handleSaveEmployee,
     enableRowActions: true,
     positionActionsColumn: "last",
+    enableRowSelection: true,
+    onRowSelectionChange: setEmployeeSelection,
+    state: { rowSelection: employeeSelection },
+    // CLEAN: Standard renderRowActions
     renderRowActions: ({ row, table }) => (
       <div style={styles.rowActions}>
         <ActionButton
@@ -808,12 +879,10 @@ const absen = loadall()
         >
           Redigera
         </ActionButton>
-        <ActionButton
-          variant="danger"
+        <RowDeleteButton
+          disabled={isEmployeeBulk}
           onClick={() => deleteEmployee(row.original.id)}
-        >
-          Ta bort
-        </ActionButton>
+        />
       </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
@@ -831,6 +900,9 @@ const absen = loadall()
     },
   });
 
+  // ═════════════════════════════════════════════════════════════════
+  // TEAM TABLE
+  // ═════════════════════════════════════════════════════════════════
   const handleSaveTeam: MRT_TableOptions<Team>["onEditingRowSave"] = async ({
     values,
     table,
@@ -841,6 +913,7 @@ const absen = loadall()
   };
 
   const teamTable = useMaterialReactTable<Team>({
+    positionToolbarAlertBanner: "none",
     columns: useMemo<MRT_ColumnDef<Team>[]>(
       () => [
         getLeftAlignedColumn({
@@ -848,10 +921,7 @@ const absen = loadall()
           header: "ID",
           enableEditing: false,
         }),
-        getLeftAlignedColumn({
-          accessorKey: "name",
-          header: "Gruppnamn",
-        }),
+        getLeftAlignedColumn({ accessorKey: "name", header: "Gruppnamn" }),
       ],
       [],
     ),
@@ -863,6 +933,9 @@ const absen = loadall()
     onEditingRowSave: handleSaveTeam,
     enableRowActions: true,
     positionActionsColumn: "last",
+    enableRowSelection: true,
+    onRowSelectionChange: setTeamSelection,
+    state: { rowSelection: teamSelection },
     renderRowActions: ({ row, table }) => (
       <div style={styles.rowActions}>
         <ActionButton
@@ -873,12 +946,10 @@ const absen = loadall()
         >
           Redigera
         </ActionButton>
-        <ActionButton
-          variant="danger"
+        <RowDeleteButton
+          disabled={isTeamBulk}
           onClick={() => deleteTeam(row.original.id)}
-        >
-          Ta bort
-        </ActionButton>
+        />
       </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
@@ -891,6 +962,9 @@ const absen = loadall()
     },
   });
 
+  // ═════════════════════════════════════════════════════════════════
+  // CATEGORY TABLE
+  // ═════════════════════════════════════════════════════════════════
   const handleSaveCategory: MRT_TableOptions<AbsenceCategory>["onEditingRowSave"] =
     async ({ values, table, row }) => {
       await updateAbsenceCategory(row.original.id, values.label, values.color);
@@ -898,6 +972,7 @@ const absen = loadall()
     };
 
   const categoryTable = useMaterialReactTable<AbsenceCategory>({
+    positionToolbarAlertBanner: "none",
     columns: useMemo<MRT_ColumnDef<AbsenceCategory>[]>(
       () => [
         getLeftAlignedColumn({
@@ -905,24 +980,18 @@ const absen = loadall()
           header: "ID",
           enableEditing: false,
         }),
-        getLeftAlignedColumn({
-          accessorKey: "label",
-          header: "Benämning",
-        }),
+        getLeftAlignedColumn({ accessorKey: "label", header: "Benämning" }),
         getCenterAlignedColumn({
           accessorKey: "color",
           header: "Färg",
           Edit: ({ cell, row, table }) => {
             const currentColor = cell.getValue<string>();
-
             const takenColors = categories
               .filter((c) => c.id !== row.original.id)
               .map((c) => c.color);
-
             const availableColors = PREDEFINED_COLORS.filter(
               (color) => color === currentColor || !takenColors.includes(color),
             );
-
             return (
               <PureColorPicker
                 value={currentColor}
@@ -959,7 +1028,7 @@ const absen = loadall()
           ),
         }),
       ],
-      [],
+      [categories],
     ),
     data: categories,
     icons: sharedIcons,
@@ -969,6 +1038,9 @@ const absen = loadall()
     onEditingRowSave: handleSaveCategory,
     enableRowActions: true,
     positionActionsColumn: "last",
+    enableRowSelection: true,
+    onRowSelectionChange: setCategorySelection,
+    state: { rowSelection: categorySelection },
     renderRowActions: ({ row, table }) => (
       <div style={styles.rowActions}>
         <ActionButton
@@ -979,15 +1051,13 @@ const absen = loadall()
         >
           Redigera
         </ActionButton>
-        <ActionButton
-          variant="danger"
+        <RowDeleteButton
+          disabled={isCategoryBulk}
           onClick={() => {
-            if (window.confirm("Ta bort?"))
+            if (window.confirm("Ta bort kategori?"))
               deleteAbsenceCategory(row.original.id);
           }}
-        >
-          Ta bort
-        </ActionButton>
+        />
       </div>
     ),
     renderToolbarInternalActions: ({ table }) =>
@@ -1004,54 +1074,52 @@ const absen = loadall()
     },
   });
 
-const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
-  async ({ values, table, row }) => {
-    const start = new Date(values.startDate);
-    const end = new Date(values.endDate);
-    const diffTime = end.getTime() - start.getTime();
-    const calculatedDuration = Math.max(
-      1,
-      Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
-    );
+  // ═════════════════════════════════════════════════════════════════
+  // ABSENCE TABLE
+  // ═════════════════════════════════════════════════════════════════
+  const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
+    async ({ values, table, row }) => {
+      const start = new Date(values.startDate);
+      const end = new Date(values.endDate);
+      const calculatedDuration = Math.max(
+        1,
+        Math.ceil((end.getTime() - start.getTime()) / 86400000),
+      );
+      const originalStart = new Date(row.original.startDate)
+        .toISOString()
+        .split("T")[0];
+      const originalEnd = new Date(row.original.endDate)
+        .toISOString()
+        .split("T")[0];
+      const newStart = new Date(values.startDate).toISOString().split("T")[0];
+      const newEnd = new Date(values.endDate).toISOString().split("T")[0];
+      const datesChanged = originalStart !== newStart || originalEnd !== newEnd;
 
-    const originalEnd = new Date(row.original.endDate)
-      .toISOString()
-      .split("T")[0];
-    const newEnd = new Date(values.endDate).toISOString().split("T")[0];
-    const originalStart = new Date(row.original.startDate)
-      .toISOString()
-      .split("T")[0];
-    const newStart = new Date(values.startDate).toISOString().split("T")[0];
-
-    const datesChanged =
-      originalStart !== newStart || originalEnd !== newEnd;
-
-    const nextStatus =
-      row.original.status === AbsenceStatus.Rejected && datesChanged
-        ? AbsenceStatus.Pending
-        : (Number(values.status) as AbsenceStatus);
-
-    const updatePayload = {
-      id: row.original.id,
-      employeeId: row.original.employeeId,
-      startDate: values.startDate,
-      durationDays: Number(calculatedDuration),
-      absenceCategoryId: values.absenceCategoryId,
-      status: nextStatus,
-      rejectionReason:
-        nextStatus === AbsenceStatus.Rejected
-          ? row.original.rejectionReason
-          : undefined,
+      const nextStatus =
+        row.original.status === AbsenceStatus.Rejected && datesChanged
+          ? AbsenceStatus.Pending
+          : (Number(values.status) as AbsenceStatus);
+      try {
+        await absence.updateOne(row.original.id, {
+          id: row.original.id,
+          employeeId: row.original.employeeId,
+          startDate: values.startDate,
+          durationDays: Number(calculatedDuration),
+          absenceCategoryId: values.absenceCategoryId,
+          status: nextStatus,
+          rejectionReason:
+            nextStatus === AbsenceStatus.Rejected
+              ? row.original.rejectionReason
+              : undefined,
+        });
+        table.setEditingRow(null);
+      } catch (error) {
+        console.error("Kunde inte spara:", error);
+      }
     };
 
-    try {
-      await absence.updateOne(row.original.id, updatePayload);
-      table.setEditingRow(null);
-    } catch (error) {
-      console.error("Save failed:", error);
-    }
-  };
   const absenceTable = useMaterialReactTable<AbsenceView>({
+    positionToolbarAlertBanner: "none",
     columns: useMemo<MRT_ColumnDef<AbsenceView>[]>(
       () => [
         getLeftAlignedColumn({
@@ -1061,7 +1129,7 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
         }),
         getLeftAlignedColumn({
           accessorKey: "teamId",
-          header: "Team",
+          header: "Grupp",
           enableGrouping: true,
           Cell: ({ row }) => row.original.teamName,
           editVariant: "select",
@@ -1102,22 +1170,18 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
         }),
         getCenterAlignedColumn({
           accessorKey: "startDate",
-          header: "Start",
+          header: "Startdatum",
           Edit: ({ cell, row }) => {
             const value = cell.getValue<string>();
             const [dateValue, setDateValue] = useState(() =>
               value ? new Date(value).toISOString().split("T")[0] : "",
             );
-
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const todayStr = today.toISOString().split("T")[0];
-
             const startDate = new Date(value);
             startDate.setHours(0, 0, 0, 0);
-            const hasPassed = startDate < today;
-
-            if (hasPassed) {
+            if (startDate < today) {
               return (
                 <div
                   style={{ display: "flex", flexDirection: "column", gap: 4 }}
@@ -1132,7 +1196,7 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
                       fontSize: 14,
                     }}
                   >
-                    {new Date(value).toLocaleDateString()}
+                    {new Date(value).toLocaleDateString("sv-SE")}
                   </span>
                   <span style={{ fontSize: 11, color: "#d32f2f" }}>
                     Kan inte ändra passerat datum
@@ -1140,7 +1204,6 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
                 </div>
               );
             }
-
             return (
               <input
                 type="date"
@@ -1149,11 +1212,11 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
                 onChange={(e) => {
                   setDateValue(e.target.value);
                   row._valuesCache.startDate = e.target.value;
-                  const currentEndDate =
+                  const currentEnd =
                     row._valuesCache.endDate || row.original.endDate;
                   if (
-                    currentEndDate &&
-                    new Date(currentEndDate) < new Date(e.target.value)
+                    currentEnd &&
+                    new Date(currentEnd) < new Date(e.target.value)
                   ) {
                     row._valuesCache.endDate = e.target.value;
                   }
@@ -1169,43 +1232,37 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
             );
           },
           Cell: ({ cell }) =>
-            new Date(cell.getValue<string>()).toLocaleDateString(),
+            new Date(cell.getValue<string>()).toLocaleDateString("sv-SE"),
           filterVariant: "date-range",
         }),
         getCenterAlignedColumn({
           accessorKey: "endDate",
-          header: "Slut",
+          header: "Slutdatum",
           Edit: ({ cell, row }) => {
             const value = cell.getValue<string>();
             const [dateValue, setDateValue] = useState(() =>
               value ? new Date(value).toISOString().split("T")[0] : "",
             );
-
             const startDateValue =
               row._valuesCache?.startDate || row.original.startDate;
             const startDateStr = startDateValue
               ? new Date(startDateValue).toISOString().split("T")[0]
               : new Date().toISOString().split("T")[0];
-
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const originalStartDate = new Date(row.original.startDate);
-            originalStartDate.setHours(0, 0, 0, 0);
-
+            const originalStart = new Date(row.original.startDate);
+            originalStart.setHours(0, 0, 0, 0);
             const minDate =
-              originalStartDate < today
+              originalStart < today
                 ? today.toISOString().split("T")[0]
                 : startDateStr;
-
             return (
               <input
                 type="date"
                 value={dateValue}
                 min={minDate}
                 onChange={(e) => {
-                  const newEndDate = new Date(e.target.value);
-                  const startDate = new Date(startDateValue);
-                  if (newEndDate < startDate) {
+                  if (new Date(e.target.value) < new Date(startDateValue)) {
                     alert("Slutdatum kan inte vara före startdatum");
                     return;
                   }
@@ -1223,12 +1280,12 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
             );
           },
           Cell: ({ cell }) =>
-            new Date(cell.getValue<string>()).toLocaleDateString(),
+            new Date(cell.getValue<string>()).toLocaleDateString("sv-SE"),
           filterVariant: "date-range",
         }),
         getCenterAlignedColumn({
           accessorKey: "durationDays",
-          header: "Dagar",
+          header: "Antal dagar",
           enableEditing: false,
         }),
         getCenterAlignedColumn({
@@ -1241,16 +1298,11 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
             const startDate = new Date(row.original.startDate);
             const endDate = new Date(row.original.endDate);
             const today = new Date();
-
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(0, 0, 0, 0);
-            today.setHours(0, 0, 0, 0);
-
-            const msPerDay = 1000 * 60 * 60 * 24;
-
-            if (today > endDate) {
+            [startDate, endDate, today].forEach((d) => d.setHours(0, 0, 0, 0));
+            const msPerDay = 86400000;
+            if (today > endDate)
               return <StatusChip label="Avslutad" color="#94a3b8" />;
-            } else if (today >= startDate && today <= endDate) {
+            if (today >= startDate && today <= endDate) {
               const daysLeft = Math.ceil(
                 (endDate.getTime() - today.getTime()) / msPerDay,
               );
@@ -1266,50 +1318,39 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
                   color="#ed6c02"
                 />
               );
-            } else {
-              const daysUntilStart = Math.ceil(
-                (startDate.getTime() - today.getTime()) / msPerDay,
-              );
-              return (
-                <StatusChip
-                  label={
-                    daysUntilStart === 1
-                      ? "Startar imorgon"
-                      : `Startar om ${daysUntilStart} dagar`
-                  }
-                  color="#1976d2"
-                />
-              );
             }
+            const daysUntil = Math.ceil(
+              (startDate.getTime() - today.getTime()) / msPerDay,
+            );
+            return (
+              <StatusChip
+                label={
+                  daysUntil === 1
+                    ? "Startar imorgon"
+                    : `Startar om ${daysUntil} dagar`
+                }
+                color="#1976d2"
+              />
+            );
           },
           sortingFn: (rowA, rowB) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const msPerDay = 1000 * 60 * 60 * 24;
-
+            const msPerDay = 86400000;
             const getScore = (row: any) => {
-              const startDate = new Date(row.original.startDate);
-              const endDate = new Date(row.original.endDate);
-              startDate.setHours(0, 0, 0, 0);
-              endDate.setHours(0, 0, 0, 0);
-
-              if (today > endDate) {
+              const s = new Date(row.original.startDate);
+              const e = new Date(row.original.endDate);
+              [s, e].forEach((d) => d.setHours(0, 0, 0, 0));
+              if (today > e)
                 return (
-                  10000 +
-                  Math.ceil((today.getTime() - endDate.getTime()) / msPerDay)
+                  10000 + Math.ceil((today.getTime() - e.getTime()) / msPerDay)
                 );
-              } else if (today >= startDate && today <= endDate) {
-                return Math.ceil(
-                  (endDate.getTime() - today.getTime()) / msPerDay,
-                );
-              } else {
-                return (
-                  5000 +
-                  Math.ceil((startDate.getTime() - today.getTime()) / msPerDay)
-                );
-              }
+              if (today >= s)
+                return Math.ceil((e.getTime() - today.getTime()) / msPerDay);
+              return (
+                5000 + Math.ceil((s.getTime() - today.getTime()) / msPerDay)
+              );
             };
-
             return getScore(rowA) - getScore(rowB);
           },
         }),
@@ -1325,19 +1366,13 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
           ],
           Cell: ({ cell }) => {
             const status = cell.getValue<number>();
-            const statusConfig: Record<
-              number,
-              { label: string; color: string }
-            > = {
+            const map: Record<number, { label: string; color: string }> = {
               [AbsenceStatus.Pending]: { label: "Väntande", color: "#ed6c02" },
               [AbsenceStatus.Approved]: { label: "Godkänd", color: "#2e7d32" },
               [AbsenceStatus.Rejected]: { label: "Avvisad", color: "#d32f2f" },
             };
-            const config = statusConfig[status] ?? {
-              label: "Okänd",
-              color: "#666",
-            };
-            return <StatusChip label={config.label} color={config.color} />;
+            const cfg = map[status] ?? { label: "Okänd", color: "#666" };
+            return <StatusChip label={cfg.label} color={cfg.color} />;
           },
           filterVariant: "select",
           filterSelectOptions: [
@@ -1348,7 +1383,7 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
         }),
         getCenterAlignedColumn({
           accessorKey: "teamName",
-          header: "Team (sök)",
+          header: "Grupp (sök)",
           enableEditing: false,
           enableHiding: true,
           enableGlobalFilter: true,
@@ -1378,6 +1413,7 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
       [teams, categories],
     ),
     data: enrichedAbsences,
+    icons: sharedIcons,
     enableGrouping: true,
     enableColumnDragging: true,
     enableColumnOrdering: true,
@@ -1387,6 +1423,9 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
     onEditingRowSave: handleSaveAbsence,
     enableRowActions: true,
     positionActionsColumn: "last",
+    enableRowSelection: true,
+    onRowSelectionChange: setAbsenceSelection,
+    state: { rowSelection: absenceSelection },
     renderRowActions: ({ row, table }) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -1405,20 +1444,16 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
           >
             {canEdit ? "Redigera" : "Visa/Ändra"}
           </ActionButton>
-          <ActionButton
-            variant="danger"
+          <RowDeleteButton
+            disabled={isAbsenceBulk}
             onClick={() => {
-              if (window.confirm("Ta bort frånvaro?")) {
+              if (window.confirm("Ta bort frånvaro?"))
                 absence.removeOne(row.original.id);
-              }
             }}
-          >
-            Ta bort
-          </ActionButton>
+          />
         </div>
       );
     },
-    icons: sharedIcons,
     ...whiteTableConfig,
     initialState: {
       columnVisibility: {
@@ -1434,30 +1469,45 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
     },
   });
 
+  // ── Bulk delete handlers ──
+  const handleBulkDeleteAbsences = () => {
+    if (!window.confirm(`Ta bort ${selectedAbsenceIds.length} frånvaro?`))
+      return;
+    selectedAbsenceIds.forEach((id) => absence.removeOne(id));
+    setAbsenceSelection({});
+  };
+  const handleBulkDeleteEmployees = () => {
+    if (!window.confirm(`Ta bort ${selectedEmployeeIds.length} anställda?`))
+      return;
+    selectedEmployeeIds.forEach((id) => deleteEmployee(id));
+    setEmployeeSelection({});
+  };
+  const handleBulkDeleteTeams = () => {
+    if (!window.confirm(`Ta bort ${selectedTeamIds.length} grupper?`)) return;
+    selectedTeamIds.forEach((id) => deleteTeam(id));
+    setTeamSelection({});
+  };
+  const handleBulkDeleteCategories = () => {
+    if (!window.confirm(`Ta bort ${selectedCategoryIds.length} kategorier?`))
+      return;
+    selectedCategoryIds.forEach((id) => deleteAbsenceCategory(id));
+    setCategorySelection({});
+  };
+
+  // ═════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═════════════════════════════════════════════════════════════════
   return (
     <>
       <style>{`
         @keyframes fadeSlideIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0);   }
         }
       `}</style>
 
       <div style={styles.root}>
         <div style={styles.shell}>
-          <div style={styles.headerBar}>
-            <div style={styles.headerTitle}>Data Management</div>
-            <button style={styles.closeBtn} onClick={() => dialog.close()}>
-              Stäng
-            </button>
-          </div>
-
           <div style={styles.tabsBar}>
             <TabButton
               active={activeTab === "absences"}
@@ -1484,21 +1534,45 @@ const handleSaveAbsence: MRT_TableOptions<AbsenceView>["onEditingRowSave"] =
           <div style={styles.content}>
             {activeTab === "absences" && (
               <div style={styles.tabPane}>
+                <BulkDeleteBar
+                  count={selectedAbsenceIds.length}
+                  entityLabel="frånvaro"
+                  onDelete={handleBulkDeleteAbsences}
+                  onClear={() => setAbsenceSelection({})}
+                />
                 <MaterialReactTable table={absenceTable} />
               </div>
             )}
             {activeTab === "employees" && (
               <div style={styles.tabPane}>
+                <BulkDeleteBar
+                  count={selectedEmployeeIds.length}
+                  entityLabel="anställda"
+                  onDelete={handleBulkDeleteEmployees}
+                  onClear={() => setEmployeeSelection({})}
+                />
                 <MaterialReactTable table={employeeTable} />
               </div>
             )}
             {activeTab === "teams" && (
               <div style={styles.tabPane}>
+                <BulkDeleteBar
+                  count={selectedTeamIds.length}
+                  entityLabel="grupper"
+                  onDelete={handleBulkDeleteTeams}
+                  onClear={() => setTeamSelection({})}
+                />
                 <MaterialReactTable table={teamTable} />
               </div>
             )}
             {activeTab === "categories" && (
               <div style={styles.tabPane}>
+                <BulkDeleteBar
+                  count={selectedCategoryIds.length}
+                  entityLabel="kategorier"
+                  onDelete={handleBulkDeleteCategories}
+                  onClear={() => setCategorySelection({})}
+                />
                 <MaterialReactTable table={categoryTable} />
               </div>
             )}

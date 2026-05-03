@@ -45,44 +45,11 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
     overflow: "hidden",
   },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "18px 20px",
-    borderBottom: "1px solid #e2e8f0",
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)",
-  },
-  titleWrap: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
-  title: {
-    margin: 0,
-    fontSize: "1.3rem",
-    fontWeight: 800,
-    color: "#0f172a",
-    lineHeight: 1.2,
-  },
   subtitle: {
     margin: 0,
     fontSize: 13,
     color: "#64748b",
     fontWeight: 500,
-  },
-  closeIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    border: "1px solid #e2e8f0",
-    background: "#fff",
-    cursor: "pointer",
-    color: "#64748b",
-    fontWeight: 800,
-    flexShrink: 0,
   },
   content: {
     padding: 20,
@@ -605,34 +572,6 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
   return (
     <div style={styles.root}>
       <div style={styles.card}>
-        <div
-          style={{
-            ...styles.header,
-            padding: isMobile ? "16px 16px" : "18px 20px",
-          }}
-        >
-          <div style={styles.titleWrap}>
-            {title && (
-              <h2
-                style={{
-                  ...styles.title,
-                  fontSize: isMobile ? "1.1rem" : "1.3rem",
-                }}
-              >
-                {title}
-              </h2>
-            )}
-            <p style={styles.subtitle}>
-              Hantera regler och layout för systemet
-            </p>
-          </div>
-
-          {onClose && (
-            <button type="button" onClick={onClose} style={styles.closeIconBtn}>
-              <CloseIcon />
-            </button>
-          )}
-        </div>
 
         <div
           style={{
@@ -642,6 +581,7 @@ const ConfigForm: React.FC<ConfigFormProps> = ({ title, onClose, onSave }) => {
         >
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Inställningar</h3>
+                  <p style={styles.subtitle}>Hantera regler och layout för systemet</p>
             <p style={styles.sectionText}>
               Välj hur historiska dagar, radering och layout ska hanteras.
             </p>

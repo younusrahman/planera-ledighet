@@ -1,0 +1,105 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top, rgba(25, 118, 210, 0.08), transparent 35%),
+    rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fadeBackdrop 0.22s ease;
+
+}
+
+.paper {
+  position: relative;
+  max-width: 600px;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  transform-origin: center center;
+  background-color: white;
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  transform: none;
+}
+
+/* .content {
+  overflow: auto;
+  max-height: inherit;
+  scrollbar-width: thin;
+  background-color: white;
+} */
+
+/* Scrollbar styling for webkit */
+.content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .backdrop {
+    padding: 12px;
+  }
+
+  .paper {
+    max-width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 16px;
+  }
+
+  .fullscreen {
+    border-radius: 0;
+  }
+
+  .content {
+    padding: 16px;
+    max-height: calc(100vh - 24px);
+  }
+}
+
+/* Animations */
+@keyframes fadeBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

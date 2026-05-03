@@ -15,15 +15,7 @@ import { BASE_URL } from "../../apiInstance";
 import { ProTooltip } from "../../../components/ProTooltip";
 import { useBackups, useDatabaseMutations } from "../../hooks/useData";
 
-export interface DatabaseMaintenanceProps {
-  title: string;
-  onClose: () => void;
-}
-
-export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
-  title,
-  onClose,
-}) => {
+export const DatabaseMaintenanceForm = () => {
   const [manualPath, setManualPath] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,14 +90,11 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
   const handleDownload = (fileName: string) => {
     window.open(`${BASE_URL}/Database/download/${fileName}`, "_blank");
   };
-
+  {
+    /* <DatabaseIcon className="text-blue-600" /> */
+  }
   return (
     <div className="relative">
-      <div className="mb-2 flex items-center gap-2 text-xl font-bold text-gray-900">
-        <DatabaseIcon className="text-blue-600" />
-        <span>{title}</span>
-      </div>
-
       <div className="mt-1 space-y-6">
         {/* SECTION 1 */}
         <div>
@@ -246,7 +235,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
             </button>
           </div>
 
-          <div className="max-h-[250px] overflow-auto rounded-md border border-gray-300 bg-gray-50">
+          <div className="max-h-62.5 overflow-auto rounded-md border border-gray-300 bg-gray-50">
             {backups.length > 0 ? (
               <ul className="divide-y divide-gray-200">
                 {backups.map((file) => (
@@ -319,20 +308,9 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
           </div>
         </div>
       </div>
-
-      <div className="px-0 py-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-        >
-          Stäng
-        </button>
-      </div>
-
       {/* Confirmation Dialog */}
       {confirm.open && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-3000 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="px-6 pt-6 text-lg font-bold text-gray-900">
               {confirm.title}
@@ -370,7 +348,7 @@ export const DatabaseMaintenanceForm: React.FC<DatabaseMaintenanceProps> = ({
 
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-[2000] flex items-center justify-center bg-white/70">
+        <div className="absolute inset-0 z-2000 flex items-center justify-center bg-white/70">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600" />
         </div>
       )}
