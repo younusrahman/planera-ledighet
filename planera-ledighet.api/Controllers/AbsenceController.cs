@@ -135,7 +135,7 @@ namespace planera_ledighet.api.Controllers
             target.EndDate = dto.StartDate.AddDays(dto.DurationDays - 1);
             target.EmployeeId = dto.EmployeeId;
             target.AbsenceCategoryId = dto.AbsenceCategoryId;
-
+            target.Status = dto.Status;
             await _context.SaveChangesAsync();
 
             return Ok(new
